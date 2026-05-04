@@ -540,15 +540,19 @@ body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bot
     </div>
 
     <!-- コース情報 -->
-    <div class="g3" style="margin-bottom:8px">
-      <div class="field"><label>距離 (km)</label><input type="number" id="r-dist" value="88" step="0.1" oninput="smartCalc('dist')"></div>
+    <div class="g3" style="margin-bottom:4px">
+      <div class="field"><label>片道距離 (km)</label><input type="number" id="r-dist" value="88" step="0.1" oninput="smartCalc('dist');updateRtLabel()"></div>
       <div class="field"><label>獲得標高 (m)</label><input type="number" id="r-elev" value="800" step="10" oninput="smartCalc('dist')"></div>
       <div class="field"><label>往復コース</label>
-        <select id="r-roundtrip" onchange="smartCalc('dist')" style="font-size:13px;padding:7px 9px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text)">
+        <select id="r-roundtrip" onchange="smartCalc('dist');updateRtLabel()" style="font-size:13px;padding:7px 9px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text)">
           <option value="0">片道</option>
           <option value="1">往復（折り返し）</option>
         </select>
       </div>
+    </div>
+    <!-- 往復合計距離 -->
+    <div id="rt-total-row" style="display:none;background:var(--bg2);border-radius:var(--rs);padding:6px 10px;margin-bottom:8px;font-size:12px;color:var(--text2)">
+      🔄 往復合計距離: <strong id="rt-total-km" style="color:var(--text);font-size:14px"></strong> km &nbsp;|&nbsp; 獲得標高合計: <strong id="rt-total-elev" style="color:var(--text)"></strong> m
     </div>
 
     <!-- コース補正 -->
@@ -1941,13 +1945,30 @@ let waypoints=[], markers=[], poiMarkers=[];
 let lastRouteResult=null, lastElevResults=null, lastRoutePath=null;
 let hoverPolyline=null; // ルート線上ホバー用の透明な太いライン
 
+/* ── 往復合計距離表示 ── */
+function updateRtLabel(){
+  const rt=+document.getElementById('r-roundtrip').value||0;
+  const dist=+document.getElementById('r-dist').value||0;
+  const elev=+document.getElementById('r-elev').value||0;
+  const row=document.getElementById('rt-total-row');
+  if(!row) return;
+  if(rt&&dist>0){
+    row.style.display='block';
+    document.getElementById('rt-total-km').textContent=(dist*2).toFixed(1);
+    document.getElementById('rt-total-elev').textContent=Math.round(elev*2);
+  } else {
+    row.style.display='none';
+  }
+}
+
 function initMap(){
   const mapDiv=document.getElementById('gmap');
   if(!mapDiv) return;
 
+  const isMobile=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   gmap=new google.maps.Map(mapDiv,{
     center:{lat:33.59,lng:130.40}, zoom:11, mapTypeId:'terrain',
-    gestureHandling:'greedy',
+    gestureHandling: isMobile ? 'cooperative' : 'greedy',
     zoomControl:false,
     streetViewControl:false,
     styles:[{featureType:'poi',elementType:'labels',stylers:[{visibility:'off'}]}]
@@ -3330,7 +3351,7 @@ setMode('spd');
 initCompass();
 calcRun();calcTri();
 setCourseProfile('flat');
-// ダイヤル初期表示
+updateRtLabel();
 updateDialDisplay('start');
 // 日付を今日にセット
 const today=new Date();
