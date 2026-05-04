@@ -40,39 +40,40 @@
 })();
 </script>
 
-<!-- Service Worker 登録 -->
+<!-- Service Worker 無効化（Google Maps APIとの競合を防ぐため） -->
 <script>
+// 既存のService Workerを全て削除
 if('serviceWorker' in navigator){
-  const swCode=`
-const CACHE='ride-planner-v1';
-const URLS=['./',location.href];
-self.addEventListener('install',e=>{
-  e.waitUntil(caches.open(CACHE).then(c=>c.addAll(URLS)).then(()=>self.skipWaiting()));
-});
-self.addEventListener('activate',e=>{
-  e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));
-});
-self.addEventListener('fetch',e=>{
-  // Google Maps APIはキャッシュしない
-  if(e.request.url.includes('maps.googleapis.com')||e.request.url.includes('maps.gstatic.com')) return;
-  e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(res=>{
-    if(res.status===200){
-      const clone=res.clone();
-      caches.open(CACHE).then(c=>c.put(e.request,clone));
-    }
-    return res;
-  }).catch(()=>caches.match('./'))));
-});
-`;
-  const blob=new Blob([swCode],{type:'application/javascript'});
-  const url=URL.createObjectURL(blob);
-  navigator.serviceWorker.register(url,{scope:'./'}).then(()=>{
-    console.log('SW registered');
-  }).catch(e=>console.log('SW error:',e));
+  navigator.serviceWorker.getRegistrations().then(regs=>{
+    regs.forEach(reg=>reg.unregister());
+  });
+  // キャッシュも全削除
+  if('caches' in window){
+    caches.keys().then(keys=>keys.forEach(k=>caches.delete(k)));
+  }
 }
 </script>
 
-<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAqoHiFUFAJcjAOTHNwdHTAMmAGwRr97Yc&libraries=places,geometry&callback=initMap" async defer></script>
+<script>
+// Google Maps を手動で初期化（callbackなし）
+function loadGoogleMaps(){
+  const script=document.createElement('script');
+  script.src='https://maps.googleapis.com/maps/api/js?key=AIzaSyAqoHiFUFAJcjAOTHNwdHTAMmAGwRr97Yc&libraries=places,geometry';
+  script.async=true;
+  script.defer=true;
+  script.onload=()=>{
+    if(typeof google!=='undefined'&&google.maps){
+      initMap();
+    }
+  };
+  script.onerror=()=>{
+    const mapDiv=document.getElementById('gmap');
+    if(mapDiv) mapDiv.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:13px">地図の読み込みに失敗しました。ネットワークを確認してください。</div>';
+  };
+  document.head.appendChild(script);
+}
+window.addEventListener('DOMContentLoaded',loadGoogleMaps);
+</script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -170,6 +171,10 @@ body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bot
   .ride-layout{display:grid;grid-template-columns:1fr 380px;gap:14px;align-items:start}
   .ride-map-col{position:sticky;top:60px}
   #map-panel{margin-bottom:0}
+  #gmap{height:calc(100vh - 200px) !important;min-height:400px}
+}
+@media(max-width:600px){
+  #gmap{height:300px !important}
 }
 /* ── panel ── */
 .panel{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--r);padding:13px 15px;margin-bottom:9px}
@@ -326,7 +331,7 @@ body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bot
     </div>
     <!-- 地図 -->
     <div style="position:relative">
-      <div id="gmap" style="width:100%;height:calc(100vh - 320px);min-height:320px;border-radius:var(--rs);border:0.5px solid var(--border);overflow:hidden;background:var(--bg2)"></div>
+      <div id="gmap" style="width:100%;height:400px;border-radius:var(--rs);border:0.5px solid var(--border);background:var(--bg2)"></div>
 
       <!-- フローティング ルート統計バー -->
       <div id="map-stats-bar" style="display:none;position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:20;pointer-events:none;width:calc(100% - 16px);max-width:680px">
@@ -1263,6 +1268,8 @@ function calc(){
   upCompass();
   // 日照シミュレーション更新
   if(document.getElementById('dl-date').value) renderDaylight();
+  // 往復合計距離表示更新
+  updateRtLabel();
 
   // マップ統計バー → 常に更新
   const bar=document.getElementById('map-stats-bar');
