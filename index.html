@@ -55,8 +55,11 @@ if('serviceWorker' in navigator){
 </script>
 
 <script>
-// Google Maps 動的読み込み
+// Google Maps 動的読み込み（スタンドアロンPWA対応）
+let mapsLoaded=false;
 function loadGoogleMaps(){
+  if(mapsLoaded) return;
+  mapsLoaded=true;
   const k=['AIzaSyBhHoe','SN2ARNTD','lL7SG4fhD_48Fw5efGYw'];
   const script=document.createElement('script');
   script.src='https://maps.googleapis.com/maps/api/js?key='+k.join('')+'&libraries=places,geometry&callback=initMap';
@@ -68,7 +71,13 @@ function loadGoogleMaps(){
   };
   document.head.appendChild(script);
 }
-window.addEventListener('DOMContentLoaded',loadGoogleMaps);
+// 複数のタイミングで試みる
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',loadGoogleMaps);
+} else {
+  loadGoogleMaps();
+}
+window.addEventListener('load',loadGoogleMaps);
 </script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
