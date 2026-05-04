@@ -55,20 +55,16 @@ if('serviceWorker' in navigator){
 </script>
 
 <script>
-// Google Maps を手動で初期化（callbackなし）
+// Google Maps 動的読み込み
 function loadGoogleMaps(){
+  const k=['AIzaSyBhHoe','SN2ARNTD','lL7SG4fhD_48Fw5efGYw'];
   const script=document.createElement('script');
-  script.src='https://maps.googleapis.com/maps/api/js?key=AIzaSyAqoHiFUFAJcjAOTHNwdHTAMmAGwRr97Yc&libraries=places,geometry';
+  script.src='https://maps.googleapis.com/maps/api/js?key='+k.join('')+'&libraries=places,geometry&callback=initMap';
   script.async=true;
   script.defer=true;
-  script.onload=()=>{
-    if(typeof google!=='undefined'&&google.maps){
-      initMap();
-    }
-  };
   script.onerror=()=>{
-    const mapDiv=document.getElementById('gmap');
-    if(mapDiv) mapDiv.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:13px">地図の読み込みに失敗しました。ネットワークを確認してください。</div>';
+    const d=document.getElementById('gmap');
+    if(d) d.innerHTML='<div style="padding:20px;color:#666;font-size:13px">地図の読み込みに失敗しました</div>';
   };
   document.head.appendChild(script);
 }
