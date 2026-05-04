@@ -509,9 +509,9 @@ body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bot
           </div>
           <div class="dial-sep">:</div>
           <div class="dial-col">
-            <button class="dial-btn" onclick="dialAdj('start','m',5)">▲</button>
+            <button class="dial-btn" onclick="dialAdj('start','m',1)">▲</button>
             <div class="dial-val" id="ds-m">00</div>
-            <button class="dial-btn" onclick="dialAdj('start','m',-5)">▼</button>
+            <button class="dial-btn" onclick="dialAdj('start','m',-1)">▼</button>
           </div>
         </div>
         <input type="hidden" id="r-start" value="08:00">
@@ -527,9 +527,9 @@ body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bot
           </div>
           <div class="dial-sep">:</div>
           <div class="dial-col">
-            <button class="dial-btn" onclick="dialAdj('end','m',5)">▲</button>
+            <button class="dial-btn" onclick="dialAdj('end','m',1)">▲</button>
             <div class="dial-val" id="de-m">--</div>
-            <button class="dial-btn" onclick="dialAdj('end','m',-5)">▼</button>
+            <button class="dial-btn" onclick="dialAdj('end','m',-1)">▼</button>
           </div>
         </div>
         <input type="hidden" id="r-end" value="">
@@ -1260,7 +1260,7 @@ function calc(){
   // 日照シミュレーション更新
   if(document.getElementById('dl-date').value) renderDaylight();
 
-  // マップ統計バー → 常に更新（ルートあり・なし問わず）
+  // マップ統計バー → 常に更新
   const bar=document.getElementById('map-stats-bar');
   if(bar&&bar.style.display!=='none'){
     document.getElementById('msb-time').textContent=fmtD(totalMins);
@@ -1269,16 +1269,18 @@ function calc(){
     const d=window._routeData;
     document.getElementById('msb-dist').textContent=(d?.distKm||dist).toFixed(1)+' km';
     document.getElementById('msb-elev').textContent=Math.round(d?.gainM||elev)+' m';
-
-    // マップの到着時刻をダイヤルにも反映（終了ダイヤルが未設定の場合のみ）
-    if(dialState.end.h===null && endTime && endTime.match(/^\d{2}:\d{2}$/)){
-      const [eh,em]=endTime.split(':').map(Number);
-      dialState.end={h:eh,m:em};
-      updateDialDisplay('end');
-      const w=document.getElementById('dial-end-wrap');
-      if(w) w.style.opacity='1';
-    }
   }
+
+  // 計算結果を常にダイヤルに同期（終了を手動入力中以外）
+  if(endTime&&endTime.match(/^\d{2}:\d{2}$/)&&lastTouched!=='end'){
+    setDialFromString('end',endTime);
+    document.getElementById('r-end').value=endTime;
+  }
+  // スタートダイヤルも同期（逆算で変わった場合）
+  if(start&&start.match(/^\d{2}:\d{2}$/)&&lastTouched!=='start'){
+    setDialFromString('start',start);
+  }
+}
 }
 
 /* ── 根拠分解（常時） ── */
@@ -3037,12 +3039,18 @@ function clearEndDial(){
 function dialAdj(type,part,delta){
   const s=dialState[type];
   if(type==='end'&&s.h===null){s.h=(dialState.start.h+1)%24;s.m=dialState.start.m;}
-  if(part==='h') s.h=(((s.h||0)+delta)%24+24)%24;
-  else s.m=(((s.m||0)+delta)%60+60)%60;
+  if(part==='h'){
+    s.h=(((s.h||0)+delta)%24+24)%24;
+  } else {
+    // 分は5分スナップ
+    const cur=s.m||0;
+    // 現在値を5分グリッドにまず丸めてからdelta
+    const snapped=Math.round(cur/5)*5;
+    s.m=((snapped+delta*5)%60+60)%60;
+  }
   updateDialDisplay(type);
   syncDialToHidden(type);
   if(type==='end'){const w=document.getElementById('dial-end-wrap');if(w)w.style.opacity='1';}
-  // マップ統計バーを表示状態に
   const bar=document.getElementById('map-stats-bar');
   if(bar) bar.style.display='block';
   if(type==='end') smartCalc('end');
@@ -3072,7 +3080,10 @@ function syncDialToHidden(type){
 function setDialFromString(type,timeStr){
   if(!timeStr||!timeStr.match(/^\d{2}:\d{2}$/))return;
   const [h,m]=timeStr.split(':').map(Number);
-  dialState[type]={h,m};
+  // 分は5分スナップで丸める
+  const mSnapped=Math.round(m/5)*5%60;
+  const hAdj=(mSnapped===60)?((h+1)%24):h;
+  dialState[type]={h:hAdj, m:mSnapped===60?0:mSnapped};
   updateDialDisplay(type);
   syncDialToHidden(type);
   if(type==='end'){const w=document.getElementById('dial-end-wrap');if(w)w.style.opacity='1';}
