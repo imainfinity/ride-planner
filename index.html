@@ -105,45 +105,50 @@ header .sub{font-size:11px;color:var(--text2);margin-left:4px}
 html,body{margin:0;padding:0;width:100%;overflow:hidden}
 #app-header{position:fixed;top:0;left:0;right:0;z-index:100;height:40px}
 #app-tabs{position:fixed;top:40px;left:0;right:0;z-index:99}
-.wrap{display:block;width:100%;padding:0;margin:0;max-width:none}
-/* ride-layout: 常時7:3グリッド */
-.ride-layout{
+/* ══ PC/スマホ 切り替えレイアウト ══ */
+body{overflow:auto}
+.wrap{width:100%;padding:0;margin:0;max-width:none}
+
+/* ── PC モード ── */
+body.pc-mode{overflow:hidden}
+body.pc-mode .ride-layout{
   display:grid;
   grid-template-columns:7fr 3fr;
-  width:100%;
-  height:calc(100vh - 84px); /* header+tabs の実高さ */
-  overflow:hidden;
+  width:100vw;
+  overflow:visible;
 }
-.ride-map-col{
-  height:100%;
+body.pc-mode .ride-map-col{
+  position:sticky;
+  top:0;
+  height:calc(100vh - 88px);
   overflow-y:auto;
   padding:6px;
-  min-width:0;
 }
-.ride-settings-col{
-  height:100%;
+body.pc-mode .ride-settings-col{
+  height:calc(100vh - 88px);
   overflow-y:scroll;
   padding:6px;
   border-left:1px solid var(--border);
   background:var(--bg);
-  min-width:0;
 }
-#gmap{height:calc(100vh - 330px) !important;min-height:300px}
-#map-panel{margin-bottom:0}
-#drawer-toggle{display:none !important}
-#drawer-content{display:block !important}
-/* スマホのみ1カラム */
-@media(max-width:768px){
-  html,body{overflow:auto}
-  .ride-layout{display:block;height:auto;width:100%;overflow:visible}
-  .ride-map-col,.ride-settings-col{width:100%;height:auto;overflow:visible}
-  .ride-settings-col{border-left:none;border-top:2px solid var(--border2)}
-  #gmap{height:60vh !important;min-height:250px}
-  #drawer-toggle{display:flex !important;align-items:center;justify-content:center;gap:6px;
-    width:100%;padding:8px;background:var(--bg2);border:none;border-radius:var(--rs);
-    font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;margin-bottom:6px;font-family:inherit}
-  #drawer-content.collapsed{display:none !important}
+body.pc-mode #gmap{height:calc(100vh - 310px) !important;min-height:300px}
+body.pc-mode #drawer-toggle{display:none !important}
+body.pc-mode #drawer-content{display:block !important}
+
+/* ── スマホ モード ── */
+body.sp-mode{overflow:auto}
+body.sp-mode .ride-layout{display:block;width:100%}
+body.sp-mode .ride-map-col{width:100%;padding:4px}
+body.sp-mode .ride-settings-col{
+  width:100%;border-top:2px solid var(--border2);padding:8px;
 }
+body.sp-mode #gmap{height:60vh !important;min-height:250px}
+body.sp-mode #drawer-toggle{
+  display:flex !important;align-items:center;justify-content:center;gap:6px;
+  width:100%;padding:8px;background:var(--bg2);border:none;border-radius:var(--rs);
+  font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;margin-bottom:6px;font-family:inherit;
+}
+body.sp-mode #drawer-content.collapsed{display:none !important}
 /* ── panel ── */
 .panel{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--r);padding:13px 15px;margin-bottom:9px}
 .pt{font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.09em;margin-bottom:11px}
@@ -255,6 +260,7 @@ html,body{margin:0;padding:0;width:100%;overflow:hidden}
 <header id="app-header">
   <h1>Ride Pace Planner <span class="ver">v8</span></h1>
   <span class="sub">ライド計画 / Google Maps ルート連携</span>
+  <button id="layout-toggle" onclick="toggleLayout()" style="margin-left:auto;padding:5px 14px;border:0.5px solid var(--border2);border-radius:20px;background:var(--bg2);color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">📱 スマホ</button>
 </header>
 
 <div class="wrap">
@@ -3956,54 +3962,53 @@ updateDialDisplay('start');
   if(p.start) setDialFromString('start', p.start);
   if(p.spd) baseSpdValue=+p.spd;
 })();
-// ══ 今日の日付を確実にセット ══
-(function setTodayDate(){
+// ══ PC/スマホ モード切替 ══
+function toggleLayout(){
+  const body=document.body;
+  const btn=document.getElementById('layout-toggle');
+  if(body.classList.contains('pc-mode')){
+    body.classList.replace('pc-mode','sp-mode');
+    if(btn) btn.textContent='🖥 PC表示';
+    localStorage.setItem('rpp_layout','sp');
+  } else {
+    body.classList.replace('sp-mode','pc-mode');
+    if(btn) btn.textContent='📱 スマホ表示';
+    localStorage.setItem('rpp_layout','pc');
+  }
+  setTimeout(()=>{if(typeof gmap!=='undefined'&&gmap) google.maps.event.trigger(gmap,'resize');},150);
+}
+// 保存済みモードを復元
+(function(){
+  const saved=localStorage.getItem('rpp_layout');
+  const btn=document.getElementById('layout-toggle');
+  if(saved==='sp'){
+    document.body.classList.replace('pc-mode','sp-mode');
+    if(btn) btn.textContent='🖥 PC表示';
+  }
+})();
+
+// ══ 今日の日付：無条件でセット ══
+(function(){
   const today=new Date().toISOString().split('T')[0];
-  ['dl-date','run-dl-date'].forEach(id=>{
+  ['dl-date','run-dl-date'].forEach(function(id){
     const el=document.getElementById(id);
     if(el) el.value=today;
   });
 })();
 
-// ══ 日照を確実にレンダリング（Maps API読み込み後） ══
-// renderDaylight は userLat/userLon が必要なので initMap 後に実行
-const _origInitMap=window.initMap;
+// ══ 日照：initMap完了後に実行（Maps API依存のため） ══
+const __rppOrigInit=window.initMap;
 window.initMap=function(){
-  if(_origInitMap) _origInitMap.call(this);
-  // Maps APIが確実に準備できてから日照をレンダリング
-  setTimeout(()=>{
-    try{
-      // デフォルト位置（福岡）でまず描画、GPS取得後に再描画
-      if(typeof renderDaylight==='function') renderDaylight();
-    }catch(e){console.warn('daylight init:',e);}
-  },200);
+  if(__rppOrigInit) __rppOrigInit.call(this);
+  setTimeout(function(){
+    // 日付を再確認してセット
+    const today=new Date().toISOString().split('T')[0];
+    const dlDate=document.getElementById('dl-date');
+    if(dlDate&&!dlDate.value) dlDate.value=today;
+    // 日照レンダリング
+    try{ renderDaylight(); }catch(e){ console.warn('daylight:',e); }
+  },400);
 };
-
-// ══ レイアウト高さ ══
-function fixLayout(){
-  const layout=document.querySelector('.ride-layout');
-  if(!layout||window.innerWidth<=768) return;
-  // header と tabs の合計高さを直接取得
-  const els=[document.querySelector('header'),document.querySelector('.tabs')];
-  const topH=els.reduce((sum,el)=>sum+(el?el.offsetHeight:0),0);
-  const vh=window.innerHeight;
-  const h=vh-topH;
-  layout.style.height=h+'px';
-  // 両カラムにも高さを設定
-  document.querySelectorAll('.ride-map-col,.ride-settings-col').forEach(el=>{
-    el.style.height=h+'px';
-  });
-  // gmap高さ：左カラムの高さからヘッダーパネルを引く
-  const mapPanel=document.getElementById('map-panel');
-  const gmap=document.getElementById('gmap');
-  if(mapPanel&&gmap){
-    gmap.style.height=Math.max(300,h-mapPanel.offsetHeight-20)+'px';
-  }
-}
-window.addEventListener('load',fixLayout);
-window.addEventListener('resize',fixLayout);
-// DOM描画後に実行
-requestAnimationFrame(()=>requestAnimationFrame(fixLayout));
 </script>
 </body>
 </html>
