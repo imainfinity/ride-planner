@@ -2886,29 +2886,17 @@ function syncRouteToUI(){
   const d=window._routeData;
   if(!d||!d.distKm) return;
 
-  // 入力欄を上書き
   document.getElementById('r-dist').value=d.distKm;
   document.getElementById('r-elev').value=Math.round(d.gainM);
-
-  // 往復フラグをリセット
   const rtEl=document.getElementById('r-roundtrip');
   if(rtEl) rtEl.value='0';
   updateRtLabel();
 
-  // スタート時刻はdialStateから直接取得
-  const _sh=dialState.start.h!=null?dialState.start.h:8;
-  const _sm=dialState.start.m!=null?dialState.start.m:0;
-  const startVal=`${String(_sh).padStart(2,'0')}:${String(_sm).padStart(2,'0')}`;
-  document.getElementById('r-start').value=startVal;
-  const msbStart=document.getElementById('msb-start');
-  if(msbStart) msbStart.textContent=startVal;
-
-  // 統計バーを表示
   const bar=document.getElementById('map-stats-bar');
   if(bar) bar.style.display='block';
 
-  // 再計算
-  calc();
+  // 終了設定済み→逆算、未設定→順算
+  smartCalc(dialState.end.h!==null?'end':'dist');
 }
 function syncStartTimeToBar(){
   const bar=document.getElementById('map-stats-bar');
