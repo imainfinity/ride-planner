@@ -128,11 +128,26 @@ input[type=number],input[type=text],input[type=time],select{
 /* ── compass ── */
 .compass-wrap{display:flex;flex-direction:column;align-items:center;gap:4px}
 
-/* ── zone bar ── */
-.zone-row{display:flex;align-items:center;gap:8px;margin-bottom:4px;cursor:pointer;padding:4px 6px;border-radius:var(--rs)}
-.zone-row:hover{background:var(--bg2)}.zone-row.on{background:var(--bg2)}
-.zone-bar-bg{flex:1;height:6px;border-radius:3px;background:var(--bg3);overflow:hidden}
-.zone-bar-fill{height:100%;border-radius:3px;transition:width .3s}
+/* ── breakdown bars ── */
+.bk-row{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center;margin-bottom:6px}
+.bk-left{display:flex;flex-direction:column;gap:3px}
+.bk-label{font-size:10px;color:var(--text2)}
+.bk-bar-bg{height:5px;border-radius:3px;background:var(--bg3);overflow:hidden}
+.bk-bar{height:100%;border-radius:3px;transition:width .4s}
+.bk-val{font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--text);white-space:nowrap;text-align:right}
+.dtag{font-size:10px;font-weight:600;margin-left:5px;padding:1px 5px;border-radius:10px}
+.dtag.dn{background:var(--bg3);color:var(--text3)}
+.dtag.dm{background:var(--greenbg);color:var(--green)}
+.dtag.dp{background:var(--redbg);color:var(--red)}
+
+/* ── zone cards ── */
+.zone-cards{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:8px}
+.zone-card{padding:7px 4px;border-radius:var(--rs);border:1.5px solid transparent;cursor:pointer;text-align:center;transition:all .14s}
+.zone-card:hover{filter:brightness(0.95)}
+.zone-card.on{border-color:var(--acc) !important;transform:translateY(-2px);box-shadow:0 3px 8px rgba(0,0,0,.15)}
+.zone-card .zc-num{font-size:11px;font-weight:700;color:rgba(0,0,0,.6)}
+.zone-card .zc-name{font-size:8px;font-weight:600;color:rgba(0,0,0,.5);margin-top:1px;white-space:nowrap}
+.zone-card .zc-w{font-size:9px;font-weight:700;color:rgba(0,0,0,.7);margin-top:2px}
 
 /* ── misc ── */
 .ppills{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:8px}
@@ -367,13 +382,10 @@ input[type=number],input[type=text],input[type=time],select{
       <div id="dl-timeline-row" style="display:grid;grid-template-columns:repeat(8,1fr);width:100%;gap:0"></div>
     </div>
     <!-- 時刻軸Canvas -->
-    <div id="dl-time-wrap" style="overflow-x:auto;overflow-y:hidden;border-radius:5px;margin-bottom:4px" onscroll="onTimeCanvasScroll(this)">
-      <canvas id="dl-time-canvas" height="72" style="display:block;min-width:100%"></canvas>
-    </div>
-    <div id="dl-dist-wrap" style="overflow-x:auto;overflow-y:hidden;border-radius:5px;margin-bottom:4px;position:relative">
-      <canvas id="dl-dist-canvas" height="52" style="display:block;min-width:100%;cursor:crosshair"></canvas>
-      <!-- ホバーツールチップ -->
-      <div id="dl-dist-tooltip" style="display:none;position:absolute;top:4px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.82);color:#fff;border-radius:6px;padding:5px 10px;font-size:11px;pointer-events:none;white-space:nowrap;z-index:10"></div>
+    <!-- 時刻軸Canvas（1段・ホバーで距離表示） -->
+    <div id="dl-time-wrap" style="overflow-x:auto;overflow-y:hidden;border-radius:5px;margin-bottom:2px;position:relative" onscroll="onTimeCanvasScroll(this)">
+      <canvas id="dl-time-canvas" height="48" style="display:block;min-width:100%;cursor:crosshair"></canvas>
+      <div id="dl-time-tooltip" style="display:none;position:absolute;top:4px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.82);color:#fff;border-radius:6px;padding:4px 10px;font-size:11px;pointer-events:none;white-space:nowrap;z-index:10"></div>
     </div>
   </div>
 
@@ -1026,13 +1038,26 @@ function buildZone(){
   if(!zbar||inputMode!=='pwr') return;
   const ftp=+document.getElementById('r-ftp').value||220;
   const wt =+document.getElementById('r-weight').value||65;
-  document.getElementById('r-zonebar').innerHTML=ZONES.map((z,i)=>
-    `<div class="zp${selZ===i?' on':''}" style="background:${z.bg};color:${z.tc}" onclick="selZone(${i})">
-      <strong>${z.z}</strong><span>${z.n}</span>
-      <span>${z.lo}–${z.hi}%</span>
-      <span>${(ftp*z.lo/100).toFixed(0)}–${(ftp*z.hi/100).toFixed(0)}W</span>
-    </div>`
-  ).join('');
+  document.getElementById('r-zonebar').innerHTML=
+    `<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:6px">`+
+    ZONES.map((z,i)=>{
+      const wLo=(ftp*z.lo/100).toFixed(0);
+      const wHi=(ftp*z.hi/100).toFixed(0);
+      const active=selZ===i;
+      return `<div onclick="selZone(${i})" style="
+        padding:8px 4px;border-radius:var(--rs);text-align:center;cursor:pointer;
+        background:${z.bg};color:${z.tc};
+        border:${active?'2.5px solid #18180f':'1.5px solid transparent'};
+        transform:${active?'translateY(-2px)':'none'};
+        box-shadow:${active?'0 3px 10px rgba(0,0,0,0.2)':'none'};
+        transition:all .14s;
+      ">
+        <div style="font-size:12px;font-weight:700">${z.z}</div>
+        <div style="font-size:8px;font-weight:600;opacity:.7;margin:1px 0">${z.n}</div>
+        <div style="font-size:9px;font-weight:700">${wLo}–${wHi}W</div>
+      </div>`;
+    }).join('')+
+    `</div>`;
 }
 function selZone(i){
   selZ=i;
@@ -1366,34 +1391,37 @@ function renderBreakdown(dist,elev,effW,weight,g,hwMs,ratio,weather,cond,netMins
   const slopeSpd = p2s(effW,weight,g,0);
   const wOnlySpd = p2s(effW,weight,0,hwMs);
   const cf       = weather*cond;
-
-  // 速度モードでは体調・天候はbaseSpd算出前に適用済み → 分解行に表示しない
   const showCondRow = inputMode==='pwr';
 
   const rows=[
-    {label:'基準（平坦・無風・良好）',       mins:baseNet,                          col:'#378add', base:true},
-    {label:`斜度 (avg ${g.toFixed(1)}%)`,    mins:(dist/slopeSpd-dist/baseSpd)*60,  col:'#e24b4a'},
-    {label:`風 (${(hwMs*3.6).toFixed(1)} km/h向かい)`, mins:(dist/wOnlySpd-dist/baseSpd)*60, col:'#ef9f27'},
-    ...(showCondRow?[{label:`体調・天候 (×${cf.toFixed(2)})`, mins:netMins*(1/cf-1), col:'#639922'}]:[]),
-    {label:`Ratio損失 (${(ratio*100).toFixed(0)}%)`, mins:netMins/ratio-netMins,    col:'#534ab7'},
+    {label:'基準',    sublabel:'平坦・無風・良好', mins:baseNet,                          col:'#3b82f6', base:true},
+    {label:'斜度',    sublabel:`avg ${g.toFixed(1)}%`,    mins:(dist/slopeSpd-dist/baseSpd)*60,  col:'#ef4444'},
+    {label:'風',      sublabel:`${(hwMs*3.6).toFixed(1)}km/h向かい`, mins:(dist/wOnlySpd-dist/baseSpd)*60, col:'#f59e0b'},
+    ...(showCondRow?[{label:'体調・天候', sublabel:`×${cf.toFixed(2)}`, mins:netMins*(1/cf-1), col:'#22c55e'}]:[]),
+    {label:'Ratio',   sublabel:`${(ratio*100).toFixed(0)}%`, mins:netMins/ratio-netMins, col:'#8b5cf6'},
   ];
   const maxM=Math.max(...rows.map(r=>Math.abs(r.mins)));
 
-  document.getElementById('r-breakdown').innerHTML=rows.map(r=>{
-    const bw=maxM>0?Math.min(100,Math.abs(r.mins)/maxM*100):0;
-    const sgn=r.mins>=0?'+':'';
-    const cls=r.base?'dn':r.mins<=0?'dm':'dp';
-    return `<div class="bk-row">
-      <div class="bk-left">
-        <div style="display:flex;align-items:center">
-          <span class="bk-label">${r.label}</span>
-          ${!r.base?`<span class="dtag ${cls}">${r.mins>=0?'+':''}${fmtD(Math.abs(r.mins))}</span>`:''}
+  document.getElementById('r-breakdown').innerHTML=
+    `<div style="display:flex;flex-direction:column;gap:5px">`+
+    rows.map(r=>{
+      const bw=maxM>0?Math.min(100,Math.abs(r.mins)/maxM*100):0;
+      const sgn=r.base?'':r.mins>=0?'+':'−';
+      const valStr=r.base?fmtD(r.mins):`${sgn}${fmtD(Math.abs(r.mins))}`;
+      const tagCol=r.base?'var(--bg2)':r.mins<=0?'var(--greenbg)':'var(--redbg)';
+      const tagTxt=r.base?'var(--text3)':r.mins<=0?'var(--green)':'var(--red)';
+      return `<div style="display:grid;grid-template-columns:72px 1fr 52px;gap:6px;align-items:center">
+        <div>
+          <div style="font-size:10px;font-weight:700;color:var(--text)">${r.label}</div>
+          <div style="font-size:9px;color:var(--text3)">${r.sublabel}</div>
         </div>
-        <div class="bk-bar-bg"><div class="bk-bar" style="width:${bw.toFixed(0)}%;background:${r.col}"></div></div>
-      </div>
-      <div class="bk-val">${r.base?fmtD(r.mins):(sgn+fmtD(Math.abs(r.mins)))}</div>
-    </div>`;
-  }).join('');
+        <div style="height:6px;border-radius:3px;background:var(--bg3);overflow:hidden">
+          <div style="height:100%;width:${bw.toFixed(0)}%;background:${r.col};border-radius:3px;transition:width .4s"></div>
+        </div>
+        <div style="font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;color:${r.base?'var(--text)':r.mins<=0?'var(--green)':'var(--red)'};text-align:right">${valStr}</div>
+      </div>`;
+    }).join('')+
+    `</div>`;
 }
 
 
@@ -1940,12 +1968,12 @@ function renderDaylight(){
   row.innerHTML=phases.map((p,i)=>`
     <div class="twi-cell" id="twi-${p.key}" data-h="${p.h||''}"
          style="display:flex;flex-direction:column;align-items:center;overflow:hidden;
-                padding:4px 1px 3px;border-radius:6px;position:relative;
+                padding:2px 1px 2px;border-radius:4px;position:relative;
                 transition:background .3s,transform .2s;">
-      <div style="font-size:${p.sz}px;line-height:1;margin-bottom:2px;flex-shrink:0">${p.icon}</div>
-      <div style="font-size:${p.main?9:7.5}px;font-weight:${p.main?700:600};color:${p.col};text-align:center;line-height:1.2;margin-bottom:1px;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.label}</div>
-      <div style="font-size:6.5px;color:var(--text3);text-align:center;line-height:1.1;margin-bottom:2px;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.sub||'\u00a0'}</div>
-      <div class="twi-time" style="font-size:${p.main?11:9}px;font-weight:${p.main?700:500};font-variant-numeric:tabular-nums;color:var(--text)">${hToHHMM(p.h)}</div>
+      <div style="font-size:${Math.round(p.sz*0.75)}px;line-height:1;margin-bottom:1px;flex-shrink:0">${p.icon}</div>
+      <div style="font-size:${p.main?8:6.5}px;font-weight:${p.main?700:600};color:${p.col};text-align:center;line-height:1.1;margin-bottom:0;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.label}</div>
+      <div style="display:none">${p.sub||'\u00a0'}</div>
+      <div class="twi-time" style="font-size:${p.main?10:8.5}px;font-weight:${p.main?700:500};font-variant-numeric:tabular-nums;color:var(--text)">${hToHHMM(p.h)}</div>
       ${i<phases.length-1?`<div style="position:absolute;right:0;top:25%;bottom:25%;width:0.5px;background:var(--border)"></div>`:''}
     </div>
   `).join('');
@@ -1964,74 +1992,61 @@ function renderDaylight(){
   const moveSpd=totalMins>0?dist/(totalMins/60):28;
 
   drawTimeCanvas(tw,startH,endH,dist,moveSpd);
-  drawDistCanvas(tw,startH,endH,dist,moveSpd);
 
   // ホバー用データ保存
   window._dlHoverData={tw,startH,endH,dist,moveSpd,phases};
 
-  // 距離Canvasにホバーイベント設定（初回のみ）
-  const dc=document.getElementById('dl-dist-canvas');
-  dc.onmousemove=onDistCanvasHover;
-  dc.onmouseleave=()=>{document.getElementById('dl-dist-tooltip').style.display='none';};
+  // 時刻Canvasにホバーイベント設定
+  const tc=document.getElementById('dl-time-canvas');
+  if(tc){
+    tc.onmousemove=onTimeCanvasHover;
+    tc.onmouseleave=()=>{
+      const t=document.getElementById('dl-time-tooltip');
+      if(t) t.style.display='none';
+    };
+  }
 }
 
-/* ── 距離Canvasホバー → 日照情報表示（翌日対応） ── */
-function onDistCanvasHover(e){
+/* ── 時刻CanvasホバーでKM表示（翌日対応） ── */
+function onTimeCanvasHover(e){
   const d=window._dlHoverData;
   if(!d) return;
-  const canvas=document.getElementById('dl-dist-canvas');
-  const wrap=document.getElementById('dl-dist-wrap');
+  const canvas=document.getElementById('dl-time-canvas');
+  const wrap=document.getElementById('dl-time-wrap');
+  if(!canvas||!wrap) return;
   const rect=canvas.getBoundingClientRect();
   const px=e.clientX-rect.left+wrap.scrollLeft;
   const ratio=Math.max(0,Math.min(1,px/canvas.width));
-  const km=(ratio*d.dist).toFixed(1);
-  const h=d.startH+ratio*(d.endH-d.startH); // 絶対時刻（24超えあり）
 
+  // 現在の表示範囲を計算
+  const span=d.endH-d.startH+1;
+  const viewStart=d.startH-0.5;
+  const h=viewStart+ratio*span;
+  const hMod=((h%24)+24)%24;
+
+  // 走行距離を計算（スタートからの経過時間×速度）
+  const elapsedH=Math.max(0,h-d.startH);
+  const km=(elapsedH*d.moveSpd).toFixed(1);
+
+  // 翌日薄明
   const tw=d.tw;
+  const td2=window._twDay2||tw;
+  let status='☀️';
+  if(hMod<(h>=24?td2:tw).astroRise%24||hMod>(h>=24?td2:tw).astroSet%24) status='🌑';
+  else if(hMod<(h>=24?td2:tw).nautRise%24||hMod>(h>=24?td2:tw).nautSet%24) status='🌒';
+  else if(hMod<(h>=24?td2:tw).civilRise%24||hMod>(h>=24?td2:tw).civilSet%24) status='🌅';
+  else if(hMod>(h>=24?td2:tw).sunset%24) status='🌆';
 
-  // 翌日分の薄明時刻（+24h）
-  const tw2={
-    astroRise: tw.astroRise+24, nautRise: tw.nautRise+24,
-    civilRise: tw.civilRise+24, sunrise:   tw.sunrise+24,
-    sunset:    tw.sunset+24,    civilSet:  tw.civilSet+24,
-    nautSet:   tw.nautSet+24,   astroSet:  tw.astroSet+24,
-  };
-
-  // h に対して当日・翌日どちらの薄明テーブルを使うか
-  const useDay2=h>=24;
-  const t=useDay2?tw2:tw;
-  // 0-24正規化した時刻でフェーズ判定
-  const hMod=h%24;
-
-  let status;
-  if(hMod<t.astroRise%24||hMod>t.astroSet%24)       status='🌑 完全な夜（天文薄明以前）';
-  else if(hMod<t.nautRise%24||hMod>t.nautSet%24)     status='🌒 航海薄明（星が見える）';
-  else if(hMod<t.civilRise%24||hMod>t.civilSet%24)   status='🌅 市民薄明（屋外活動可）';
-  else if(hMod<t.sunrise%24)                          status='🌄 夜明け直前';
-  else if(hMod>t.sunset%24)                          status='🌆 日没後（薄明中）';
-  else                                                status='☀️ 昼間';
-
-  // 翌日も含めた今後の明暗イベント一覧
-  const allEvents=[
-    {h:tw.sunrise,   l:'☀️ 日の出'},
-    {h:tw.sunset,    l:'🌇 日の入り'},
-    {h:tw.civilSet,  l:'🌆 市民薄暮'},
-    {h:tw.nautSet,   l:'🌓 航海薄暮'},
-    {h:tw.astroSet,  l:'🌑 天文薄暮'},
-    {h:tw2.astroRise,l:'🌒 翌日 天文薄明'},
-    {h:tw2.nautRise, l:'🌅 翌日 航海薄明'},
-    {h:tw2.civilRise,l:'🌄 翌日 市民薄明'},
-    {h:tw2.sunrise,  l:'☀️ 翌日 日の出'},
-    {h:tw2.sunset,   l:'🌇 翌日 日の入り'},
-  ];
-  const next=allEvents.filter(ev=>ev.h>h&&ev.h<=d.endH).sort((a,b)=>a.h-b.h)[0];
-  const nextKm=next?((next.h-h)*d.moveSpd).toFixed(0):null;
-  const nextStr=next?` → 次: ${next.l} ${hToHHMM(next.h%24)}（+${nextKm}km先）`:'';
-
-  const dayLabel=useDay2?' (+1日)':'';
-  const tip=document.getElementById('dl-dist-tooltip');
+  const dayLabel=h>=24?' +1日':'';
+  const tip=document.getElementById('dl-time-tooltip');
+  if(!tip) return;
   tip.style.display='block';
-  tip.textContent=`📍 ${km}km ${hToHHMM(hMod)}${dayLabel} ${status}${nextStr}`;
+  // ツールチップをマウス位置に追従
+  const wrapRect=wrap.getBoundingClientRect();
+  const tipX=Math.max(60,Math.min(wrapRect.width-100,e.clientX-wrapRect.left));
+  tip.style.left=tipX+'px';
+  tip.style.transform='translateX(-50%)';
+  tip.textContent=`${status} ${String(Math.floor(hMod)).padStart(2,'0')}:${String(Math.round(hMod%1*60)).padStart(2,'0')}${dayLabel} — ${km}km地点`;
 }
 
 function drawTimeCanvas(tw, startH, endH, dist, moveSpd){
@@ -2052,7 +2067,7 @@ function drawTimeCanvas(tw, startH, endH, dist, moveSpd){
   const viewStart=startH-0.5;
   const viewEnd=endH+0.5;
   const span=viewEnd-viewStart;
-  const BAR=H*0.6;
+  const BAR=H*0.55;
   function xOf(h){return (h-viewStart)/span*W;}
   // timeline rowの幅をcanvasに合わせる（スクロール同期のため）
   const tRow=document.getElementById('dl-timeline-row');
@@ -3002,51 +3017,65 @@ let historyStack=[];
 let redoStack=[];
 
 function saveHistory(){
-  const state={
-    waypoints:waypoints.map(ll=>({lat:ll.lat(),lng:ll.lng()})),
-    goalFixed
-  };
-  historyStack.push(JSON.stringify(state));
+  // 追加前のwaypoints状態を保存（地点単位のスタック）
+  historyStack.push(waypoints.map(ll=>({lat:ll.lat(),lng:ll.lng()})));
   if(historyStack.length>MAX_HISTORY) historyStack.shift();
-  redoStack=[]; // 新操作でRedoクリア
+  redoStack=[];
 }
 
 function undoRoute(){
   if(historyStack.length===0) return;
-  // 現在状態をRedoへ
-  redoStack.push(JSON.stringify({
-    waypoints:waypoints.map(ll=>({lat:ll.lat(),lng:ll.lng()})),
-    goalFixed
-  }));
-  const prev=JSON.parse(historyStack.pop());
-  restoreState(prev);
+  // 現在状態をRedoに積む
+  redoStack.push(waypoints.map(ll=>({lat:ll.lat(),lng:ll.lng()})));
+  // 1つ前の状態に戻す
+  const prev=historyStack.pop();
+  applyWaypointState(prev);
 }
 
 function redoRoute(){
   if(redoStack.length===0) return;
-  historyStack.push(JSON.stringify({
-    waypoints:waypoints.map(ll=>({lat:ll.lat(),lng:ll.lng()})),
-    goalFixed
-  }));
-  const next=JSON.parse(redoStack.pop());
-  restoreState(next);
+  // 現在状態をUndoに積む
+  historyStack.push(waypoints.map(ll=>({lat:ll.lat(),lng:ll.lng()})));
+  const next=redoStack.pop();
+  applyWaypointState(next);
 }
 
-function restoreState(state){
-  markers.forEach(m=>m.setMap(null)); markers=[];
-  waypoints=[];
-  if(window._dragOverlay){window._dragOverlay.setMap(null);window._dragOverlay=null;}
-  directionsRenderer.setDirections({routes:[]});
-  state.waypoints.forEach((pt,i)=>{
-    const ll=new google.maps.LatLng(pt.lat,pt.lng);
-    waypoints.push(ll);
-    createMarker(ll,i);
-  });
-  goalFixed=state.goalFixed||false;
+function applyWaypointState(pts){
+  // 差分を最小限に更新（追加/削除した地点のみ反映）
+  const newLen=pts.length;
+  const oldLen=waypoints.length;
+
+  if(newLen<oldLen){
+    // 末尾から削除
+    for(let i=oldLen-1;i>=newLen;i--){
+      if(markers[i]){ markers[i].setMap(null); markers.splice(i,1); }
+      waypoints.splice(i,1);
+    }
+  } else if(newLen>oldLen){
+    // 末尾に追加
+    for(let i=oldLen;i<newLen;i++){
+      const ll=new google.maps.LatLng(pts[i].lat,pts[i].lng);
+      waypoints.push(ll);
+      createMarker(ll,i);
+    }
+  } else {
+    // 同数で位置が変わった場合（移動）
+    markers.forEach(m=>m&&m.setMap(null)); markers=[];
+    waypoints=pts.map(pt=>new google.maps.LatLng(pt.lat,pt.lng));
+    waypoints.forEach((ll,i)=>createMarker(ll,i));
+  }
+
   updateGoalFlagBtn();
   if(waypoints.length>=2) calcRoute();
+  else if(waypoints.length<2){
+    directionsRenderer.setDirections({routes:[]});
+    document.getElementById('route-info').style.display='none';
+    document.getElementById('map-stats-bar').style.display='none';
+  }
   renderWpList();
 }
+
+function restoreState(state){ applyWaypointState(state.waypoints||state); } // 後方互換
 
 function hardClearRoute(){
   // Hard Clear：全内部変数を完全初期化
