@@ -29,256 +29,148 @@
   --purplebg:#3c3489;--purple:#cecbf6;
   --tealbg:#085041;--teal:#9fe1cb;
 }}
-body{font-family:'Helvetica Neue',Arial,'Hiragino Kaku Gothic ProN',sans-serif;background:var(--bg3);color:var(--text);min-height:100vh}
+body{font-family:'Helvetica Neue',Arial,'Hiragino Kaku Gothic ProN',sans-serif;background:var(--bg3);color:var(--text)}
 
-/* ── header ── */
-header{background:var(--bg);border-bottom:0.5px solid var(--border);padding:11px 20px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100}
-header h1{font-size:14px;font-weight:500;letter-spacing:-.01em}
-header .sub{font-size:11px;color:var(--text2);margin-left:4px}
+/* ── Header ── */
+header{background:var(--bg);border-bottom:0.5px solid var(--border);padding:8px 16px;display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:200}
+header h1{font-size:14px;font-weight:500}
+header .sub{font-size:11px;color:var(--text2)}
 .ver{font-size:9px;font-weight:700;padding:2px 6px;border-radius:20px;background:var(--purplebg);color:var(--purple)}
 
-/* ── layout ── */
-
-/* ── tabs ── */
-.tabs{display:flex;background:var(--bg);border:0.5px solid var(--border);border-radius:var(--r);padding:4px;margin-bottom:12px;gap:2px}
-.tab{flex:1;padding:7px 4px;font-size:11px;font-weight:500;cursor:pointer;border:none;background:none;color:var(--text2);border-radius:var(--rs);transition:all .14s;text-align:center}
+/* ── Tabs ── */
+.tabs{background:var(--bg);border-bottom:0.5px solid var(--border);padding:4px 12px;display:flex;gap:2px;position:sticky;z-index:199}
+.tab{padding:6px 10px;font-size:11px;font-weight:500;cursor:pointer;border:none;background:none;color:var(--text2);border-radius:var(--rs);transition:all .14s;white-space:nowrap}
 .tab.on{background:var(--acc);color:#fff}
 .sec{display:none}.sec.on{display:block}
 
-.modebt{flex:1;padding:8px 6px;font-size:12px;font-weight:500;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text2);cursor:pointer;font-family:inherit;transition:all .14s}
-.modebt.on{background:var(--acc);color:#fff;border-color:var(--acc)}
-/* ── route info chips ── */
-.ri-chip{display:inline-flex;flex-direction:column;background:var(--bg2);border-radius:var(--rs);padding:4px 10px;min-width:64px}
-.ri-cl{font-size:8px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:1px}
-.ri-cv{font-size:14px;font-weight:500;color:var(--text);font-variant-numeric:tabular-nums}
-/* ── course profile btn ── */
-/* ── poi-icon-btn ── */
-.poi-icon-btn{display:flex;flex-direction:column;align-items:center;gap:1px;padding:5px 2px;border:0.5px solid var(--border);border-radius:var(--rs);background:var(--bg);cursor:pointer;font-size:16px;line-height:1;font-family:inherit;transition:all .14s;width:100%;min-width:0}
-.poi-icon-btn div{font-size:8px;color:var(--text3);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;text-align:center}
-.poi-icon-btn:hover{background:var(--bg2)}.poi-icon-btn.active{background:var(--acc);border-color:var(--acc)}.poi-icon-btn.active div{color:rgba(255,255,255,.8)}
-/* ── poi-list-btn ── */
-.poi-list-btn{width:100%;text-align:left;padding:8px 12px;border:0.5px solid var(--border);border-radius:var(--rs);background:var(--bg);color:var(--text2);cursor:pointer;font-size:13px;font-family:inherit;transition:all .14s}
-.poi-list-btn:hover{background:var(--bg2);color:var(--text)}
-.poi-list-btn.active{background:var(--acc);color:#fff;border-color:var(--acc);font-weight:600}
-/* ── poi-btn ── */
-.poi-btn{display:inline-flex;flex-direction:column;align-items:center;gap:2px;padding:6px 10px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);cursor:pointer;font-size:18px;line-height:1;transition:all .14s;font-family:inherit}
-.poi-btn span{font-size:9px;color:var(--text2);font-weight:600;white-space:nowrap}
-.poi-btn:hover{background:var(--bg2)}.poi-btn.active{background:var(--acc);border-color:var(--acc)}.poi-btn.active span{color:rgba(255,255,255,.8)}
-/* ── course-btn ── */
-.course-btn{padding:5px 4px;font-size:10px;font-weight:600;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text2);cursor:pointer;font-family:inherit;transition:all .14s;text-align:center}
-.course-btn.on{background:var(--acc);color:#fff;border-color:var(--acc)}
-/* ── saved route cards ── */
-.sr-card{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--r);padding:13px 15px;margin-bottom:8px;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:start}
-.sr-card:hover{border-color:var(--border2)}
-.sr-name{font-size:14px;font-weight:500;color:var(--text);margin-bottom:4px}
-.sr-meta{font-size:11px;color:var(--text2);line-height:1.7}
-.sr-chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
-.sr-chip{font-size:10px;background:var(--bg2);border-radius:20px;padding:2px 8px;color:var(--text2)}
-.sr-actions{display:flex;flex-direction:column;gap:5px;align-items:flex-end}
-/* ── dial time picker ── */
-.dial-wrap{display:flex;align-items:center;gap:4px;background:var(--bg2);border:1.5px solid var(--border2);border-radius:var(--rs);padding:6px 10px;justify-content:center}
-.dial-col{display:flex;flex-direction:column;align-items:center;gap:2px}
-.dial-btn{background:none;border:none;color:var(--text2);font-size:14px;cursor:pointer;padding:2px 8px;border-radius:4px;line-height:1;font-family:inherit}
-.dial-btn:hover{background:var(--bg3);color:var(--text)}
-.dial-btn:active{background:var(--border2)}
-.dial-val{font-size:28px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--text);min-width:44px;text-align:center;line-height:1.1;letter-spacing:-0.02em}
-.dial-sep{font-size:28px;font-weight:300;color:var(--text2);padding:0 2px;margin-top:4px}
-/* ── wp-list row ── */
-.wp-row{display:grid;grid-template-columns:10px 1fr 44px 40px 44px 16px;gap:3px;padding:3px 4px;border-bottom:0.5px solid var(--border);font-size:10px;align-items:center;transition:background .12s}
-.wp-row:hover{background:var(--bg2)}
-.wp-row:last-child{border-bottom:none}
-.wp-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
-.wp-label{font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.wp-num{text-align:right;color:var(--text2);font-variant-numeric:tabular-nums;font-size:10px}
-
-/* ── map stats bar ── */
-.msb-cell{padding:0 10px;text-align:center;white-space:nowrap}
-.msb-label{font-size:9px;font-weight:600;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.07em;margin-bottom:2px}
-.msb-val{font-size:18px;font-weight:500;color:#fff;font-variant-numeric:tabular-nums;line-height:1.1}
-@media(max-width:480px){
-  .msb-cell{padding:0 6px}
-  .msb-val{font-size:14px}
-  .msb-label{font-size:8px;letter-spacing:0}
-}
-/* ══ レイアウト：2カラム固定（メディアクエリ不使用） ══ */
-*{box-sizing:border-box}
-html,body{margin:0;padding:0;width:100%;overflow:hidden}
-#app-header{position:fixed;top:0;left:0;right:0;z-index:100;height:40px}
-#app-tabs{position:fixed;top:40px;left:0;right:0;z-index:99}
-/* ══ PC/スマホ 切り替えレイアウト ══ */
-body{overflow:auto}
-.wrap{width:100%;padding:0;margin:0;max-width:none}
-
-/* ── PC モード ── */
-body.pc-mode{overflow:hidden}
-body.pc-mode .ride-layout{
-  display:grid;
-  grid-template-columns:7fr 3fr;
-  width:100vw;
-  overflow:visible;
-}
-body.pc-mode .ride-map-col{
-  position:sticky;
-  top:0;
-  overflow-y:auto;
-  padding:6px;
-  min-height:400px;
-}
-body.pc-mode .ride-settings-col{
-  overflow-y:scroll;
-  padding:6px;
-  border-left:1px solid var(--border);
-  background:var(--bg);
-  min-height:400px;
-}
-body.pc-mode #gmap{min-height:300px}
-body.pc-mode #drawer-toggle{display:none !important}
+/* ══ PC レイアウト（769px以上） ══ */
+body.pc-mode .app-body{display:grid;grid-template-columns:7fr 3fr}
+body.pc-mode .ride-map-col{overflow-y:auto;padding:8px}
+body.pc-mode .ride-settings-col{overflow-y:scroll;border-left:1px solid var(--border);background:var(--bg);padding:8px}
+body.pc-mode #drawer-toggle{display:none}
 body.pc-mode #drawer-content{display:block !important}
 
-/* ── スマホ モード ── */
-body.sp-mode{overflow:auto}
-body.sp-mode .ride-layout{display:block;width:100%}
-body.sp-mode .ride-map-col{width:100%;padding:4px}
-body.sp-mode .ride-settings-col{
-  width:100%;border-top:2px solid var(--border2);padding:8px;
-}
-body.sp-mode #gmap{height:60vh !important;min-height:250px}
-body.sp-mode #drawer-toggle{
-  display:flex !important;align-items:center;justify-content:center;gap:6px;
+/* ══ SP レイアウト（768px以下 or sp-mode） ══ */
+body.sp-mode .app-body{display:block}
+body.sp-mode .ride-map-col{padding:4px}
+body.sp-mode .ride-settings-col{border-top:2px solid var(--border2);padding:8px;background:var(--bg)}
+body.sp-mode #gmap{height:60vh !important;min-height:240px}
+body.sp-mode #drawer-toggle{display:flex;align-items:center;justify-content:center;gap:6px;
   width:100%;padding:8px;background:var(--bg2);border:none;border-radius:var(--rs);
-  font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;margin-bottom:6px;font-family:inherit;
-}
-body.sp-mode #drawer-content.collapsed{display:none !important}
-/* ── panel ── */
-.panel{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--r);padding:13px 15px;margin-bottom:9px}
-.pt{font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.09em;margin-bottom:11px}
+  font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;margin-bottom:6px;font-family:inherit}
+body.sp-mode #drawer-content.collapsed{display:none}
 
-/* ── grid helpers ── */
-.g2{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:9px}
-.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;margin-bottom:9px}
-.g4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:9px;margin-bottom:9px}
+/* ── layout-toggle btn ── */
+#layout-toggle{margin-left:auto;padding:5px 12px;border:0.5px solid var(--border2);border-radius:20px;
+  background:var(--bg2);color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap}
+
+/* ── 共通コンポーネント ── */
+.panel{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--r);padding:12px 14px;margin-bottom:8px}
+.pt{font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.09em;margin-bottom:10px}
 .field{display:flex;flex-direction:column;gap:4px}
-.field label{font-size:10px;font-weight:600;color:var(--text2)}
-.field input,.field select{font-size:13px;padding:7px 9px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text);width:100%;font-family:inherit;transition:border-color .14s}
-.field input:focus,.field select:focus{outline:none;border-color:var(--acc)}
-.hint{font-size:9px;color:var(--text3);margin-top:2px;line-height:1.5}
-
-/* ── result cards ── */
+label{font-size:10px;font-weight:600;color:var(--text2)}
+input[type=number],input[type=text],input[type=time],select{
+  font-size:13px;padding:7px 9px;border:0.5px solid var(--border2);
+  border-radius:var(--rs);background:var(--bg);color:var(--text);font-family:inherit;width:100%}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px}
+.g4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px}
+.hint{font-size:10px;color:var(--text3)}
+.bs{padding:5px 10px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text);font-size:11px;cursor:pointer;font-family:inherit}
+.bp{padding:7px 14px;border:none;border-radius:var(--rs);background:var(--acc);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+.bsm{padding:4px 7px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text2);font-size:11px;cursor:pointer;font-family:inherit}
+.brow{display:flex;gap:8px;align-items:center;margin-top:10px;padding-top:10px;border-top:0.5px solid var(--border)}
+.sm{font-size:11px;color:var(--green)}
 .rg{display:grid;grid-template-columns:repeat(auto-fit,minmax(115px,1fr));gap:7px;margin-bottom:10px}
-.card{background:var(--bg2);border-radius:var(--rs);padding:10px 12px}
-.card.HL{background:var(--acc)}
-.card.HL .cl,.card.HL .cs{color:rgba(255,255,255,.55)}
-.card.HL .cv{color:#fff}
-.cl{font-size:9px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px}
-.cv{font-size:20px;font-weight:500;color:var(--text);font-variant-numeric:tabular-nums;line-height:1.1}
-.cv.xl{font-size:26px}
-.cs{font-size:10px;color:var(--text3);margin-top:2px}
+.card{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--r);padding:12px 14px}
+.card .cv{font-size:22px;font-weight:500;line-height:1.15;margin:4px 0 2px}
+.card .cl{font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em}
+.card .cs{font-size:10px;color:var(--text3);margin-top:2px}
+.card.hl{background:var(--acc);color:#fff;border-color:var(--acc)}.card.hl .cl{color:rgba(255,255,255,.6)}.card.hl .cs{color:rgba(255,255,255,.7)}
+.card.gr{background:var(--greenbg);border-color:transparent}.card.gr .cv{color:var(--green)}
+.modebt{flex:1;padding:8px 6px;font-size:12px;font-weight:500;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text2);cursor:pointer;font-family:inherit;transition:all .14s}
+.modebt.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.course-btn{padding:5px 4px;font-size:10px;font-weight:600;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text2);cursor:pointer;font-family:inherit;transition:all .14s;text-align:center}
+.course-btn.on{background:var(--acc);color:#fff;border-color:var(--acc)}
 
-/* ── zone bar ── */
-.zbar{display:flex;gap:3px;margin-bottom:7px}
-.zp{flex:1;text-align:center;padding:5px 2px;border-radius:var(--rs);font-size:9px;font-weight:600;cursor:pointer;border:2px solid transparent;transition:all .14s;line-height:1.35}
-.zp.on{border-color:var(--acc);transform:scale(1.05)}
-.zp span{display:block;font-size:8px;font-weight:400;margin-top:1px}
+/* ── ダイヤル ── */
+.dial-wrap{display:flex;align-items:center;gap:6px;background:var(--bg2);border:1.5px solid var(--border2);border-radius:var(--rs);padding:8px 12px;justify-content:center}
+.dial-col{display:flex;flex-direction:column;align-items:center;gap:3px}
+.dial-btn{background:none;border:none;color:var(--text2);font-size:16px;cursor:pointer;padding:3px 10px;border-radius:4px;line-height:1;font-family:inherit;user-select:none}
+.dial-btn:hover{background:var(--bg3);color:var(--text)}
+.dial-val{font-size:30px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--text);min-width:48px;text-align:center;line-height:1.1}
+.dial-sep{font-size:28px;font-weight:300;color:var(--text2);padding:0 2px;margin-top:2px}
 
-/* ── power pills ── */
-.ppills{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:9px}
-.pp{background:var(--bg2);border-radius:var(--rs);padding:7px 9px;text-align:center}
-.ppl{font-size:9px;color:var(--text2);margin-bottom:2px}
-.ppv{font-size:15px;font-weight:500;color:var(--text);font-variant-numeric:tabular-nums}
+/* ── POI ── */
+.poi-icon-btn{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px;
+  border:0.5px solid var(--border);border-radius:var(--rs);background:var(--bg);cursor:pointer;
+  font-size:18px;line-height:1;font-family:inherit;transition:all .14s;width:100%}
+.poi-icon-btn div{font-size:8px;color:var(--text3);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;text-align:center}
+.poi-icon-btn:hover{background:var(--bg2)}.poi-icon-btn.active{background:var(--acc);border-color:var(--acc)}.poi-icon-btn.active div{color:rgba(255,255,255,.8)}
+
+/* ── map ── */
+#gmap{width:100%;min-height:300px;border-radius:var(--rs);background:var(--bg2)}
+.msb-cell{padding:0 12px;text-align:center;border-right:0.5px solid rgba(255,255,255,.15)}
+.msb-cell:last-child{border-right:none}
+.msb-label{font-size:9px;font-weight:600;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.07em;margin-bottom:2px}
+.msb-val{font-size:18px;font-weight:500;color:#fff;font-variant-numeric:tabular-nums}
+@media(max-width:480px){.msb-cell{padding:0 6px}.msb-val{font-size:13px}.msb-label{font-size:8px}}
+
+/* ── wp-list ── */
+.wp-row{display:grid;grid-template-columns:10px 1fr 44px 40px 44px 16px;gap:3px;padding:3px 4px;border-bottom:0.5px solid var(--border);font-size:10px;align-items:center}
+.sr-card{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--r);padding:12px 14px;margin-bottom:8px;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:start}
+
+/* ── route-info ── */
+.ri-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.ri-chip{background:var(--bg2);border-radius:var(--rs);padding:4px 10px;font-size:11px}
+.ri-chip span{font-weight:600;color:var(--text)}
 
 /* ── compass ── */
-.cwrap{display:flex;gap:12px;align-items:flex-start;margin-bottom:9px}
-.winds{flex:1;display:flex;flex-direction:column;gap:7px}
+.compass-wrap{display:flex;flex-direction:column;align-items:center;gap:4px}
 
-/* ── breakdown ── */
-.bk-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid var(--border)}
-.bk-row:last-child{border-bottom:none}
-.bk-left{flex:1}
-.bk-label{font-size:11px;color:var(--text2)}
-.bk-bar-bg{height:4px;background:var(--bg3);border-radius:2px;margin-top:3px;overflow:hidden}
-.bk-bar{height:4px;border-radius:2px;transition:width .4s}
-.bk-val{font-size:12px;font-weight:500;font-variant-numeric:tabular-nums;min-width:44px;text-align:right}
-.dtag{font-size:9px;padding:1px 5px;border-radius:20px;font-weight:600;margin-left:4px}
-.dp{background:var(--redbg);color:var(--red)}
-.dm{background:var(--greenbg);color:var(--green)}
-.dn{background:var(--bg2);color:var(--text3)}
+/* ── zone bar ── */
+.zone-row{display:flex;align-items:center;gap:8px;margin-bottom:4px;cursor:pointer;padding:4px 6px;border-radius:var(--rs)}
+.zone-row:hover{background:var(--bg2)}.zone-row.on{background:var(--bg2)}
+.zone-bar-bg{flex:1;height:6px;border-radius:3px;background:var(--bg3);overflow:hidden}
+.zone-bar-fill{height:100%;border-radius:3px;transition:width .3s}
 
-
-/* ── intensity meter ── */
-.i-meter{height:7px;background:var(--bg3);border-radius:4px;overflow:hidden;margin-bottom:3px}
-.i-fill{height:7px;border-radius:4px;transition:width .5s}
-.i-labels{display:flex;justify-content:space-between;font-size:8px;color:var(--text3);margin-bottom:8px}
-.factor-tbl{width:100%;border-collapse:collapse;font-size:11px}
-.factor-tbl td{padding:5px 3px;border-bottom:0.5px solid var(--border);vertical-align:middle}
-.factor-tbl tr:last-child td{border-bottom:none}
-.factor-tbl td:first-child{color:var(--text2);width:42%}
-.factor-tbl td:last-child{text-align:right;font-weight:500;font-variant-numeric:tabular-nums}
-.wbar-bg{display:inline-block;width:60px;height:4px;background:var(--bg3);border-radius:2px;vertical-align:middle;margin:0 6px;overflow:hidden}
-.wbar-fill{height:4px;border-radius:2px}
-
-/* ── btn ── */
-.brow{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:4px}
-.bp{background:var(--acc);color:#fff;border:none;padding:8px 20px;border-radius:var(--rs);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;transition:opacity .14s}
-.bp:hover{opacity:.8}
-.bs{background:none;border:0.5px solid var(--border2);padding:8px 16px;border-radius:var(--rs);font-size:12px;color:var(--text);cursor:pointer;font-family:inherit}
-.bs:hover{background:var(--bg2)}
-.bsm{background:none;border:0.5px solid var(--border);padding:4px 8px;border-radius:var(--rs);font-size:11px;color:var(--text2);cursor:pointer;font-family:inherit}
-.sm{font-size:11px;color:var(--text2)}
-
-/* ── log ── */
-.lh{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}
-.ltw{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--r);overflow:auto}
-.lt{width:100%;border-collapse:collapse;font-size:11px;min-width:620px}
-.lt th{font-weight:600;color:var(--text2);text-align:left;padding:6px 8px;border-bottom:0.5px solid var(--border);font-size:9px;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
-.lt td{padding:7px 8px;border-bottom:0.5px solid var(--border);color:var(--text);vertical-align:middle}
-.lt tr:last-child td{border-bottom:none}
-.lt tr:hover td{background:var(--bg2)}
-.badge{display:inline-block;font-size:9px;font-weight:600;padding:2px 7px;border-radius:20px}
-.br{background:var(--bluebg);color:var(--blue)}
-.bn{background:var(--greenbg);color:var(--green)}
-.bt{background:var(--amberbg);color:var(--amber)}
-.empty{text-align:center;padding:3rem 1rem;color:var(--text3);font-size:13px;line-height:2}
-
-@media(max-width:540px){
-  .g4{grid-template-columns:1fr 1fr}.g3{grid-template-columns:1fr 1fr}
-  .ppills{grid-template-columns:1fr 1fr}.rg{grid-template-columns:1fr 1fr}
-}
+/* ── misc ── */
+.ppills{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:8px}
+@media(max-width:500px){.g4{grid-template-columns:1fr 1fr}.g3{grid-template-columns:1fr 1fr}.ppills{grid-template-columns:1fr 1fr}}
 </style>
+
 <script>
 (function(){
   var k=['AIzaSyBhHoe','SN2ARNTD','lL7SG4fhD_48Fw5efGYw'].join('');
   var s=document.createElement('script');
   s.src='https://maps.googleapis.com/maps/api/js?key='+k+'&libraries=places,geometry&callback=initMap';
-  s.async=true;
-  s.defer=true;
+  s.async=true;s.defer=true;
   document.head.appendChild(s);
 })();
 </script>
 </head>
-<body>
 
-<header id="app-header">
+<body class="pc-mode">
+<header>
   <h1>Ride Pace Planner <span class="ver">v8</span></h1>
   <span class="sub">ライド計画 / Google Maps ルート連携</span>
-  <button id="layout-toggle" onclick="toggleLayout()" style="margin-left:auto;padding:5px 14px;border:0.5px solid var(--border2);border-radius:20px;background:var(--bg2);color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">📱 スマホ</button>
+  <button id="layout-toggle" onclick="toggleLayout()">📱 スマホ</button>
 </header>
 
-<div class="wrap">
 <div class="tabs" id="app-tabs">
-  <button class="tab on"  onclick="sw('ride')">🚴 ライド計画</button>
-  <button class="tab"     onclick="sw('run')">🏃 ラン</button>
-  <button class="tab"     onclick="sw('tri')">Bike→Run</button>
-  <button class="tab"     onclick="sw('saved')">📁 保存ルート</button>
-  <button class="tab"     onclick="sw('log')">ログ</button>
-  <button class="tab"     onclick="sw('settings')">⚙️ 設定</button>
+  <button class="tab on" onclick="sw('ride')">🚴 ライド</button>
+  <button class="tab" onclick="sw('run')">🏃 ラン</button>
+  <button class="tab" onclick="sw('tri')">Bike→Run</button>
+  <button class="tab" onclick="sw('saved')">📁 保存</button>
+  <button class="tab" onclick="sw('log')">ログ</button>
+  <button class="tab" onclick="sw('settings')">⚙️ 設定</button>
 </div>
 
-<!-- ══════════════════════════════════
-     RIDE
-══════════════════════════════════ -->
-<div class="sec on" id="sec-ride">
-<div class="ride-layout">
-<!-- 左列：地図 -->
+<div class="app-body" id="app-body">
+
+<!-- ══ RIDE ══ -->
+<div class="sec on" id="sec-ride" style="display:contents">
+
 <div class="ride-map-col">
   <div class="panel" id="map-panel">
     <div class="pt" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
@@ -410,7 +302,6 @@ body.sp-mode #drawer-content.collapsed{display:none !important}
   </div><!-- /map panel -->
 </div><!-- /ride-map-col -->
 
-<!-- 右列：設定・結果 -->
 <div class="ride-settings-col">
   <button id="drawer-toggle" onclick="toggleDrawer()">
     ⚙️ 設定・計画パネル <span id="drawer-arrow">▼</span>
@@ -502,9 +393,9 @@ body.sp-mode #drawer-content.collapsed{display:none !important}
           </div>
           <div class="dial-sep">:</div>
           <div class="dial-col">
-            <button class="dial-btn" onclick="dialAdj('start','m',-1)">▲</button>
+            <button class="dial-btn" onclick="dialAdj('start','m',-10)">▲</button>
             <div class="dial-val" id="ds-m">00</div>
-            <button class="dial-btn" onclick="dialAdj('start','m',1)">▼</button>
+            <button class="dial-btn" onclick="dialAdj('start','m',10)">▼</button>
           </div>
         </div>
         <input type="hidden" id="r-start" value="08:00">
@@ -520,9 +411,9 @@ body.sp-mode #drawer-content.collapsed{display:none !important}
           </div>
           <div class="dial-sep">:</div>
           <div class="dial-col">
-            <button class="dial-btn" onclick="dialAdj('end','m',-1)">▲</button>
+            <button class="dial-btn" onclick="dialAdj('end','m',-10)">▲</button>
             <div class="dial-val" id="de-m">--</div>
-            <button class="dial-btn" onclick="dialAdj('end','m',1)">▼</button>
+            <button class="dial-btn" onclick="dialAdj('end','m',10)">▼</button>
           </div>
         </div>
         <input type="hidden" id="r-end" value="">
@@ -735,9 +626,11 @@ body.sp-mode #drawer-content.collapsed{display:none !important}
   </div>
 </div><!-- /drawer-content -->
 </div><!-- /ride-settings-col -->
-</div><!-- /ride-layout -->
+
 </div><!-- /sec-ride -->
-══════════════════════════════════ -->
+
+<!-- ══ OTHER SECS（ラン・トライ・保存・ログ・設定）══ -->
+<div class="sec" id="sec-run-wrap" style="display:contents">
 <div class="sec" id="sec-run">
   <div style="display:grid;gap:10px" id="run-layout">
 
@@ -777,9 +670,9 @@ body.sp-mode #drawer-content.collapsed{display:none !important}
           </div>
           <div class="dial-sep">:</div>
           <div class="dial-col">
-            <button class="dial-btn" onclick="runDialAdj('start','m',-1)">▲</button>
+            <button class="dial-btn" onclick="runDialAdj('start','m',-10)">▲</button>
             <div class="dial-val" id="run-ds-m">00</div>
-            <button class="dial-btn" onclick="runDialAdj('start','m',1)">▼</button>
+            <button class="dial-btn" onclick="runDialAdj('start','m',10)">▼</button>
           </div>
         </div>
         <input type="hidden" id="n-start" value="08:00">
@@ -795,9 +688,9 @@ body.sp-mode #drawer-content.collapsed{display:none !important}
           </div>
           <div class="dial-sep">:</div>
           <div class="dial-col">
-            <button class="dial-btn" onclick="runDialAdj('end','m',-1)">▲</button>
+            <button class="dial-btn" onclick="runDialAdj('end','m',-10)">▲</button>
             <div class="dial-val" id="run-de-m">--</div>
-            <button class="dial-btn" onclick="runDialAdj('end','m',1)">▼</button>
+            <button class="dial-btn" onclick="runDialAdj('end','m',10)">▼</button>
           </div>
         </div>
         <input type="hidden" id="n-end" value="">
@@ -1034,9 +927,23 @@ body.sp-mode #drawer-content.collapsed{display:none !important}
   <div id="log-wrap"><div class="empty">ログはまだありません。<br>各タブから保存してください。</div></div>
 </div>
 
-</div><!-- /wrap -->
+
+</div>
+
+</div><!-- /app-body -->
 
 <script>
+
+(function(){
+  var k=['AIzaSyBhHoe','SN2ARNTD','lL7SG4fhD_48Fw5efGYw'].join('');
+  var s=document.createElement('script');
+  s.src='https://maps.googleapis.com/maps/api/js?key='+k+'&libraries=places,geometry&callback=initMap';
+  s.async=true;
+  s.defer=true;
+  document.head.appendChild(s);
+})();
+
+
 /* ══════════════════════════════════════
    物理エンジン
 ══════════════════════════════════════ */
@@ -1568,7 +1475,7 @@ function runDialAdj(type,part,delta){
   const s=runDialState[type];
   if(type==='end'&&s.h===null){s.h=(runDialState.start.h+1)%24;s.m=runDialState.start.m;}
   if(part==='h') s.h=(((s.h||0)+delta)%24+24)%24;
-  else s.m=(((s.m||0)+delta)%60+60)%60;
+  else s.m=Math.round(((((s.m||0)+delta)%60)+60)%60/10)*10%60;
   updateRunDial(type);
   syncRunDial(type);
   if(type==='end'){
@@ -2360,6 +2267,18 @@ function updateRtLabel(){
 }
 
 function initMap(){
+  // 今日の日付を確実にセット
+  (function(){
+    var td=new Date().toISOString().split('T')[0];
+    ['dl-date','run-dl-date'].forEach(function(id){
+      var el=document.getElementById(id);
+      if(el) el.value=td;
+    });
+  })();
+  setTimeout(function(){
+    try{ renderDaylight(); }catch(e){}
+    setPCHeights();
+  },600);
   const mapDiv=document.getElementById('gmap');
   if(!mapDiv) return;
 
@@ -3962,80 +3881,54 @@ updateDialDisplay('start');
   if(p.start) setDialFromString('start', p.start);
   if(p.spd) baseSpdValue=+p.spd;
 })();
-// ══ PC/スマホ モード切替 ══
+
+// ══ PC高さ管理 ══
+function setPCHeights(){
+  if(window.innerWidth<=768) return;
+  var header=document.querySelector('header');
+  var tabs=document.querySelector('.tabs');
+  var hH=header?header.offsetHeight:44;
+  var tH=tabs?tabs.offsetHeight:44;
+  var avail=window.innerHeight-hH-tH;
+  var settingsCol=document.querySelector('.ride-settings-col');
+  var mapCol=document.querySelector('.ride-map-col');
+  var gmapEl=document.getElementById('gmap');
+  var mapPanel=document.getElementById('map-panel');
+  if(settingsCol) settingsCol.style.height=avail+'px';
+  if(mapCol) mapCol.style.height=avail+'px';
+  if(gmapEl&&mapPanel){
+    var panelH=mapPanel.offsetHeight;
+    gmapEl.style.height=Math.max(250,avail-panelH-20)+'px';
+  }
+}
+window.addEventListener('load',function(){ setTimeout(setPCHeights,100); });
+window.addEventListener('resize',setPCHeights);
+
+// ══ PC/SP 切り替え ══
 function toggleLayout(){
-  const body=document.body;
-  const btn=document.getElementById('layout-toggle');
+  var body=document.body;
+  var btn=document.getElementById('layout-toggle');
   if(body.classList.contains('pc-mode')){
     body.classList.replace('pc-mode','sp-mode');
     if(btn) btn.textContent='🖥 PC表示';
     localStorage.setItem('rpp_layout','sp');
   } else {
     body.classList.replace('sp-mode','pc-mode');
-    if(btn) btn.textContent='📱 スマホ表示';
+    if(btn) btn.textContent='📱 スマホ';
     localStorage.setItem('rpp_layout','pc');
+    setTimeout(setPCHeights,50);
   }
-  setPCHeights();
-  setTimeout(()=>{if(typeof gmap!=='undefined'&&gmap) google.maps.event.trigger(gmap,'resize');},150);
+  if(typeof gmap!=='undefined'&&gmap) setTimeout(function(){ google.maps.event.trigger(gmap,'resize'); },100);
 }
-
-function setPCHeights(){
-  if(!document.body.classList.contains('pc-mode')) return;
-  const header=document.querySelector('header');
-  const tabs=document.querySelector('.tabs');
-  const hH=(header?header.getBoundingClientRect().height:44);
-  const tH=(tabs?tabs.getBoundingClientRect().height:44);
-  const top=Math.round(hH+tH);
-  const h=window.innerHeight-top;
-
-  const mapCol=document.querySelector('.ride-map-col');
-  const settingsCol=document.querySelector('.ride-settings-col');
-  const gmap=document.getElementById('gmap');
-  const mapPanel=document.getElementById('map-panel');
-
-  if(mapCol){ mapCol.style.height=h+'px'; mapCol.style.top=top+'px'; }
-  if(settingsCol){ settingsCol.style.height=h+'px'; }
-  if(gmap&&mapPanel){
-    const panelH=mapPanel.getBoundingClientRect().height;
-    gmap.style.height=Math.max(250,h-panelH-16)+'px';
-  }
-}
-window.addEventListener('load', setPCHeights);
-window.addEventListener('resize', setPCHeights);
-// 保存済みモードを復元
 (function(){
-  const saved=localStorage.getItem('rpp_layout');
-  const btn=document.getElementById('layout-toggle');
+  var saved=localStorage.getItem('rpp_layout');
   if(saved==='sp'){
     document.body.classList.replace('pc-mode','sp-mode');
+    var btn=document.getElementById('layout-toggle');
     if(btn) btn.textContent='🖥 PC表示';
   }
 })();
 
-// ══ 今日の日付：無条件でセット ══
-(function(){
-  const today=new Date().toISOString().split('T')[0];
-  ['dl-date','run-dl-date'].forEach(function(id){
-    const el=document.getElementById(id);
-    if(el) el.value=today;
-  });
-})();
-
-// ══ 日照：initMap完了後に実行（Maps API依存のため） ══
-const __rppOrigInit=window.initMap;
-window.initMap=function(){
-  if(__rppOrigInit) __rppOrigInit.call(this);
-  setTimeout(function(){
-    // 日付を再確認してセット
-    const today=new Date().toISOString().split('T')[0];
-    const dlDate=document.getElementById('dl-date');
-    if(dlDate&&!dlDate.value) dlDate.value=today;
-    // 日照レンダリング
-    try{ renderDaylight(); }catch(e){ console.warn('daylight:',e); }
-    // レイアウト高さ設定（Maps API読み込み完了後）
-    setPCHeights();
-  },400);
-};
 </script>
 </body>
 </html>
