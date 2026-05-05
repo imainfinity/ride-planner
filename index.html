@@ -2895,8 +2895,11 @@ function syncRouteToUI(){
   if(rtEl) rtEl.value='0';
   updateRtLabel();
 
-  // スタート時刻をダイヤルから取得してバーに反映
-  const startVal=document.getElementById('r-start').value||'08:00';
+  // スタート時刻はdialStateから直接取得
+  const _sh=dialState.start.h!=null?dialState.start.h:8;
+  const _sm=dialState.start.m!=null?dialState.start.m:0;
+  const startVal=`${String(_sh).padStart(2,'0')}:${String(_sm).padStart(2,'0')}`;
+  document.getElementById('r-start').value=startVal;
   const msbStart=document.getElementById('msb-start');
   if(msbStart) msbStart.textContent=startVal;
 
@@ -2925,9 +2928,9 @@ function updateMapStatsBar(distKm, gainM, maxGrade){
   document.getElementById('msb-dist').textContent=(+distKm).toFixed(1)+' km';
   document.getElementById('msb-elev').textContent=(+gainM).toFixed(0)+' m';
   document.getElementById('msb-grade').textContent=(+maxGrade).toFixed(1)+'%';
-  // スタート時刻をダイヤルから取得
-  const sh=dialState.start.h, sm=dialState.start.m;
-  const startStr=`${String(sh).padStart(2,'0')}:${String(sm).padStart(2,'0')}`;
+  const _s=dialState.start;
+  const startStr=`${String(_s.h!=null?_s.h:8).padStart(2,'0')}:${String(_s.m!=null?_s.m:0).padStart(2,'0')}`;
+  document.getElementById('r-start').value=startStr;
   document.getElementById('msb-start').textContent=startStr;
   // 予想時間・到着時刻はcalc()に任せる（calc()が必ず後で呼ばれる）
 }
@@ -3668,8 +3671,17 @@ function dialAdj(type,part,delta){
   updateDialDisplay(type);
   syncDialToHidden(type);
   if(type==='end'){const w=document.getElementById('dial-end-wrap');if(w)w.style.opacity='1';}
-  const bar=document.getElementById('map-stats-bar');
-  if(bar) bar.style.display='block';
+  // 黒帯のスタート時刻を即反映
+  if(type==='start'){
+    const _sh=dialState.start.h!=null?dialState.start.h:8;
+    const _sm=dialState.start.m!=null?dialState.start.m:0;
+    const _st=`${String(_sh).padStart(2,'0')}:${String(_sm).padStart(2,'0')}`;
+    document.getElementById('r-start').value=_st;
+    const msb=document.getElementById('msb-start');
+    if(msb) msb.textContent=_st;
+    const bar=document.getElementById('map-stats-bar');
+    if(bar) bar.style.display='block';
+  }
   if(type==='end') smartCalc('end');
   else onStartChange();
 }
