@@ -120,18 +120,18 @@ body.pc-mode .ride-layout{
 body.pc-mode .ride-map-col{
   position:sticky;
   top:0;
-  height:calc(100vh - 88px);
   overflow-y:auto;
   padding:6px;
+  min-height:400px;
 }
 body.pc-mode .ride-settings-col{
-  height:calc(100vh - 88px);
   overflow-y:scroll;
   padding:6px;
   border-left:1px solid var(--border);
   background:var(--bg);
+  min-height:400px;
 }
-body.pc-mode #gmap{height:calc(100vh - 310px) !important;min-height:300px}
+body.pc-mode #gmap{min-height:300px}
 body.pc-mode #drawer-toggle{display:none !important}
 body.pc-mode #drawer-content{display:block !important}
 
@@ -3975,8 +3975,33 @@ function toggleLayout(){
     if(btn) btn.textContent='📱 スマホ表示';
     localStorage.setItem('rpp_layout','pc');
   }
+  setPCHeights();
   setTimeout(()=>{if(typeof gmap!=='undefined'&&gmap) google.maps.event.trigger(gmap,'resize');},150);
 }
+
+function setPCHeights(){
+  if(!document.body.classList.contains('pc-mode')) return;
+  const header=document.querySelector('header');
+  const tabs=document.querySelector('.tabs');
+  const hH=(header?header.getBoundingClientRect().height:44);
+  const tH=(tabs?tabs.getBoundingClientRect().height:44);
+  const top=Math.round(hH+tH);
+  const h=window.innerHeight-top;
+
+  const mapCol=document.querySelector('.ride-map-col');
+  const settingsCol=document.querySelector('.ride-settings-col');
+  const gmap=document.getElementById('gmap');
+  const mapPanel=document.getElementById('map-panel');
+
+  if(mapCol){ mapCol.style.height=h+'px'; mapCol.style.top=top+'px'; }
+  if(settingsCol){ settingsCol.style.height=h+'px'; }
+  if(gmap&&mapPanel){
+    const panelH=mapPanel.getBoundingClientRect().height;
+    gmap.style.height=Math.max(250,h-panelH-16)+'px';
+  }
+}
+window.addEventListener('load', setPCHeights);
+window.addEventListener('resize', setPCHeights);
 // 保存済みモードを復元
 (function(){
   const saved=localStorage.getItem('rpp_layout');
@@ -4007,6 +4032,8 @@ window.initMap=function(){
     if(dlDate&&!dlDate.value) dlDate.value=today;
     // 日照レンダリング
     try{ renderDaylight(); }catch(e){ console.warn('daylight:',e); }
+    // レイアウト高さ設定（Maps API読み込み完了後）
+    setPCHeights();
   },400);
 };
 </script>
