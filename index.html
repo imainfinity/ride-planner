@@ -3806,50 +3806,49 @@ function smartCalc(trigger){
   const netMins=effDist/moveSpd*60;
   const totalMins=netMins/ratio;
 
-  // ── 起点によって更新先を決定 ──
+  // ── 終了時刻が設定済みなら常に逆算（triggerに関わらず） ──
   const endVal=document.getElementById('r-end')?.value?.trim()||'';
   const endMatch=endVal.match(/^(\d{1,2}):(\d{2})$/);
-  const startVal=document.getElementById('r-start').value||'';
 
-  if(trigger==='end'&&endMatch){
-    // 終了時刻 → スタートを逆算
-    const eh=+endMatch[1], em=+endMatch[2];
+  // 終了ダイヤルが設定済み = 逆算モード
+  const endIsSet = dialState.end.h!==null && dialState.end.m!==null;
+
+  if(endIsSet){
+    // 終了時刻固定 → スタートを逆算
+    const eh=dialState.end.h, em=dialState.end.m;
     const endH=eh+em/60;
+    const endStr=`${String(eh).padStart(2,'0')}:${String(em).padStart(2,'0')}`;
     const startH=endH-totalMins/60;
     const sHH=Math.floor(((startH%24)+24)%24);
     const sMM=Math.round((((startH%24)+24)%24%1)*60);
     const startStr=`${String(sHH).padStart(2,'0')}:${String(Math.min(sMM,59)).padStart(2,'0')}`;
     document.getElementById('r-start').value=startStr;
+    document.getElementById('r-end').value=endStr;
     setDialFromString('start',startStr);
-
     // バー更新
     const bar=document.getElementById('map-stats-bar');
     if(bar){ bar.style.display='block';
+      document.getElementById('msb-start').textContent=startStr;
       document.getElementById('msb-time').textContent=fmtD(totalMins);
-      document.getElementById('msb-arrive').textContent=endVal;
+      document.getElementById('msb-arrive').textContent=endStr;
     }
   } else {
-    // スタート・距離・速度・コース → 終了時刻を順算
-    if(startVal&&startVal.match(/^\d{2}:\d{2}$/)){
-      const [sh,sm]=startVal.split(':').map(Number);
-      const startH=sh+sm/60;
-      const endH=startH+totalMins/60;
-      const eHH=Math.floor(endH%24);
-      const eMM=Math.round((endH%1)*60);
-      const endStr=`${String(eHH).padStart(2,'0')}:${String(Math.min(eMM,59)).padStart(2,'0')}`;
-
-      // 終了欄が空の場合のみ自動入力（ユーザー入力中は上書きしない）
-      if(trigger!=='end'&&(!endMatch)){
-        document.getElementById('r-end').value=endStr;
-        setDialFromString('end',endStr);
-      }
-
-      // バー更新
-      const bar=document.getElementById('map-stats-bar');
-      if(bar){ bar.style.display='block';
-        document.getElementById('msb-time').textContent=fmtD(totalMins);
-        document.getElementById('msb-arrive').textContent=endStr+(endH>=24?' +1日':'');
-      }
+    // 終了未設定 → スタート固定で到着を順算
+    const sh=dialState.start.h!=null?dialState.start.h:8;
+    const sm=dialState.start.m!=null?dialState.start.m:0;
+    const startStr=`${String(sh).padStart(2,'0')}:${String(sm).padStart(2,'0')}`;
+    const startH=sh+sm/60;
+    const endH=startH+totalMins/60;
+    const eHH=Math.floor(endH%24);
+    const eMM=Math.round((endH%1)*60);
+    const endStr=`${String(eHH).padStart(2,'0')}:${String(Math.min(eMM,59)).padStart(2,'0')}`;
+    document.getElementById('r-end').value=endStr;
+    setDialFromString('end',endStr);
+    const bar=document.getElementById('map-stats-bar');
+    if(bar){ bar.style.display='block';
+      document.getElementById('msb-start').textContent=startStr;
+      document.getElementById('msb-time').textContent=fmtD(totalMins);
+      document.getElementById('msb-arrive').textContent=endStr+(endH>=24?' +1日':'');
     }
   }
 
