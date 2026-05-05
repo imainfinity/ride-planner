@@ -384,7 +384,7 @@ input[type=number],input[type=text],input[type=time],select{
     <!-- 時刻軸Canvas -->
     <!-- 時刻軸Canvas（1段・ホバーで距離表示） -->
     <div id="dl-time-wrap" style="overflow-x:auto;overflow-y:hidden;border-radius:5px;margin-bottom:2px;position:relative" onscroll="onTimeCanvasScroll(this)">
-      <canvas id="dl-time-canvas" height="48" style="display:block;min-width:100%;cursor:crosshair"></canvas>
+      <canvas id="dl-time-canvas" height="32" style="display:block;min-width:100%;cursor:crosshair"></canvas>
       <div id="dl-time-tooltip" style="display:none;position:absolute;top:4px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.82);color:#fff;border-radius:6px;padding:4px 10px;font-size:11px;pointer-events:none;white-space:nowrap;z-index:10"></div>
     </div>
   </div>
@@ -1968,12 +1968,12 @@ function renderDaylight(){
   row.innerHTML=phases.map((p,i)=>`
     <div class="twi-cell" id="twi-${p.key}" data-h="${p.h||''}"
          style="display:flex;flex-direction:column;align-items:center;overflow:hidden;
-                padding:2px 1px 2px;border-radius:4px;position:relative;
+                padding:1px 1px 2px;border-radius:4px;position:relative;
                 transition:background .3s,transform .2s;">
       <div style="font-size:${Math.round(p.sz*0.75)}px;line-height:1;margin-bottom:1px;flex-shrink:0">${p.icon}</div>
       <div style="font-size:${p.main?8:6.5}px;font-weight:${p.main?700:600};color:${p.col};text-align:center;line-height:1.1;margin-bottom:0;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.label}</div>
       <div style="display:none">${p.sub||'\u00a0'}</div>
-      <div class="twi-time" style="font-size:${p.main?10:8.5}px;font-weight:${p.main?700:500};font-variant-numeric:tabular-nums;color:var(--text)">${hToHHMM(p.h)}</div>
+      <div class="twi-time" style="font-size:${p.main?9.5:8}px;font-weight:${p.main?700:500};font-variant-numeric:tabular-nums;color:var(--text)">${hToHHMM(p.h)}</div>
       ${i<phases.length-1?`<div style="position:absolute;right:0;top:25%;bottom:25%;width:0.5px;background:var(--border)"></div>`:''}
     </div>
   `).join('');
@@ -2052,13 +2052,11 @@ function onTimeCanvasHover(e){
 function drawTimeCanvas(tw, startH, endH, dist, moveSpd){
   const wrap=document.getElementById('dl-time-wrap');
   const canvas=document.getElementById('dl-time-canvas');
-  const H=72;
+  const H=32;
   const totalHours=endH-startH;
-  const isBrevet=totalHours>12; // 12h超でブルベモード
-
-  // 幅：ブルベなら60px/h（スクロール）、通常は親幅
-  const PXH=isBrevet?60:0; // px per hour
-  const containerW=wrap?wrap.offsetWidth||680:680;
+  const isBrevet=totalHours>12;
+  const containerW=wrap?wrap.offsetWidth||360:360;
+  const PXH=60; // px per hour when scrollable
   const W=isBrevet?Math.max(containerW,Math.ceil(totalHours+2)*PXH):containerW;
   canvas.width=W; canvas.height=H;
   canvas.style.width=W+'px';
@@ -2067,7 +2065,7 @@ function drawTimeCanvas(tw, startH, endH, dist, moveSpd){
   const viewStart=startH-0.5;
   const viewEnd=endH+0.5;
   const span=viewEnd-viewStart;
-  const BAR=H*0.55;
+  const BAR=H*0.6;
   function xOf(h){return (h-viewStart)/span*W;}
   // timeline rowの幅をcanvasに合わせる（スクロール同期のため）
   const tRow=document.getElementById('dl-timeline-row');
@@ -2185,7 +2183,7 @@ function drawDistCanvas(tw, startH, endH, dist, moveSpd){
   canvas.width=W; canvas.height=H;
   const ctx=canvas.getContext('2d');
   const totalH=Math.max(0.01,endH-startH);
-  const BAR=H*0.55;
+  const BAR=H*0.6;
   const dk=matchMedia('(prefers-color-scheme:dark)').matches;
 
   // 背景グラデーション（翌日対応）
@@ -3085,7 +3083,7 @@ function hardClearRoute(){
   if(window._dragOverlay){window._dragOverlay.setMap(null);window._dragOverlay=null;}
   if(hoverPolyline){hoverPolyline.setMap(null);hoverPolyline=null;}
   if(sharedIW){sharedIW.close();sharedIW=null;}
-  directionsRenderer.setDirections({routes:[]});
+  try{ directionsRenderer.setDirections({routes:[]}); }catch(e){}
   goalFixed=false;
   historyStack=[];
   redoStack=[];
