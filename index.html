@@ -1267,11 +1267,18 @@ function setMode(m){
 function calc(){
   if(inputMode==='pwr') buildZone();
 
-  const distBase =+document.getElementById('r-dist').value||50;
-  const rt       =+document.getElementById('r-roundtrip')?.value||0;
-  const dist     = rt ? distBase*2 : distBase; // 往復なら2倍
-  const elev     =+document.getElementById('r-elev').value||0;
-  const effElev  = rt ? elev*2 : elev; // 往復なら獲得標高も2倍
+  // ルート指定済みの場合は_routeDataを優先（ダイヤル操作で上書きしない）
+  const rd=window._routeData;
+  const hasRoute=rd&&rd.distKm>0;
+
+  const distBase = hasRoute ? rd.distKm : (+document.getElementById('r-dist').value||50);
+  const elevBase  = hasRoute ? rd.gainM  : (+document.getElementById('r-elev').value||0);
+
+  // 往復計算：ルート指定済みの場合は既にルートに実距離が入っているので2倍しない
+  // （ゴール=スタートの一筆書きも同様）
+  const rt = hasRoute ? 0 : (+document.getElementById('r-roundtrip')?.value||0);
+  const dist    = rt ? distBase*2 : distBase;
+  const effElev = rt ? elevBase*2 : elevBase;
   const ratioRaw=+document.getElementById('r-ratio').value;
   const ratio  = ratioRaw>0 ? ratioRaw/100 : 1.0; // 未入力=100%
   const weather=+document.getElementById('r-weather').value||1;
@@ -3715,11 +3722,16 @@ let lastTouched='start'; // 'start' | 'end' | 'dist' | 'speed' | 'course'
 function smartCalc(trigger){
   lastTouched=trigger;
 
-  const distBase=+document.getElementById('r-dist').value||88;
-  const rt=+document.getElementById('r-roundtrip').value||0;
+  // ルート指定済みの場合は_routeDataを優先
+  const rd=window._routeData;
+  const hasRoute=rd&&rd.distKm>0;
+
+  const distBase= hasRoute ? rd.distKm : (+document.getElementById('r-dist').value||50);
+  const elevBase= hasRoute ? rd.gainM  : (+document.getElementById('r-elev').value||0);
+  // ルート指定済みは往復フラグを無視（実ルート距離が正）
+  const rt= hasRoute ? 0 : (+document.getElementById('r-roundtrip').value||0);
   const effDist=rt?distBase*2:distBase;
-  const elev=+document.getElementById('r-elev').value||0;
-  const effElev=rt?elev*2:elev;
+  const effElev=rt?elevBase*2:elevBase;
   const ratio=(+document.getElementById('r-ratio').value||85)/100;
   const weather=+document.getElementById('r-weather').value||1;
   const cond=+document.getElementById('r-cond').value||1;
