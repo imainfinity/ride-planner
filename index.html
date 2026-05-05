@@ -1283,10 +1283,11 @@ function calc(){
   const ratio  = ratioRaw>0 ? ratioRaw/100 : 1.0;
   const weather=+document.getElementById('r-weather').value||1;
   const cond   =+document.getElementById('r-cond').value||1;
-  // スタート時刻は必ずダイヤルから直接取得
-  const sh=dialState.start.h, sm=dialState.start.m;
-  const start=`${String(sh).padStart(2,'0')}:${String(sm).padStart(2,'0')}`;
-  document.getElementById('r-start').value=start; // hidden inputも同期
+  // スタート時刻：ダイヤルから確実に取得
+  const sh = (dialState && dialState.start && dialState.start.h!=null) ? dialState.start.h : 8;
+  const sm = (dialState && dialState.start && dialState.start.m!=null) ? dialState.start.m : 0;
+  const start = `${String(sh).padStart(2,'0')}:${String(sm).padStart(2,'0')}`;
+  document.getElementById('r-start').value = start;
   const wsp    =+document.getElementById('r-wsp').value||0;
   const wDir   =+document.getElementById('r-wdir').value||0;
   const rDir   =+document.getElementById('r-rdir').value||0;
@@ -2853,7 +2854,8 @@ function processElevation(elevResults,distKm,path){
   document.getElementById('ri-profile').textContent=profile;
   document.getElementById('ri-maxgrade').textContent=maxGrade.toFixed(1)+'%';
 
-  drawElevProfile({map:(e,i)=>({elevation:filtered[i]||e.elevation,location:e.location}),...elevResults});
+  const filteredElevResults=elevResults.map((e,i)=>({elevation:filtered[i]!=null?filtered[i]:e.elevation,location:e.location}));
+  drawElevProfile(filteredElevResults);
   window._routeData={distKm:+distKm, gainM, bearing, maxGrade};
 
   // 入力欄もルートデータで上書き（常にルートが正）
