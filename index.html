@@ -101,16 +101,66 @@ header .sub{font-size:11px;color:var(--text2);margin-left:4px}
   .msb-val{font-size:14px}
   .msb-label{font-size:8px;letter-spacing:0}
 }
-/* ── wide layout ── */
+/* ── ⑤ レスポンシブレイアウト ── */
+/* PC版：70/30固定・左右独立スクロール */
 @media(min-width:1100px){
-  .ride-layout{display:grid;grid-template-columns:1fr 380px;gap:14px;align-items:start}
-  .ride-map-col{position:sticky;top:60px}
+  .ride-layout{
+    display:grid;
+    grid-template-columns:70% 30%;
+    gap:0;
+    height:calc(100vh - 56px);
+    overflow:hidden;
+    align-items:start;
+  }
+  .ride-map-col{
+    height:100%;
+    overflow-y:auto;
+    position:sticky;
+    top:0;
+    padding:12px 8px 12px 12px;
+  }
+  .ride-settings-col{
+    height:100%;
+    overflow-y:auto;
+    padding:12px 12px 12px 8px;
+    border-left:0.5px solid var(--border);
+  }
+  #gmap{height:calc(100vh - 280px) !important;min-height:400px}
   #map-panel{margin-bottom:0}
-  #gmap{height:calc(100vh - 200px) !important;min-height:400px}
 }
-@media(max-width:600px){
+/* スマホ版：フルスクリーンマップ + ドロワー */
+@media(max-width:1099px){
+  .ride-layout{display:block}
+  .ride-map-col{padding:0}
   #gmap{height:calc(60vh) !important;min-height:280px}
-  .ride-map-col{margin-bottom:0}
+  .ride-settings-col{
+    position:relative;
+    background:var(--bg);
+    border-top:2px solid var(--border2);
+    padding:10px;
+  }
+  /* ドロワートグルボタン */
+  #drawer-toggle{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    width:100%;
+    padding:8px;
+    background:var(--bg2);
+    border:none;
+    border-radius:var(--rs);
+    font-size:12px;
+    font-weight:600;
+    color:var(--text2);
+    cursor:pointer;
+    margin-bottom:8px;
+  }
+  #drawer-content{display:block}
+  #drawer-content.collapsed{display:none}
+}
+@media(min-width:1100px){
+  #drawer-toggle{display:none}
 }
 /* ── panel ── */
 .panel{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--r);padding:13px 15px;margin-bottom:9px}
@@ -246,11 +296,12 @@ header .sub{font-size:11px;color:var(--text2);margin-left:4px}
     <div class="pt" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <span>🗺️ ルート設定</span>
       <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">
-        <button class="bs" onclick="clearRoute()"          style="font-size:11px;padding:4px 9px">🗑 クリア</button>
-        <button class="bs" onclick="undoWaypoint()"        style="font-size:11px;padding:4px 9px">↩ 戻す</button>
-        <button class="bs" onclick="downloadGPX()"         style="font-size:11px;padding:4px 9px">📤 GPX</button>
-        <button class="bs" onclick="showSaveDialog()"      style="font-size:11px;padding:4px 9px">💾 保存</button>
-        <button class="bp" onclick="manualSync()" style="font-size:11px;padding:5px 11px">🔄 同期・再計算</button>
+        <button class="bs" onclick="hardClearRoute()"  style="font-size:11px;padding:4px 9px">🗑 クリア</button>
+        <button class="bs" onclick="undoRoute()"          style="font-size:11px;padding:4px 9px">↩ Undo</button>
+        <button class="bs" onclick="redoRoute()"          style="font-size:11px;padding:4px 9px">↪ Redo</button>
+        <button class="bs" onclick="downloadGPX()"        style="font-size:11px;padding:4px 9px">📤 GPX</button>
+        <button class="bs" onclick="showSaveDialog()"     style="font-size:11px;padding:4px 9px">💾 保存</button>
+        <button class="bp" onclick="manualSync()"         style="font-size:11px;padding:5px 11px">🔄 同期</button>
       </div>
     </div>
     <div style="font-size:10px;color:var(--text3);margin-bottom:7px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
@@ -373,6 +424,10 @@ header .sub{font-size:11px;color:var(--text2);margin-left:4px}
 
 <!-- 右列：設定・結果 -->
 <div class="ride-settings-col">
+  <button id="drawer-toggle" onclick="toggleDrawer()">
+    ⚙️ 設定・計画パネル <span id="drawer-arrow">▼</span>
+  </button>
+  <div id="drawer-content">
 
   <!-- 📍 POIサイドバー（縦リスト） -->
   <div class="panel" style="margin-bottom:9px">
@@ -690,21 +745,157 @@ header .sub{font-size:11px;color:var(--text2);margin-left:4px}
     <button class="bs" onclick="calc()">再計算</button>
     <span class="sm" id="r-saved"></span>
   </div>
+</div><!-- /drawer-content -->
 </div><!-- /ride-settings-col -->
 </div><!-- /ride-layout -->
 </div><!-- /sec-ride -->
 ══════════════════════════════════ -->
 <div class="sec" id="sec-run">
+  <div style="display:grid;gap:10px" id="run-layout">
+
+  <!-- 日照タイムライン（ラン用） -->
   <div class="panel">
-    <div class="pt">ラン設定</div>
-    <div class="g3">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:6px">
+      <div id="run-dl-timeline-row" style="display:grid;grid-template-columns:repeat(8,1fr);width:100%;gap:0"></div>
+      <div style="display:flex;gap:5px;align-items:center;flex-shrink:0">
+        <input type="date" id="run-dl-date" oninput="calcRun()"
+               style="font-size:11px;padding:3px 7px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text)">
+        <select id="run-dl-pref" onchange="calcRun()"
+                style="font-size:11px;padding:3px 7px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text);max-width:90px">
+          <option value="33.61,130.42" selected>福岡</option>
+          <option value="35.69,139.69">東京</option>
+          <option value="34.69,135.50">大阪</option>
+          <option value="43.06,141.35">北海道</option>
+          <option value="26.21,127.68">沖縄</option>
+        </select>
+      </div>
+    </div>
+    <div style="overflow-x:auto;border-radius:4px;margin-bottom:4px">
+      <canvas id="run-dl-canvas" height="52" style="display:block;min-width:100%"></canvas>
+    </div>
+  </div>
+
+  <!-- 時刻設定（ダイヤル） -->
+  <div class="panel">
+    <div class="pt">時刻設定</div>
+    <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:start;margin-bottom:10px">
+      <div class="field">
+        <label style="font-size:11px;font-weight:700;color:var(--text)">🟢 スタート時刻</label>
+        <div class="dial-wrap">
+          <div class="dial-col">
+            <button class="dial-btn" onclick="runDialAdj('start','h',-1)">▲</button>
+            <div class="dial-val" id="run-ds-h">08</div>
+            <button class="dial-btn" onclick="runDialAdj('start','h',1)">▼</button>
+          </div>
+          <div class="dial-sep">:</div>
+          <div class="dial-col">
+            <button class="dial-btn" onclick="runDialAdj('start','m',-1)">▲</button>
+            <div class="dial-val" id="run-ds-m">00</div>
+            <button class="dial-btn" onclick="runDialAdj('start','m',1)">▼</button>
+          </div>
+        </div>
+        <input type="hidden" id="n-start" value="08:00">
+      </div>
+      <div style="text-align:center;font-size:18px;color:var(--text3);padding-top:36px">⇄</div>
+      <div class="field">
+        <label style="font-size:11px;font-weight:700;color:var(--text)">🔴 終了時刻（逆算）</label>
+        <div class="dial-wrap" id="run-dial-end-wrap" style="opacity:0.5">
+          <div class="dial-col">
+            <button class="dial-btn" onclick="runDialAdj('end','h',-1)">▲</button>
+            <div class="dial-val" id="run-de-h">--</div>
+            <button class="dial-btn" onclick="runDialAdj('end','h',1)">▼</button>
+          </div>
+          <div class="dial-sep">:</div>
+          <div class="dial-col">
+            <button class="dial-btn" onclick="runDialAdj('end','m',-1)">▲</button>
+            <div class="dial-val" id="run-de-m">--</div>
+            <button class="dial-btn" onclick="runDialAdj('end','m',1)">▼</button>
+          </div>
+        </div>
+        <input type="hidden" id="n-end" value="">
+        <div style="display:flex;justify-content:center;margin-top:5px">
+          <button onclick="clearRunEndDial()" style="font-size:11px;padding:3px 12px;background:none;border:0.5px solid var(--border2);border-radius:20px;color:var(--text2);cursor:pointer">✕ クリア</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- コース設定 -->
+  <div class="panel">
+    <div class="pt">コース設定</div>
+    <div class="g3" style="margin-bottom:8px">
       <div class="field"><label>距離 (km)</label><input type="number" id="n-dist" value="10" step="0.1" oninput="calcRun()"></div>
       <div class="field"><label>獲得標高 (m)</label><input type="number" id="n-elev" value="0" step="10" oninput="calcRun()"></div>
-      <div class="field"><label>スタート時刻</label><input type="time" id="n-start" value="08:00" oninput="calcRun()"></div>
+      <div class="field"><label>往復</label>
+        <select id="n-roundtrip" onchange="calcRun()" style="font-size:13px;padding:7px 9px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text)">
+          <option value="0">片道</option>
+          <option value="1">往復</option>
+        </select>
+      </div>
     </div>
-    <div class="g3">
-      <div class="field"><label>目標ペース (min/km)</label><input type="number" id="n-pace" value="5.0" step="0.05" oninput="calcRun()"></div>
-      <div class="field"><label>WORKOUT Ratio (%)</label><input type="number" id="n-ratio" value="80" step="1" oninput="calcRun()"></div>
+    <!-- コース補正 -->
+    <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;border-top:0.5px solid var(--border);padding-top:8px">
+      <span style="font-size:10px;font-weight:600;color:var(--text2)">コース補正:</span>
+      <div style="display:flex;gap:4px;flex:1">
+        <button class="course-btn on" id="run-cb-flat"  onclick="setRunCourse('flat')"  style="flex:1">🟢 平坦</button>
+        <button class="course-btn"    id="run-cb-hilly" onclick="setRunCourse('hilly')" style="flex:1">🟡 山道</button>
+        <button class="course-btn"    id="run-cb-hard"  onclick="setRunCourse('hard')"  style="flex:1">🔴 激坂</button>
+      </div>
+    </div>
+    <div style="font-size:10px;color:var(--text3);margin-top:5px" id="run-course-hint"></div>
+  </div>
+
+  <!-- 走力入力 -->
+  <div class="panel">
+    <div class="pt">走力入力</div>
+    <!-- モード切替 -->
+    <div style="display:flex;gap:3px;margin-bottom:12px">
+      <button id="run-btn-pace" class="modebt on" onclick="setRunMode('pace')">👟 ペースで入力</button>
+      <button id="run-btn-hr"   class="modebt"    onclick="setRunMode('hr')">❤️ 心拍ゾーンで入力</button>
+    </div>
+
+    <!-- ペースモード -->
+    <div id="run-block-pace">
+      <div class="g2">
+        <div class="field">
+          <label>目標ペース (min/km)</label>
+          <input type="number" id="n-pace" value="5.0" step="0.05" oninput="calcRun()">
+        </div>
+        <div class="field">
+          <label>WORKOUT Ratio (%)</label>
+          <input type="number" id="n-ratio" value="80" step="1" oninput="calcRun()">
+          <div class="hint">Net÷AllTime</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 心拍ゾーンモード -->
+    <div id="run-block-hr" style="display:none">
+      <div class="g2" style="margin-bottom:10px">
+        <div class="field">
+          <label>最大心拍数 (bpm)</label>
+          <input type="number" id="n-hrmax" value="180" step="1" oninput="syncRunZones();calcRun()">
+          <div class="hint">220 - 年齢 で目安</div>
+        </div>
+        <div class="field">
+          <label>WORKOUT Ratio (%)</label>
+          <input type="number" id="n-ratio-hr" value="80" step="1" oninput="calcRun()">
+        </div>
+      </div>
+      <!-- 心拍ゾーン -->
+      <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:6px">心拍ゾーン（クリックで選択）</div>
+      <div id="run-hr-zones" style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px"></div>
+      <div style="font-size:11px;color:var(--text2)" id="run-hr-hint"></div>
+    </div>
+
+    <!-- 共通：天候・体調 -->
+    <div class="g2" style="border-top:0.5px solid var(--border);padding-top:10px;margin-top:8px">
+      <div class="field"><label>天候</label>
+        <select id="n-weather" onchange="calcRun()">
+          <option value="1.00">☀️ 晴れ</option><option value="0.97">⛅ 曇り</option>
+          <option value="0.93">🌧 雨</option><option value="0.90">💨 強風</option>
+        </select>
+      </div>
       <div class="field"><label>体調</label>
         <select id="n-cond" onchange="calcRun()">
           <option value="1.00">良好</option><option value="0.97">普通</option>
@@ -712,21 +903,16 @@ header .sub{font-size:11px;color:var(--text2);margin-left:4px}
         </select>
       </div>
     </div>
-    <div class="g2">
-      <div class="field"><label>天候</label>
-        <select id="n-weather" onchange="calcRun()">
-          <option value="1.00">☀️ 晴れ</option><option value="0.97">⛅ 曇り</option>
-          <option value="0.93">🌧 雨</option><option value="0.90">💨 強風</option>
-        </select>
-      </div>
-      <div class="field"><label>メモ</label><input type="text" id="n-memo" placeholder="コース名など"></div>
-    </div>
+    <div class="field" style="margin-top:8px"><label>メモ</label><input type="text" id="n-memo" placeholder="コース名など"></div>
   </div>
+
   <div class="rg" id="n-results"></div>
   <div class="brow">
     <button class="bp" onclick="saveLog('run')">ログ保存</button>
     <span class="sm" id="n-saved"></span>
   </div>
+
+  </div><!-- /run-layout -->
 </div>
 
 <!-- ══════════════════════════════════
@@ -1319,26 +1505,192 @@ function renderBreakdown(dist,elev,effW,weight,g,hwMs,ratio,weather,cond,netMins
 /* ══════════════════════════════════════
    RUN
 ══════════════════════════════════════ */
+/* ══════════════════════════════════════
+   ラン エンジン
+══════════════════════════════════════ */
+let runInputMode='pace';
+let runCourseProfile='flat';
+let runDialState={start:{h:8,m:0},end:{h:null,m:null}};
+
+// 心拍ゾーン定義（一般的なデータ）
+const HR_ZONES=[
+  {z:1, name:'Z1 回復',    pct:[50,60], col:'#60a5fa', pace:[8.0,10.0], desc:'軽いジョグ・回復走'},
+  {z:2, name:'Z2 有酸素',  pct:[60,70], col:'#4ade80', pace:[6.5,8.0],  desc:'長距離・脂肪燃焼'},
+  {z:3, name:'Z3 テンポ',  pct:[70,80], col:'#facc15', pace:[5.5,6.5],  desc:'テンポ走・乳酸閾値'},
+  {z:4, name:'Z4 閾値',    pct:[80,90], col:'#fb923c', pace:[4.5,5.5],  desc:'レースペース近辺'},
+  {z:5, name:'Z5 最大',    pct:[90,100],col:'#f87171', pace:[3.5,4.5],  desc:'インターバル・全力'},
+];
+
+let selectedRunZone=2; // デフォルトZ2
+
+function setRunMode(mode){
+  runInputMode=mode;
+  document.getElementById('run-btn-pace').classList.toggle('on',mode==='pace');
+  document.getElementById('run-btn-hr').classList.toggle('on',mode==='hr');
+  document.getElementById('run-block-pace').style.display=mode==='pace'?'':'none';
+  document.getElementById('run-block-hr').style.display=mode==='hr'?'':'none';
+  if(mode==='hr') renderRunZones();
+  calcRun();
+}
+
+function renderRunZones(){
+  const hrMax=+document.getElementById('n-hrmax').value||180;
+  const zones=document.getElementById('run-hr-zones');
+  zones.innerHTML=HR_ZONES.map(z=>{
+    const bpmLow=Math.round(hrMax*z.pct[0]/100);
+    const bpmHigh=Math.round(hrMax*z.pct[1]/100);
+    const active=z.z===selectedRunZone;
+    return `<div onclick="selectRunZone(${z.z})"
+      style="cursor:pointer;padding:8px 12px;border-radius:var(--rs);border:1.5px solid ${active?z.col:'var(--border)'};
+             background:${active?z.col+'22':'var(--bg2)'};display:flex;align-items:center;gap:10px;transition:all .14s">
+      <div style="width:10px;height:10px;border-radius:50%;background:${z.col};flex-shrink:0"></div>
+      <div style="flex:1">
+        <div style="font-size:12px;font-weight:${active?700:500};color:var(--text)">${z.name}</div>
+        <div style="font-size:10px;color:var(--text3)">${z.desc} | ${bpmLow}〜${bpmHigh} bpm</div>
+      </div>
+      <div style="font-size:11px;color:var(--text2);text-align:right">
+        ${z.pace[0]}'〜${z.pace[1]}'/km
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function selectRunZone(z){
+  selectedRunZone=z;
+  renderRunZones();
+  calcRun();
+}
+
+function syncRunZones(){
+  if(runInputMode==='hr') renderRunZones();
+}
+
+function setRunCourse(type){
+  runCourseProfile=type;
+  ['flat','hilly','hard'].forEach(t=>{
+    document.getElementById('run-cb-'+t)?.classList.toggle('on',t===type);
+  });
+  const hints={flat:'🟢 平坦 → ペースそのまま',hilly:'🟡 山道 → ペース +20%遅く',hard:'🔴 激坂 → ペース +40%遅く'};
+  document.getElementById('run-course-hint').textContent=hints[type]||'';
+  calcRun();
+}
+
+// ラン用ダイヤル
+function runDialAdj(type,part,delta){
+  const s=runDialState[type];
+  if(type==='end'&&s.h===null){s.h=(runDialState.start.h+1)%24;s.m=runDialState.start.m;}
+  if(part==='h') s.h=(((s.h||0)+delta)%24+24)%24;
+  else s.m=(((s.m||0)+delta)%60+60)%60;
+  updateRunDial(type);
+  syncRunDial(type);
+  if(type==='end'){
+    const w=document.getElementById('run-dial-end-wrap');
+    if(w) w.style.opacity='1';
+  }
+  calcRun();
+}
+
+function updateRunDial(type){
+  const s=runDialState[type];
+  if(type==='start'){
+    const h=document.getElementById('run-ds-h'),m=document.getElementById('run-ds-m');
+    if(h) h.textContent=s.h!==null?String(s.h).padStart(2,'0'):'--';
+    if(m) m.textContent=s.m!==null?String(s.m).padStart(2,'0'):'--';
+  } else {
+    const h=document.getElementById('run-de-h'),m=document.getElementById('run-de-m');
+    if(h) h.textContent=s.h!==null?String(s.h).padStart(2,'0'):'--';
+    if(m) m.textContent=s.m!==null?String(s.m).padStart(2,'0'):'--';
+  }
+}
+
+function syncRunDial(type){
+  const s=runDialState[type];
+  const id=type==='start'?'n-start':'n-end';
+  const el=document.getElementById(id);
+  if(el) el.value=(s.h!==null&&s.m!==null)?`${String(s.h).padStart(2,'0')}:${String(s.m).padStart(2,'0')}`:'';
+}
+
+function clearRunEndDial(){
+  runDialState.end={h:null,m:null};
+  updateRunDial('end');
+  syncRunDial('end');
+  const w=document.getElementById('run-dial-end-wrap');
+  if(w) w.style.opacity='0.5';
+  calcRun();
+}
+
 function calcRun(){
-  const dist   =+document.getElementById('n-dist').value||10;
-  const elev   =+document.getElementById('n-elev').value||0;
-  const pace   =+document.getElementById('n-pace').value||5.0;
-  const ratio  =(+document.getElementById('n-ratio').value||80)/100;
+  const distBase=+document.getElementById('n-dist').value||10;
+  const rt=+document.getElementById('n-roundtrip')?.value||0;
+  const dist=rt?distBase*2:distBase;
+  const elev=+document.getElementById('n-elev').value||0;
   const weather=+document.getElementById('n-weather').value||1;
-  const cond   =+document.getElementById('n-cond').value||1;
-  const start  =document.getElementById('n-start').value||'08:00';
-  const gradePct=((elev/(dist*1000))*100);
-  const adjPace =(pace+gradePct*0.3)/weather/cond;
-  const netMins =adjPace*dist;
-  const total   =netMins/ratio;
+  const cond=+document.getElementById('n-cond').value||1;
+  const start=document.getElementById('n-start').value||'08:00';
+  const endVal=document.getElementById('n-end')?.value||'';
+
+  // ペース取得
+  let basePace;
+  if(runInputMode==='hr'){
+    const z=HR_ZONES.find(z=>z.z===selectedRunZone)||HR_ZONES[1];
+    basePace=(z.pace[0]+z.pace[1])/2; // 中間値
+    const hint=document.getElementById('run-hr-hint');
+    if(hint) hint.textContent=`選択中: ${z.name} → 目安ペース ${z.pace[0]}'〜${z.pace[1]}'/km`;
+  } else {
+    basePace=+document.getElementById('n-pace').value||5.0;
+  }
+
+  // コース補正
+  const courseMult={flat:1.0,hilly:1.2,hard:1.4}[runCourseProfile]||1.0;
+
+  // 斜度補正（獲得標高）
+  const gradePct=(elev/(dist*1000))*100;
+
+  // 実効ペース
+  const adjPace=(basePace*courseMult+gradePct*0.3)/weather/cond;
+  const ratioEl=runInputMode==='hr'?document.getElementById('n-ratio-hr'):document.getElementById('n-ratio');
+  const ratio=(+(ratioEl?.value)||80)/100;
+  const netMins=adjPace*dist;
+  const totalMins=netMins/ratio;
+
+  // 終了時刻逆算
+  if(endVal&&endVal.match(/^\d{2}:\d{2}$/)){
+    const [eh,em]=endVal.split(':').map(Number);
+    const endH=eh+em/60;
+    const startH=endH-totalMins/60;
+    const sHH=Math.floor(((startH%24)+24)%24);
+    const sMM=Math.round((((startH%24)+24)%24%1)*60);
+    const startStr=`${String(sHH).padStart(2,'0')}:${String(Math.min(sMM,59)).padStart(2,'0')}`;
+    document.getElementById('n-start').value=startStr;
+    runDialState.start={h:sHH,m:sMM};
+    updateRunDial('start');
+  } else {
+    // 終了時刻を順算してダイヤルに反映
+    const [sh,sm]=start.split(':').map(Number);
+    const startH=sh+sm/60;
+    const endH=startH+totalMins/60;
+    const eHH=Math.floor(endH%24);
+    const eMM=Math.round((endH%1)*60);
+    const endStr=`${String(eHH).padStart(2,'0')}:${String(Math.min(eMM,59)).padStart(2,'0')}`;
+    runDialState.end={h:eHH,m:eMM};
+    updateRunDial('end');
+    syncRunDial('end');
+    const w=document.getElementById('run-dial-end-wrap');
+    if(w) w.style.opacity='1';
+  }
+
+  const endTime=addM(start,totalMins);
   cards('n-results',[
-    {l:'到着予想時刻',  v:addM(start,total), xl:true, hl:true},
-    {l:'所要時間 Total',v:fmtD(total), s:`Net ${fmtD(netMins)}`},
-    {l:'移動ペース',    v:fmtP(adjPace)},
+    {l:'到着予想時刻',  v:endTime, xl:true, hl:true},
+    {l:'所要時間 TOTAL',v:fmtD(totalMins), s:`Net ${fmtD(netMins)}`},
+    {l:'移動ペース',    v:fmtP(adjPace), s:`基準 ${fmtP(basePace)}`},
     {l:'移動速度',      v:(dist/(netMins/60)).toFixed(1)+' km/h'},
-    {l:'総平均速度',    v:(dist/(total/60)).toFixed(1)+' km/h', s:'AllTime基準'},
+    {l:'総平均速度',    v:(dist/(totalMins/60)).toFixed(1)+' km/h', s:'AllTime基準'},
     {l:'Ratio',         v:(ratio*100).toFixed(0)+'%'},
   ]);
+
+  // 日照Canvas更新
+  renderRunDaylight(start, endTime);
 }
 
 /* ══════════════════════════════════════
@@ -2071,13 +2423,21 @@ function initMap(){
 
   // 地図クリック → 地点追加
   gmap.addListener('click',(e)=>{
-    // InfoWindowが開いている間はルート編集をロック
-    if(sharedIW&&sharedIW.getMap()){
-      sharedIW.close();
-      return;
-    }
+    if(sharedIW&&sharedIW.getMap()){sharedIW.close();return;}
     addWaypoint(e.latLng);
   });
+
+  // ③ 右クリック → 経由地追加確認
+  gmap.addListener('rightclick',(e)=>{
+    showAddWaypointConfirm(e.latLng);
+  });
+
+  // スマホ長押し（600ms）
+  let _lpTimer=null;
+  gmap.addListener('mousedown',(e)=>{
+    _lpTimer=setTimeout(()=>showAddWaypointConfirm(e.latLng),600);
+  });
+  ['mouseup','dragstart'].forEach(ev=>gmap.addListener(ev,()=>clearTimeout(_lpTimer)));
 
   // 現在地
   if(navigator.geolocation){
@@ -2510,19 +2870,32 @@ function drawElevProfile(elevResults){
 /* ── 標高 → プランナー反映 ── */
 function processElevation(elevResults,distKm,path){
   const elevs=elevResults.map(e=>e.elevation);
+  const DEADBAND=1.0; // 1m未満の変動を無視
+  const SPIKE_THR=30; // 30m超の急変をスパイクとして除去
+
+  // スパイク除去（前後線形補間）
+  const filtered=[...elevs];
+  for(let i=1;i<filtered.length-1;i++){
+    const diff1=Math.abs(filtered[i]-filtered[i-1]);
+    const diff2=Math.abs(filtered[i]-filtered[i+1]);
+    if(diff1>SPIKE_THR&&diff2>SPIKE_THR){
+      filtered[i]=(filtered[i-1]+filtered[i+1])/2; // 補間
+    }
+  }
+
   let gain=0,maxElev=-Infinity;
-  const segLen=(+distKm)*1000/elevs.length;
+  const segLen=(+distKm)*1000/filtered.length;
   let maxGrade=0, steepSegs=0;
-  for(let i=1;i<elevs.length;i++){
-    const diff=elevs[i]-elevs[i-1];
-    if(diff>0) gain+=diff;
-    maxElev=Math.max(maxElev,elevs[i]);
+  for(let i=1;i<filtered.length;i++){
+    const diff=filtered[i]-filtered[i-1];
+    if(diff>DEADBAND) gain+=diff; // Deadbandフィルタ
+    maxElev=Math.max(maxElev,filtered[i]);
     const g=Math.abs(diff)/segLen*100;
     maxGrade=Math.max(maxGrade,g);
     if(g>5) steepSegs++;
   }
   const gainM=Math.round(gain);
-  const steepPct=steepSegs/elevs.length*100;
+  const steepPct=steepSegs/filtered.length*100;
   const profile=maxGrade<3&&steepPct<5?'🟢 平坦メイン':
                 maxGrade<8&&steepPct<20?'🟡 丘陵ルート':
                 maxGrade<15?'🟠 山岳ルート':'🔴 激坂含む';
@@ -2536,7 +2909,7 @@ function processElevation(elevResults,distKm,path){
   document.getElementById('ri-profile').textContent=profile;
   document.getElementById('ri-maxgrade').textContent=maxGrade.toFixed(1)+'%';
 
-  drawElevProfile(elevResults);
+  drawElevProfile({map:(e,i)=>({elevation:filtered[i]||e.elevation,location:e.location}),...elevResults});
   window._routeData={distKm:+distKm, gainM, bearing, maxGrade};
 
   // 自動でプランナーに反映（スクロールなし）
@@ -2706,26 +3079,102 @@ function applyRouteToPlanner(){
   manualSync();
 }
 
-function clearRoute(){
-  waypoints=[];
-  markers.forEach(m=>m.setMap(null)); markers=[];
-  clearPOI();
-  if(window._dragOverlay){window._dragOverlay.setMap(null);window._dragOverlay=null;}
-  if(hoverPolyline){hoverPolyline.setMap(null);hoverPolyline=null;}
-  directionsRenderer.setDirections({routes:[]});
-  goalFixed=false;
-  updateGoalFlagBtn();
-  resetTimeDisplay();
-  document.getElementById('route-info').style.display='none';
-  document.getElementById('map-stats-bar').style.display='none';
-  document.getElementById('wp-list-wrap').style.display='none';
-  document.getElementById('poi-results').innerHTML='';
-  window._routeData=null; lastElevResults=null; lastRoutePath=null;
+/* ══════════════════════════════════════
+   ② 履歴管理（Undo/Redo）
+══════════════════════════════════════ */
+const MAX_HISTORY=20;
+let historyStack=[];
+let redoStack=[];
+
+function saveHistory(){
+  const state={
+    waypoints:waypoints.map(ll=>({lat:ll.lat(),lng:ll.lng()})),
+    goalFixed
+  };
+  historyStack.push(JSON.stringify(state));
+  if(historyStack.length>MAX_HISTORY) historyStack.shift();
+  redoStack=[]; // 新操作でRedoクリア
 }
 
-function undoWaypoint(){
-  if(waypoints.length===0) return;
-  removeWaypoint(waypoints.length-1);
+function undoRoute(){
+  if(historyStack.length===0) return;
+  // 現在状態をRedoへ
+  redoStack.push(JSON.stringify({
+    waypoints:waypoints.map(ll=>({lat:ll.lat(),lng:ll.lng()})),
+    goalFixed
+  }));
+  const prev=JSON.parse(historyStack.pop());
+  restoreState(prev);
+}
+
+function redoRoute(){
+  if(redoStack.length===0) return;
+  historyStack.push(JSON.stringify({
+    waypoints:waypoints.map(ll=>({lat:ll.lat(),lng:ll.lng()})),
+    goalFixed
+  }));
+  const next=JSON.parse(redoStack.pop());
+  restoreState(next);
+}
+
+function restoreState(state){
+  markers.forEach(m=>m.setMap(null)); markers=[];
+  waypoints=[];
+  if(window._dragOverlay){window._dragOverlay.setMap(null);window._dragOverlay=null;}
+  directionsRenderer.setDirections({routes:[]});
+  state.waypoints.forEach((pt,i)=>{
+    const ll=new google.maps.LatLng(pt.lat,pt.lng);
+    waypoints.push(ll);
+    createMarker(ll,i);
+  });
+  goalFixed=state.goalFixed||false;
+  updateGoalFlagBtn();
+  if(waypoints.length>=2) calcRoute();
+  renderWpList();
+}
+
+function hardClearRoute(){
+  // Hard Clear：全内部変数を完全初期化
+  waypoints=[];
+  markers.forEach(m=>m.setMap(null)); markers=[];
+  poiMarkers.forEach(m=>m.setMap(null)); poiMarkers=[];
+  if(window._dragOverlay){window._dragOverlay.setMap(null);window._dragOverlay=null;}
+  if(hoverPolyline){hoverPolyline.setMap(null);hoverPolyline=null;}
+  if(sharedIW){sharedIW.close();sharedIW=null;}
+  directionsRenderer.setDirections({routes:[]});
+  goalFixed=false;
+  historyStack=[];
+  redoStack=[];
+  lastElevResults=null;
+  lastRoutePath=null;
+  lastRouteResult=null;
+  window._routeData=null;
+  window._dlHoverData=null;
+  window._twDay2=null;
+  updateGoalFlagBtn();
+  resetTimeDisplay();
+  ['route-info','map-stats-bar','wp-list-wrap'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.style.display='none';
+  });
+  document.getElementById('poi-results').innerHTML='';
+  document.getElementById('ri-dist').textContent='—';
+  document.getElementById('ri-elev').textContent='—';
+}
+
+function clearRoute(){
+  hardClearRoute();
+}
+
+/* ── 地点追加（履歴保存） ── */
+function addWaypoint(latLng){
+  saveHistory();
+  const idx=waypoints.length;
+  waypoints.push(latLng);
+  createMarker(latLng, idx);
+  if(waypoints.length>=2) calcRoute();
+  renderWpList();
+  updateGoalFlagBtn();
 }
 
 function searchPlace(){
@@ -2789,29 +3238,85 @@ const POI_TYPES={
   '温泉':       {keyword:'温泉 銭湯 湯',                       type:'spa',               icon:'♨️',col:'#f97316'},
 };
 function clearPOI(){poiMarkers.forEach(m=>m.setMap(null));poiMarkers=[];}
+/* ── ③ 明示的地点追加ダイアログ ── */
+function showAddWaypointConfirm(latLng){
+  if(!sharedIW) sharedIW=new google.maps.InfoWindow();
+  sharedIW.setContent(`
+    <div style="font-size:13px;font-weight:500;padding:2px 0 6px">📍 ここに経由地を追加しますか？</div>
+    <div style="font-size:10px;color:#666;margin-bottom:8px">${latLng.lat().toFixed(4)}, ${latLng.lng().toFixed(4)}</div>
+    <div style="display:flex;gap:6px">
+      <button onclick="confirmAddWaypoint(${latLng.lat()},${latLng.lng()})"
+        style="padding:6px 14px;background:#18180f;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer">追加</button>
+      <button onclick="if(window._sharedIW)window._sharedIW.close()"
+        style="padding:6px 10px;background:#eee;border:none;border-radius:6px;font-size:12px;cursor:pointer">キャンセル</button>
+    </div>`);
+  window._sharedIW=sharedIW;
+  sharedIW.setPosition(latLng);
+  sharedIW.open(gmap);
+}
+
+function confirmAddWaypoint(lat,lng){
+  if(sharedIW) sharedIW.close();
+  addWaypoint(new google.maps.LatLng(lat,lng));
+}
+
+/* ── ④ Polyline沿い施設検索（改善版） ── */
 function searchPOI(label){
-  if(!lastRouteResult){alert('先にルートを描いてください');return;}
-  clearPOI();
-  document.getElementById('poi-results').innerHTML=`<div style="font-size:11px;color:var(--text2);padding:6px">🔍 検索中...</div>`;
-  const cfg=POI_TYPES[label];if(!cfg)return;
-  const path=lastRouteResult.routes[0].overview_path;
-  const step=Math.max(1,Math.floor(path.length/6));
-  const pts=[]; for(let i=0;i<path.length;i+=step)pts.push(path[i]);
-  const all=new Map();let pending=pts.length;
-  pts.forEach(pt=>{
-    // keyword検索とtype検索を両方試みる
+  const cfg=POI_TYPES[label];
+  if(!cfg) return;
+
+  const btn=document.getElementById('poi-btn-'+label);
+  if(btn) btn.classList.add('active');
+
+  document.getElementById('poi-results').innerHTML=
+    `<div style="font-size:11px;color:var(--text2);padding:4px">🔍 ${label}を検索中...</div>`;
+
+  const all=new Map();
+
+  if(lastRouteResult){
+    // ルート確定時：Polylineから500m以内
+    const path=lastRouteResult.routes[0].overview_path;
+    const step=Math.max(1,Math.floor(path.length/10));
+    const pts=[];
+    for(let i=0;i<path.length;i+=step) pts.push(path[i]);
+
+    let pending=pts.length;
+    pts.forEach(pt=>{
+      placesService.nearbySearch({
+        location:pt, radius:500, // Polylineに沿って500m
+        keyword:cfg.keyword,
+      },(res,status)=>{
+        pending--;
+        if(res) res.forEach(pl=>{if(!all.has(pl.place_id))all.set(pl.place_id,pl);});
+        if(pending===0) renderPOI([...all.values()],cfg,label);
+      });
+    });
+  } else if(waypoints.length>0){
+    // スタート地点のみ：半径5km
     placesService.nearbySearch({
-      location:pt, radius:2000,
+      location:waypoints[0], radius:5000,
       keyword:cfg.keyword,
     },(res,status)=>{
-      pending--;
-      if(status===google.maps.places.PlacesServiceStatus.OK||
-         status===google.maps.places.PlacesServiceStatus.ZERO_RESULTS){
-        if(res) res.forEach(pl=>{if(!all.has(pl.place_id))all.set(pl.place_id,pl);});
-      }
-      if(pending===0) renderPOI([...all.values()],cfg,label);
+      if(res) res.forEach(pl=>all.set(pl.place_id,pl));
+      renderPOI([...all.values()],cfg,label);
     });
-  });
+  } else {
+    // ルートも地点もなし：現在地周辺
+    if(navigator.geolocation){
+      navigator.geolocation.getCurrentPosition(pos=>{
+        placesService.nearbySearch({
+          location:{lat:pos.coords.latitude,lng:pos.coords.longitude},
+          radius:3000, keyword:cfg.keyword,
+        },(res)=>{
+          if(res) res.forEach(pl=>all.set(pl.place_id,pl));
+          renderPOI([...all.values()],cfg,label);
+        });
+      });
+    } else {
+      document.getElementById('poi-results').innerHTML=
+        '<div style="font-size:11px;color:var(--text3);padding:4px">スタート地点またはルートを設定してください</div>';
+    }
+  }
 }
 // 共有InfoWindow（1つだけ開く）
 let sharedIW=null;
@@ -3440,6 +3945,14 @@ function syncStartTimeToBar(){
   if(timeEl) document.getElementById('msb-time').textContent=timeEl.textContent;
   if(arrEl&&arrEl.textContent.match(/\d{2}:\d{2}/))
     document.getElementById('msb-arrive').textContent=arrEl.textContent;
+}
+
+function toggleDrawer(){
+  const content=document.getElementById('drawer-content');
+  const arrow=document.getElementById('drawer-arrow');
+  if(!content) return;
+  const collapsed=content.classList.toggle('collapsed');
+  if(arrow) arrow.textContent=collapsed?'▲':'▼';
 }
 
 setMode('spd');
