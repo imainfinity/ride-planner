@@ -165,11 +165,11 @@ input[type=number],input[type=text],input[type=time],select{
 </script>
 </head>
 
-<body class="pc-mode">
+<body class="sp-mode">
 <header>
   <h1>Ride Pace Planner <span class="ver">v8</span></h1>
   <span class="sub">ライド計画 / Google Maps ルート連携</span>
-  <button id="layout-toggle" onclick="toggleLayout()">📱 スマホ</button>
+  <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
 
 <div class="tabs" id="app-tabs">
@@ -1369,17 +1369,22 @@ function calc(){
   // 往復合計距離表示更新
   updateRtLabel();
 
-  // マップ統計バー → 常に更新
+  // ── マップ統計バーを常時更新 ──
   const bar=document.getElementById('map-stats-bar');
-  // マップ統計バー：常に表示して更新
   if(bar){
     bar.style.display='block';
+    // スタート時刻はダイヤルから直接取得
+    const sh=dialState.start.h, sm=dialState.start.m;
+    const startDisp=`${String(sh).padStart(2,'0')}:${String(sm).padStart(2,'0')}`;
+    document.getElementById('msb-start').textContent=startDisp;
     document.getElementById('msb-time').textContent=fmtD(totalMins);
     document.getElementById('msb-arrive').textContent=endTime;
-    document.getElementById('msb-start').textContent=start;
     const d=window._routeData;
-    document.getElementById('msb-dist').textContent=(d?.distKm||dist).toFixed(1)+' km';
-    document.getElementById('msb-elev').textContent=Math.round(d?.gainM||effElev)+' m';
+    if(d&&d.distKm){
+      document.getElementById('msb-dist').textContent=(+d.distKm).toFixed(1)+' km';
+      document.getElementById('msb-elev').textContent=Math.round(d.gainM)+' m';
+      document.getElementById('msb-grade').textContent=(+d.maxGrade).toFixed(1)+'%';
+    }
   }
 
   // 計算結果を常にダイヤルに同期（終了を手動入力中以外）
@@ -2913,30 +2918,14 @@ function updateMapStatsBar(distKm, gainM, maxGrade){
   const bar=document.getElementById('map-stats-bar');
   if(!bar) return;
   bar.style.display='block';
-
-  document.getElementById('msb-dist').textContent=distKm+' km';
+  document.getElementById('msb-dist').textContent=(+distKm).toFixed(1)+' km';
   document.getElementById('msb-elev').textContent=(+gainM).toFixed(0)+' m';
   document.getElementById('msb-grade').textContent=(+maxGrade).toFixed(1)+'%';
-
-  // 計画側から予想時間・到着時刻を読む
-  // calc()結果カードから取得（ルート適用後はリアルタイム反映）
-  const timeCard=document.querySelector('#r-results .card:nth-child(2) .cv');
-  const arrCard =document.querySelector('#r-results .card:nth-child(1) .cv');
-  if(timeCard&&timeCard.textContent!=='—'){
-    document.getElementById('msb-time').textContent=timeCard.textContent;
-  } else {
-    // calc()が未実行 → distKmとデフォルト速度で簡易推定
-    const spd=parseFloat(document.getElementById('r-movespd')?.value||28);
-    const ratio=(parseFloat(document.getElementById('r-ratio')?.value||85))/100;
-    const netH=(+distKm)/spd;
-    const totalMins=netH/ratio*60;
-    document.getElementById('msb-time').textContent=fmtD(totalMins);
-  }
-  if(arrCard&&arrCard.textContent.match(/\d{2}:\d{2}/)){
-    document.getElementById('msb-arrive').textContent=arrCard.textContent;
-  } else {
-    document.getElementById('msb-arrive').textContent='—';
-  }
+  // スタート時刻をダイヤルから取得
+  const sh=dialState.start.h, sm=dialState.start.m;
+  const startStr=`${String(sh).padStart(2,'0')}:${String(sm).padStart(2,'0')}`;
+  document.getElementById('msb-start').textContent=startStr;
+  // 予想時間・到着時刻はcalc()に任せる（calc()が必ず後で呼ばれる）
 }
 
 /* ── 終了時刻テキスト入力フォーマット ── */
@@ -3154,7 +3143,19 @@ function addWaypoint(latLng){
   const idx=waypoints.length;
   waypoints.push(latLng);
   createMarker(latLng, idx);
-  if(waypoints.length>=2) calcRoute();
+  if(waypoints.length>=2){
+    calcRoute(); // ルート計算 → processElevation → syncRouteToUI → calc()の流れで全更新
+  } else {
+    // 1点目：バーを表示してスタート時刻だけ反映
+    const bar=document.getElementById('map-stats-bar');
+    if(bar){
+      bar.style.display='block';
+      const sh=dialState.start.h, sm=dialState.start.m;
+      document.getElementById('msb-start').textContent=
+        `${String(sh).padStart(2,'0')}:${String(sm).padStart(2,'0')}`;
+      document.getElementById('msb-arrive').textContent='—';
+    }
+  }
   renderWpList();
   updateGoalFlagBtn();
 }
@@ -3990,10 +3991,12 @@ function toggleLayout(){
 }
 (function(){
   var saved=localStorage.getItem('rpp_layout');
-  if(saved==='sp'){
-    document.body.classList.replace('pc-mode','sp-mode');
+  // デフォルトはsp-mode。pcを明示選択した場合のみpc-modeに
+  if(saved==='pc'){
+    document.body.classList.replace('sp-mode','pc-mode');
     var btn=document.getElementById('layout-toggle');
-    if(btn) btn.textContent='🖥 PC表示';
+    if(btn) btn.textContent='📱 スマホ';
+    setTimeout(setPCHeights,50);
   }
 })();
 
