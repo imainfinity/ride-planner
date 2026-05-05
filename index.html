@@ -405,9 +405,9 @@ input[type=number],input[type=text],input[type=time],select{
           </div>
           <div class="dial-sep">:</div>
           <div class="dial-col">
-            <button class="dial-btn" onclick="dialAdj('start','m',-10)">▲</button>
+            <button class="dial-btn" onclick="dialAdj('start','m',-5)">▲</button>
             <div class="dial-val" id="ds-m">00</div>
-            <button class="dial-btn" onclick="dialAdj('start','m',10)">▼</button>
+            <button class="dial-btn" onclick="dialAdj('start','m',5)">▼</button>
           </div>
         </div>
         <input type="hidden" id="r-start" value="08:00">
@@ -423,9 +423,9 @@ input[type=number],input[type=text],input[type=time],select{
           </div>
           <div class="dial-sep">:</div>
           <div class="dial-col">
-            <button class="dial-btn" onclick="dialAdj('end','m',-10)">▲</button>
+            <button class="dial-btn" onclick="dialAdj('end','m',-5)">▲</button>
             <div class="dial-val" id="de-m">--</div>
-            <button class="dial-btn" onclick="dialAdj('end','m',10)">▼</button>
+            <button class="dial-btn" onclick="dialAdj('end','m',5)">▼</button>
           </div>
         </div>
         <input type="hidden" id="r-end" value="">
@@ -682,9 +682,9 @@ input[type=number],input[type=text],input[type=time],select{
           </div>
           <div class="dial-sep">:</div>
           <div class="dial-col">
-            <button class="dial-btn" onclick="runDialAdj('start','m',-10)">▲</button>
+            <button class="dial-btn" onclick="runDialAdj('start','m',-5)">▲</button>
             <div class="dial-val" id="run-ds-m">00</div>
-            <button class="dial-btn" onclick="runDialAdj('start','m',10)">▼</button>
+            <button class="dial-btn" onclick="runDialAdj('start','m',5)">▼</button>
           </div>
         </div>
         <input type="hidden" id="n-start" value="08:00">
@@ -700,9 +700,9 @@ input[type=number],input[type=text],input[type=time],select{
           </div>
           <div class="dial-sep">:</div>
           <div class="dial-col">
-            <button class="dial-btn" onclick="runDialAdj('end','m',-10)">▲</button>
+            <button class="dial-btn" onclick="runDialAdj('end','m',-5)">▲</button>
             <div class="dial-val" id="run-de-m">--</div>
-            <button class="dial-btn" onclick="runDialAdj('end','m',10)">▼</button>
+            <button class="dial-btn" onclick="runDialAdj('end','m',5)">▼</button>
           </div>
         </div>
         <input type="hidden" id="n-end" value="">
@@ -3653,8 +3653,7 @@ function dialAdj(type,part,delta){
     // 分は5分スナップ
     const cur=s.m||0;
     // 現在値を5分グリッドにまず丸めてからdelta
-    const snapped=Math.round(cur/5)*5;
-    s.m=((snapped+delta*5)%60+60)%60;
+    const snapped=Math.round(cur/5)*5; s.m=((snapped+delta)%60+60)%60;
   }
   updateDialDisplay(type);
   syncDialToHidden(type);
