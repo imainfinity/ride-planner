@@ -1280,10 +1280,13 @@ function calc(){
   const dist    = rt ? distBase*2 : distBase;
   const effElev = rt ? elevBase*2 : elevBase;
   const ratioRaw=+document.getElementById('r-ratio').value;
-  const ratio  = ratioRaw>0 ? ratioRaw/100 : 1.0; // 未入力=100%
+  const ratio  = ratioRaw>0 ? ratioRaw/100 : 1.0;
   const weather=+document.getElementById('r-weather').value||1;
   const cond   =+document.getElementById('r-cond').value||1;
-  const start  =document.getElementById('r-start').value||'08:00';
+  // スタート時刻は必ずダイヤルから直接取得
+  const sh=dialState.start.h, sm=dialState.start.m;
+  const start=`${String(sh).padStart(2,'0')}:${String(sm).padStart(2,'0')}`;
+  document.getElementById('r-start').value=start; // hidden inputも同期
   const wsp    =+document.getElementById('r-wsp').value||0;
   const wDir   =+document.getElementById('r-wdir').value||0;
   const rDir   =+document.getElementById('r-rdir').value||0;
@@ -1373,10 +1376,7 @@ function calc(){
   const bar=document.getElementById('map-stats-bar');
   if(bar){
     bar.style.display='block';
-    // スタート時刻はダイヤルから直接取得
-    const sh=dialState.start.h, sm=dialState.start.m;
-    const startDisp=`${String(sh).padStart(2,'0')}:${String(sm).padStart(2,'0')}`;
-    document.getElementById('msb-start').textContent=startDisp;
+    document.getElementById('msb-start').textContent=start;
     document.getElementById('msb-time').textContent=fmtD(totalMins);
     document.getElementById('msb-arrive').textContent=endTime;
     const d=window._routeData;
