@@ -2507,25 +2507,28 @@ function renderWpList(){
   if(waypoints.length===0){wrap.style.display='none';return;}
   wrap.style.display='block';
 
-  // ルートデータから各legの距離を積算
-  const legDists=[]; // legDists[i] = waypoints[i]→waypoints[i+1]の距離(km)
+  // legDists
+  const legDists=[];
   if(lastRouteResult){
-    lastRouteResult.routes[0].legs.forEach(leg=>{
-      legDists.push(leg.distance.value/1000);
-    });
+    lastRouteResult.routes[0].legs.forEach(leg=>legDists.push(leg.distance.value/1000));
   }
 
-  // スタート時刻と速度
-  const startStr=document.getElementById('r-start').value||'08:00';
-  const [sh,sm]=startStr.split(':').map(Number);
+  // スタート時刻はダイヤルから直接取得
+  const sh=dialState.start.h||8, sm=dialState.start.m||0;
   const startH=sh+sm/60;
-  const moveSpd=parseFloat(document.getElementById('r-movespd')?.value||28);
-  const ratio=(parseFloat(document.getElementById('r-ratio')?.value||85))/100;
+  const startStr=`${String(sh).padStart(2,'0')}:${String(sm).padStart(2,'0')}`;
 
-  // 標高プロファイルから各waypoint近傍の獲得標高累計を取得
+  // 移動速度（calc()と同じロジック）
+  const rd=window._routeData;
+  const totalDist=rd&&rd.distKm>0?rd.distKm:(+document.getElementById('r-dist').value||50);
+  const moveSpd=parseFloat(document.getElementById('r-movespd')?.value||25);
+  const ratio=(parseFloat(document.getElementById('r-ratio')?.value||85))/100;
+  // 総平均速度 = moveSpd * ratio（停止込み）
+  const avgSpd=moveSpd*ratio;
+
+  // 標高累計
   const wpGains=waypoints.map((_,i)=>{
     if(!lastElevResults||!lastRoutePath) return null;
-    // waypointに最も近いパスインデックスを探す
     let nearIdx=0, nearDist=Infinity;
     lastRoutePath.forEach((pt,j)=>{
       const d=google.maps.geometry.spherical.computeDistanceBetween(waypoints[i],pt);
@@ -2535,7 +2538,7 @@ function renderWpList(){
     let gain=0;
     for(let j=1;j<=elevIdx;j++){
       const diff=lastElevResults[j].elevation-lastElevResults[j-1].elevation;
-      if(diff>0) gain+=diff;
+      if(diff>1.0) gain+=diff; // 1m Deadband
     }
     return Math.round(gain);
   });
@@ -2543,29 +2546,28 @@ function renderWpList(){
   let cumDist=0;
   list.innerHTML=waypoints.map((ll,i)=>{
     const isFirst=i===0;
-    const isLast=goalFixed && i===waypoints.length-1;
-    const color=isFirst?'#4ade80':isLast?'#f87171':'#378add';
+    const isLast=goalFixed&&i===waypoints.length-1;
+    const color=isFirst?'#4ade80':isLast?'#f87171':'#60a5fa';
     const lbl=isFirst?'S':isLast?'G':String(i);
 
-    // 累積距離
-    if(i>0 && legDists[i-1]) cumDist+=legDists[i-1];
-    const distStr=cumDist>0?cumDist.toFixed(1)+' km':'0 km';
+    if(i>0&&legDists[i-1]) cumDist+=legDists[i-1];
 
-    // 通過予想時刻
-    const passH = startH + (cumDist / (moveSpd * ratio));
+    // 通過予想時刻：スタートからの所要時間 = 累積距離 / 総平均速度
+    const elapsedH=avgSpd>0?cumDist/avgSpd:0;
+    const passH=startH+elapsedH;
     const passHH=Math.floor(passH)%24;
-    const passMM=Math.round((passH%1)*60);
-    const timeStr=i===0?startStr:`${String(passHH).padStart(2,'0')}:${String(passMM<60?passMM:0).padStart(2,'0')}`;
+    const passMM=Math.round((passH%1)*60)%60;
+    const timeStr=i===0?startStr:`${String(passHH).padStart(2,'0')}:${String(passMM).padStart(2,'0')}`;
 
-    // 獲得標高累計
     const gainStr=wpGains[i]!==null?(wpGains[i]>0?'+'+wpGains[i]+' m':'0 m'):'—';
+    const distStr=i===0?'0 km':cumDist.toFixed(1)+' km';
 
     return `<div class="wp-row">
       <div style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0"></div>
-      <div class="wp-label" style="font-size:10px" title="${ll.lat().toFixed(4)},${ll.lng().toFixed(4)}">${lbl==='S'?'S':lbl==='G'?'G':i}</div>
-      <div class="wp-num" style="font-size:10px">${cumDist>0?cumDist.toFixed(1):'0'}</div>
-      <div class="wp-num" style="font-size:10px">${timeStr}</div>
-      <div class="wp-num" style="font-size:10px">${gainStr}</div>
+      <div style="font-size:10px;font-weight:600">${lbl}</div>
+      <div style="font-size:10px;color:var(--text2)">${distStr}</div>
+      <div style="font-size:10px;font-weight:600;color:${isFirst?'#4ade80':isLast?'#f87171':'var(--text)'}">${timeStr}</div>
+      <div style="font-size:10px;color:var(--text3)">${gainStr}</div>
       <button onclick="removeWaypoint(${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;padding:0;line-height:1">✕</button>
     </div>`;
   }).join('');
@@ -3866,6 +3868,9 @@ function setStartAsGoal(){
   waypoints.push(startLl);
   createMarker(startLl, waypoints.length-1);
   goalFixed=true;
+  const rtEl=document.getElementById('r-roundtrip');
+  if(rtEl) rtEl.value='0';
+  updateRtLabel();
   updateGoalFlagBtn();
   calcRoute();
   renderWpList();
