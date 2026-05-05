@@ -2856,7 +2856,8 @@ function processElevation(elevResults,distKm,path){
   const rtEl=document.getElementById('r-roundtrip');
   if(rtEl) rtEl.value='0';
   updateRtLabel();
-  rideDeg=bearing; syncToHidden(); renderCompass(); calc();
+  rideDeg=bearing; syncToHidden(); renderCompass();
+  syncRouteToUI();
   updateMapStatsBar(distKm, gainM, maxGrade);
 }
 
@@ -2864,17 +2865,39 @@ function applyDistOnly(distKm){
   document.getElementById('route-info').style.display='block';
   document.getElementById('ri-dist').textContent=distKm+' km';
   ['ri-elev','ri-maxelev','ri-bearing','ri-profile','ri-maxgrade'].forEach(id=>{
-    document.getElementById(id).textContent='—';
+    const el=document.getElementById(id); if(el) el.textContent='—';
   });
   window._routeData={distKm:+distKm,gainM:0,bearing:0,maxGrade:0};
-
-  // 距離だけ自動反映
-  document.getElementById('r-dist').value=distKm;
-  calc();
+  syncRouteToUI();
   updateMapStatsBar(distKm, 0, 0);
 }
 
-/* ── スタート時刻変更 → バーの到着時刻を即更新 ── */
+/* ══ ルートデータをUIに強制同期 ══ */
+function syncRouteToUI(){
+  const d=window._routeData;
+  if(!d||!d.distKm) return;
+
+  // 入力欄を上書き
+  document.getElementById('r-dist').value=d.distKm;
+  document.getElementById('r-elev').value=Math.round(d.gainM);
+
+  // 往復フラグをリセット
+  const rtEl=document.getElementById('r-roundtrip');
+  if(rtEl) rtEl.value='0';
+  updateRtLabel();
+
+  // スタート時刻をダイヤルから取得してバーに反映
+  const startVal=document.getElementById('r-start').value||'08:00';
+  const msbStart=document.getElementById('msb-start');
+  if(msbStart) msbStart.textContent=startVal;
+
+  // 統計バーを表示
+  const bar=document.getElementById('map-stats-bar');
+  if(bar) bar.style.display='block';
+
+  // 再計算
+  calc();
+}
 function syncStartTimeToBar(){
   const bar=document.getElementById('map-stats-bar');
   if(!bar||bar.style.display==='none') return;
