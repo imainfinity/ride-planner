@@ -1371,13 +1371,15 @@ function calc(){
 
   // マップ統計バー → 常に更新
   const bar=document.getElementById('map-stats-bar');
-  if(bar&&bar.style.display!=='none'){
+  // マップ統計バー：常に表示して更新
+  if(bar){
+    bar.style.display='block';
     document.getElementById('msb-time').textContent=fmtD(totalMins);
     document.getElementById('msb-arrive').textContent=endTime;
     document.getElementById('msb-start').textContent=start;
     const d=window._routeData;
     document.getElementById('msb-dist').textContent=(d?.distKm||dist).toFixed(1)+' km';
-    document.getElementById('msb-elev').textContent=Math.round(d?.gainM||elev)+' m';
+    document.getElementById('msb-elev').textContent=Math.round(d?.gainM||effElev)+' m';
   }
 
   // 計算結果を常にダイヤルに同期（終了を手動入力中以外）
@@ -2847,9 +2849,13 @@ function processElevation(elevResults,distKm,path){
   drawElevProfile({map:(e,i)=>({elevation:filtered[i]||e.elevation,location:e.location}),...elevResults});
   window._routeData={distKm:+distKm, gainM, bearing, maxGrade};
 
-  // 自動でプランナーに反映（スクロールなし）
+  // 入力欄もルートデータで上書き（常にルートが正）
   document.getElementById('r-dist').value=distKm;
   document.getElementById('r-elev').value=gainM;
+  // 往復フラグをリセット（ルート引いたら往復計算しない）
+  const rtEl=document.getElementById('r-roundtrip');
+  if(rtEl) rtEl.value='0';
+  updateRtLabel();
   rideDeg=bearing; syncToHidden(); renderCompass(); calc();
   updateMapStatsBar(distKm, gainM, maxGrade);
 }
