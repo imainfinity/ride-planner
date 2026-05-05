@@ -3956,41 +3956,54 @@ updateDialDisplay('start');
   if(p.start) setDialFromString('start', p.start);
   if(p.spd) baseSpdValue=+p.spd;
 })();
-// ══ レイアウト高さをJSで動的設定 ══
+// ══ 今日の日付を確実にセット ══
+(function setTodayDate(){
+  const today=new Date().toISOString().split('T')[0];
+  ['dl-date','run-dl-date'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.value=today;
+  });
+})();
+
+// ══ 日照を確実にレンダリング（Maps API読み込み後） ══
+// renderDaylight は userLat/userLon が必要なので initMap 後に実行
+const _origInitMap=window.initMap;
+window.initMap=function(){
+  if(_origInitMap) _origInitMap.call(this);
+  // Maps APIが確実に準備できてから日照をレンダリング
+  setTimeout(()=>{
+    try{
+      // デフォルト位置（福岡）でまず描画、GPS取得後に再描画
+      if(typeof renderDaylight==='function') renderDaylight();
+    }catch(e){console.warn('daylight init:',e);}
+  },200);
+};
+
+// ══ レイアウト高さ ══
 function fixLayout(){
-  const header=document.getElementById('app-header');
-  const tabs=document.getElementById('app-tabs');
   const layout=document.querySelector('.ride-layout');
-  if(!layout) return;
-  const hH=header?header.offsetHeight:40;
-  const tH=tabs?tabs.offsetHeight:44;
-  const total=hH+tH;
+  if(!layout||window.innerWidth<=768) return;
+  // header と tabs の合計高さを直接取得
+  const els=[document.querySelector('header'),document.querySelector('.tabs')];
+  const topH=els.reduce((sum,el)=>sum+(el?el.offsetHeight:0),0);
   const vh=window.innerHeight;
-  layout.style.height=(vh-total)+'px';
-  layout.style.marginTop=total+'px';
-  // gmap高さ
-  const mapCol=document.querySelector('.ride-map-col');
+  const h=vh-topH;
+  layout.style.height=h+'px';
+  // 両カラムにも高さを設定
+  document.querySelectorAll('.ride-map-col,.ride-settings-col').forEach(el=>{
+    el.style.height=h+'px';
+  });
+  // gmap高さ：左カラムの高さからヘッダーパネルを引く
   const mapPanel=document.getElementById('map-panel');
-  if(mapCol&&mapPanel){
-    const panelH=mapPanel.offsetHeight;
-    const gmapH=mapCol.offsetHeight-panelH-10;
-    const gmap=document.getElementById('gmap');
-    if(gmap) gmap.style.height=Math.max(300,gmapH)+'px';
+  const gmap=document.getElementById('gmap');
+  if(mapPanel&&gmap){
+    gmap.style.height=Math.max(300,h-mapPanel.offsetHeight-20)+'px';
   }
 }
 window.addEventListener('load',fixLayout);
 window.addEventListener('resize',fixLayout);
-setTimeout(fixLayout,300);
-
-// ══ 今日の日付を自動設定 ══
-(function(){
-  const today=new Date().toISOString().split('T')[0];
-  const dlDate=document.getElementById('dl-date');
-  if(dlDate&&!dlDate.value){ dlDate.value=today; }
-  const runDlDate=document.getElementById('run-dl-date');
-  if(runDlDate&&!runDlDate.value){ runDlDate.value=today; }
-})();
-setTimeout(()=>{ try{renderDaylight();}catch(e){} },500);
+// DOM描画後に実行
+requestAnimationFrame(()=>requestAnimationFrame(fixLayout));
 </script>
 </body>
 </html>
