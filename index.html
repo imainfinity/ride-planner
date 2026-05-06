@@ -511,46 +511,47 @@ input[type=number],input[type=text],input[type=time],select{
   <!-- ③ 風・コンディション -->
   <div class="panel">
     <div class="pt">風・コンディション</div>
-    <div class="cwrap">
-      <!-- インタラクティブコンパス（Canvas版） -->
-      <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:4px">
-        <canvas id="compass-svg" width="130" height="130"
-                style="cursor:grab;touch-action:none;user-select:none;border-radius:50%"></canvas>
-        <div style="display:flex;gap:10px;font-size:10px">
-          <span style="color:#e24b4a;font-weight:500">● 風向き</span>
-          <span style="color:#378add;font-weight:500">● 走行方向</span>
-        </div>
-        <div style="font-size:10px;color:var(--text3)">矢印をドラッグして設定</div>
+    <div class="g2" style="margin-bottom:8px">
+      <div class="field">
+        <label>風速 (m/s)</label>
+        <input type="number" id="r-wsp" value="3" step="0.5" min="0" oninput="smartCalc('speed')">
       </div>
-
-      <div class="winds">
-        <div class="field">
-          <label>風速 (m/s)</label>
-          <input type="number" id="r-wsp" value="3" step="0.5" min="0" oninput="upCompass();smartCalc('speed')">
-        </div>
-        <!-- 角度表示（読み取り専用・参考） -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <div class="field">
-            <label>風向き（度）</label>
-            <input type="number" id="r-wdir-deg" value="0" step="1" min="0" max="359"
-                   oninput="syncFromDeg('wind');upCompass();calc()"
-                   style="font-variant-numeric:tabular-nums">
-            <div class="hint" id="r-wdir-label">南向きの風</div>
-          </div>
-          <div class="field">
-            <label>走行方向（度）</label>
-            <input type="number" id="r-rdir-deg" value="0" step="1" min="0" max="359"
-                   oninput="syncFromDeg('ride');upCompass();calc()"
-                   style="font-variant-numeric:tabular-nums">
-            <div class="hint" id="r-rdir-label">北へ</div>
-          </div>
-        </div>
-        <!-- 隠しinput（計算用・後方互換） -->
-        <input type="hidden" id="r-wdir" value="0">
-        <input type="hidden" id="r-rdir" value="0">
-        <div class="hint" id="r-wind-hint" style="font-size:11px;color:var(--text2);margin-top:2px"></div>
+      <div class="field">
+        <label>風向き</label>
+        <select id="r-wdir-sel" onchange="windDegFromSel();calc()" style="font-size:13px;padding:7px 9px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text);width:100%">
+          <option value="0">↑ 北風（北→南）</option>
+          <option value="45">↗ 北東風</option>
+          <option value="90">→ 東風（東→西）</option>
+          <option value="135">↘ 南東風</option>
+          <option value="180">↓ 南風（南→北）</option>
+          <option value="225">↙ 南西風</option>
+          <option value="270">← 西風（西→東）</option>
+          <option value="315">↖ 北西風</option>
+        </select>
+        <div class="hint" id="r-wind-hint"></div>
       </div>
     </div>
+    <div class="g2" style="margin-bottom:8px">
+      <div class="field">
+        <label>走行方向</label>
+        <select id="r-rdir-sel" onchange="rideDegFromSel();calc()" style="font-size:13px;padding:7px 9px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text);width:100%">
+          <option value="0">↑ 北向き</option>
+          <option value="45">↗ 北東</option>
+          <option value="90">→ 東向き</option>
+          <option value="135">↘ 南東</option>
+          <option value="180">↓ 南向き</option>
+          <option value="225">↙ 南西</option>
+          <option value="270">← 西向き</option>
+          <option value="315">↖ 北西</option>
+        </select>
+      </div>
+      <div class="field"></div>
+    </div>
+    <!-- 隠しinput（計算用・後方互換） -->
+    <input type="hidden" id="r-wdir" value="0">
+    <input type="hidden" id="r-rdir" value="0">
+    <input type="hidden" id="r-wdir-deg" value="0">
+    <input type="hidden" id="r-rdir-deg" value="0">
     <div class="g3">
       <div class="field"><label>天候</label>
         <select id="r-weather" onchange="smartCalc('speed')">
@@ -1067,150 +1068,33 @@ function syncToHidden(){
   if(rl) rl.textContent=degToLabel(rideDeg);
 }
 
-function initCompass(){
-  const canvas=document.getElementById('compass-svg');
-  if(!canvas) return;
-  const ctx=canvas.getContext('2d');
-  const CX=65, CY=65, R=55;
-
-  function getAngle(e){
-    const rect=canvas.getBoundingClientRect();
-    const pt=e.touches?e.touches[0]:e;
-    const dx=pt.clientX-rect.left-CX;
-    const dy=pt.clientY-rect.top-CY;
-    return (Math.atan2(dy,dx)*180/Math.PI+90+360)%360;
-  }
-
-  // ドラッグ開始時のcanvas rect（ドラッグ中は固定）
-  let _dragRect=null;
-  function getAngleFromRect(e,rect){
-    const pt=e.touches?e.touches[0]:e;
-    const dx=pt.clientX-rect.left-CX;
-    const dy=pt.clientY-rect.top-CY;
-    return (Math.atan2(dy,dx)*180/Math.PI+90+360)%360;
-  }
-
-  // タッチ開始
-  function onStart(e){
-    e.preventDefault();
-    e.stopPropagation();
-    _dragRect=canvas.getBoundingClientRect();
-    const deg=getAngleFromRect(e,_dragRect);
-    const dw=Math.abs(((deg-windDeg+540)%360)-180);
-    const dr=Math.abs(((deg-rideDeg+540)%360)-180);
-    dragging=dw<=dr?'wind':'ride';
-    canvas.style.cursor='grabbing';
-  }
-  // タッチ移動
-  function onMove(e){
-    if(!dragging) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const deg=Math.round(getAngleFromRect(e,_dragRect)/5)*5;
-    if(dragging==='wind') windDeg=deg;
-    else rideDeg=deg;
-    syncToHidden();
-    renderCompass();
-    calc();
-  }
-  // タッチ終了
-  function onEnd(e){
-    dragging=null;
-    _dragRect=null;
-    canvas.style.cursor='grab';
-  }
-
-  canvas.addEventListener('mousedown', onStart, false);
-  document.addEventListener('mousemove', onMove, false);
-  document.addEventListener('mouseup',   onEnd,   false);
-  canvas.addEventListener('mouseleave', function(e){ if(!dragging) canvas.style.cursor='grab'; }, false);
-  canvas.addEventListener('touchstart', onStart, {passive:false});
-  canvas.addEventListener('touchmove',  onMove,  {passive:false});
-  canvas.addEventListener('touchend',   onEnd,   {passive:false});
-  canvas.style.cursor='grab';
-
-  renderCompass();
-}
-
-function onDrag(){}  // 後方互換（呼ばれても何もしない）
-function endDrag(){} // 後方互換
-
-function renderCompass(){
-  const canvas=document.getElementById('compass-svg');
-  if(!canvas) return;
-  const ctx=canvas.getContext('2d');
-  if(!ctx) return;
-  const CX=65,CY=65,R=52;
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  const dk=matchMedia('(prefers-color-scheme:dark)').matches;
-  const tc=dk?'#eeeee6':'#18180f';
-
-  // 外周
-  ctx.beginPath(); ctx.arc(CX,CY,R,0,Math.PI*2);
-  ctx.strokeStyle=dk?'rgba(255,255,255,.25)':'rgba(0,0,0,.2)';
-  ctx.lineWidth=1; ctx.stroke();
-
-  // 目盛り
-  for(let a=0;a<360;a+=45){
-    const r=(a-90)*Math.PI/180;
-    ctx.beginPath();
-    ctx.moveTo(CX+Math.cos(r)*(R-5), CY+Math.sin(r)*(R-5));
-    ctx.lineTo(CX+Math.cos(r)*R,     CY+Math.sin(r)*R);
-    ctx.strokeStyle=dk?'rgba(255,255,255,.4)':'rgba(0,0,0,.3)';
-    ctx.lineWidth=1; ctx.stroke();
-  }
-
-  // 方位文字
-  ctx.font='bold 10px Arial,sans-serif';
-  ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillStyle=tc;
-  ctx.fillText('N',CX,   CY-R+12);
-  ctx.fillText('S',CX,   CY+R-12);
-  ctx.fillText('W',CX-R+12, CY);
-  ctx.fillText('E',CX+R-12, CY);
-
-  // 矢印
-  function arrow(deg,col,dash){
-    const r=(deg-90)*Math.PI/180;
-    const ex=CX+Math.cos(r)*(R-10), ey=CY+Math.sin(r)*(R-10);
-    ctx.beginPath();
-    ctx.setLineDash(dash?[5,3]:[]);
-    ctx.moveTo(CX,CY); ctx.lineTo(ex,ey);
-    ctx.strokeStyle=col; ctx.lineWidth=3; ctx.lineCap='round'; ctx.stroke();
-    ctx.setLineDash([]);
-    // 矢じり
-    ctx.beginPath();
-    ctx.moveTo(ex,ey);
-    ctx.lineTo(ex+Math.cos((deg-90+145)*Math.PI/180)*10, ey+Math.sin((deg-90+145)*Math.PI/180)*10);
-    ctx.lineTo(ex+Math.cos((deg-90+215)*Math.PI/180)*10, ey+Math.sin((deg-90+215)*Math.PI/180)*10);
-    ctx.closePath(); ctx.fillStyle=col; ctx.fill();
-  }
-  arrow(windDeg,'#e24b4a',false);
-  arrow(rideDeg,'#4285f4',true);
-
-  // 中心点
-  ctx.beginPath(); ctx.arc(CX,CY,4,0,Math.PI*2);
-  ctx.fillStyle=tc; ctx.fill();
-
-  // 向かい風ヒント
-  const wsp=+document.getElementById('r-wsp').value||0;
-  const h=hw(wsp,windDeg,rideDeg);
+function windDegFromSel(){
+  windDeg=+document.getElementById('r-wdir-sel').value;
+  document.getElementById('r-wdir').value=windDeg;
+  document.getElementById('r-wdir-deg').value=windDeg;
+  const h=hw(+document.getElementById('r-wsp').value||0, windDeg, rideDeg);
   const lbl=h>0.5?`向かい風 ${h.toFixed(1)} m/s`:h<-0.5?`追い風 ${Math.abs(h).toFixed(1)} m/s`:`横風`;
   const hint=document.getElementById('r-wind-hint');
-  if(hint) hint.textContent=`風影響: ${lbl}`;
+  if(hint) hint.textContent=lbl;
 }
-
-function syncFromDeg(type){
-  if(type==='wind'){
-    windDeg=((+document.getElementById('r-wdir-deg').value%360)+360)%360;
-    document.getElementById('r-wdir-label').textContent=degToLabel(windDeg);
-  } else {
-    rideDeg=((+document.getElementById('r-rdir-deg').value%360)+360)%360;
-    document.getElementById('r-rdir-label').textContent=degToLabel(rideDeg);
-  }
-  syncToHidden();
-  renderCompass();
+function rideDegFromSel(){
+  rideDeg=+document.getElementById('r-rdir-sel').value;
+  document.getElementById('r-rdir').value=rideDeg;
+  document.getElementById('r-rdir-deg').value=rideDeg;
+  windDegFromSel();
 }
+function initCompass(){ windDegFromSel(); }
+function renderCompass(){ windDegFromSel(); }
+function upCompass(){}
+function syncToHidden(){
+  document.getElementById('r-wdir').value=windDeg;
+  document.getElementById('r-rdir').value=rideDeg;
+}
+function syncFromDeg(){}
+function drawArrNew(){}
+function onDrag(){} function endDrag(){}
+function onDrag(){}
+function endDrag(){}
 
 /* ══════════════════════════════════════
    Ratio同期
