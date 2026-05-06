@@ -282,33 +282,55 @@ input[type=number],input[type=text],input[type=time],select{
   </button>
   <div id="drawer-content">
 
-  <!-- 🗺️ ルート設定 -->
-  <div class="panel" style="margin-bottom:8px">
-    <div class="pt" style="margin-bottom:8px">🗺️ ルート設定</div>
-    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">
-      <button class="bs" onclick="hardClearRoute()"  style="font-size:11px;padding:4px 9px">🗑 クリア</button>
-      <button class="bs" onclick="undoRoute()"        style="font-size:11px;padding:4px 9px">↩ Undo</button>
-      <button class="bs" onclick="redoRoute()"        style="font-size:11px;padding:4px 9px">↪ Redo</button>
-      <button class="bs" onclick="downloadGPX()"      style="font-size:11px;padding:4px 9px">📤 GPX</button>
-      <button class="bs" onclick="showSaveDialog()"   style="font-size:11px;padding:4px 9px">💾 保存</button>
-      <button class="bp" onclick="manualSync()"       style="font-size:11px;padding:5px 11px">🔄 同期</button>
+  <!-- 📊 ルート統計（右カラム固定表示） -->
+  <div id="route-summary-panel" style="background:var(--acc);border-radius:var(--rs);padding:8px 10px;margin-bottom:6px;display:none">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
+      <div style="color:#fff">
+        <div style="font-size:9px;opacity:.6;text-transform:uppercase">距離</div>
+        <div style="font-size:16px;font-weight:600" id="rsp-dist">—</div>
+      </div>
+      <div style="color:#fff">
+        <div style="font-size:9px;opacity:.6;text-transform:uppercase">獲得標高</div>
+        <div style="font-size:16px;font-weight:600" id="rsp-elev">—</div>
+      </div>
+      <div style="color:#4ade80">
+        <div style="font-size:9px;opacity:.8;text-transform:uppercase">🟢 スタート</div>
+        <div style="font-size:15px;font-weight:600" id="rsp-start">—</div>
+      </div>
+      <div style="color:#fb923c">
+        <div style="font-size:9px;opacity:.8;text-transform:uppercase">🔴 到着予定</div>
+        <div style="font-size:15px;font-weight:600" id="rsp-arrive">—</div>
+      </div>
+      <div style="color:#fff">
+        <div style="font-size:9px;opacity:.6;text-transform:uppercase">予想時間</div>
+        <div style="font-size:15px;font-weight:600" id="rsp-time">—</div>
+      </div>
+      <div style="color:#fff">
+        <div style="font-size:9px;opacity:.6;text-transform:uppercase">最大斜度</div>
+        <div style="font-size:15px;font-weight:600" id="rsp-grade">—</div>
+      </div>
     </div>
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
-      <span style="font-size:10px;color:var(--text2);white-space:nowrap">ルートモード:</span>
-      <select id="route-mode" onchange="smartCalc('dist');if(waypoints.length>=2)calcRoute();" style="font-size:11px;padding:3px 7px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text);flex:1">
-        <option value="road">🟢 幹線道路優先</option>
-        <option value="avoid_hw">🟡 裏道優先</option>
-      </select>
-    </div>
-    <div style="font-size:10px;color:var(--text3)">タップで地点追加 ／ マーカードラッグで移動</div>
   </div>
 
-  <!-- 📍 POIサイドバー（縦リスト） -->
-  <div class="panel" style="margin-bottom:9px">
-    <div class="pt" style="margin-bottom:8px">📍 沿線スポット</div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:6px">
-      <button class="poi-icon-btn" id="poi-btn-コンビニ"   onclick="togglePOI('コンビニ')"   title="コンビニ">🏪<div>コンビニ</div></button>
-      <button class="poi-icon-btn" id="poi-btn-カフェ"     onclick="togglePOI('カフェ')"     title="カフェ">☕<div>カフェ</div></button>
+  <!-- 🗺️ ルート操作（コンパクト） -->
+  <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">
+    <button class="bs" onclick="hardClearRoute()"  style="font-size:11px;padding:4px 8px">🗑</button>
+    <button class="bs" onclick="undoRoute()"        style="font-size:11px;padding:4px 8px">↩</button>
+    <button class="bs" onclick="redoRoute()"        style="font-size:11px;padding:4px 8px">↪</button>
+    <button class="bs" onclick="downloadGPX()"      style="font-size:11px;padding:4px 8px">GPX</button>
+    <button class="bs" onclick="showSaveDialog()"   style="font-size:11px;padding:4px 8px">💾</button>
+    <button class="bp" onclick="manualSync()"       style="font-size:11px;padding:4px 10px">🔄</button>
+    <select id="route-mode" onchange="smartCalc('dist');if(waypoints.length>=2)calcRoute();" style="font-size:10px;padding:3px 5px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text)">
+      <option value="road">🟢 幹線優先</option>
+      <option value="avoid_hw">🟡 裏道優先</option>
+    </select>
+  </div>
+
+  <!-- 📍 POI（1行コンパクト） -->
+  <div style="margin-bottom:6px">
+    <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:2px;margin-bottom:4px">
+      <button class="poi-icon-btn" id="poi-btn-コンビニ"   onclick="togglePOI('コンビニ')"   title="コンビニ">🏪<div>CVS</div></button>
+      <button class="poi-icon-btn" id="poi-btn-カフェ"     onclick="togglePOI('カフェ')"     title="カフェ">☕<div>Café</div></button>
       <button class="poi-icon-btn" id="poi-btn-レストラン" onclick="togglePOI('レストラン')" title="食事">🍽️<div>食事</div></button>
       <button class="poi-icon-btn" id="poi-btn-公園"       onclick="togglePOI('公園')"       title="公園">🌳<div>公園</div></button>
       <button class="poi-icon-btn" id="poi-btn-絶景"       onclick="togglePOI('絶景')"       title="絶景">🏔️<div>絶景</div></button>
@@ -316,8 +338,9 @@ input[type=number],input[type=text],input[type=time],select{
       <button class="poi-icon-btn" id="poi-btn-名所・観光" onclick="togglePOI('名所・観光')" title="名所">⛩️<div>名所</div></button>
       <button class="poi-icon-btn" id="poi-btn-温泉"       onclick="togglePOI('温泉')"       title="温泉">♨️<div>温泉</div></button>
     </div>
-    <button class="bs" onclick="clearAllPOI()" style="width:100%;font-size:11px;padding:4px">✕ 全解除</button>
-    <div id="poi-results" style="margin-top:8px;max-height:220px;overflow-y:auto;font-size:11px"></div>
+    <button class="bs" onclick="clearAllPOI()" style="width:100%;font-size:10px;padding:3px">✕ 全解除</button>
+    <div id="poi-results" style="margin-top:6px;max-height:160px;overflow-y:auto;font-size:11px"></div>
+  </div>
   </div>
 
   <!-- 日照タイムライン（常時表示・最上部） -->
@@ -1280,6 +1303,19 @@ function calc(){
   if(start&&start.match(/^\d{2}:\d{2}$/)&&lastTouched!=='start'){
     setDialFromString('start',start);
   }
+  // 右カラム統計パネルを更新
+  const rsp=document.getElementById('route-summary-panel');
+  if(rsp&&window._routeData){
+    rsp.style.display='block';
+    const d=window._routeData;
+    document.getElementById('rsp-dist').textContent=(+d.distKm).toFixed(1)+' km';
+    document.getElementById('rsp-elev').textContent=Math.round(d.gainM)+' m';
+    document.getElementById('rsp-grade').textContent=(+d.maxGrade).toFixed(1)+'%';
+    document.getElementById('rsp-time').textContent=fmtD(totalMins);
+    document.getElementById('rsp-start').textContent=start;
+    document.getElementById('rsp-arrive').textContent=endTime;
+  }
+
   // 地点リストの通過時刻をリアルタイム更新
   // calc結果をグローバルに保存してrenderWpListで使用
   window._calcResult={moveSpd, ratio, startH:_sh+_sm/60};
@@ -4096,12 +4132,19 @@ function setPCHeights(){
   var settingsCol=document.querySelector('.ride-settings-col');
   var mapCol=document.querySelector('.ride-map-col');
   var gmapEl=document.getElementById('gmap');
-  var mapPanel=document.getElementById('map-panel');
+  var searchBar=document.querySelector('.ride-map-col > div:first-child'); // 検索バー
+  var statsBar=document.getElementById('map-stats-bar');
+  var wpWrap=document.getElementById('wp-list-wrap');
+  var routeInfo=document.getElementById('route-info');
   if(settingsCol) settingsCol.style.height=avail+'px';
   if(mapCol) mapCol.style.height=avail+'px';
-  if(gmapEl&&mapPanel){
-    var panelH=mapPanel.offsetHeight;
-    gmapEl.style.height=Math.max(250,avail-panelH-20)+'px';
+  if(gmapEl){
+    // 検索バー・各パネルの高さを実測して引く
+    var usedH=0;
+    [searchBar].forEach(function(el){
+      if(el) usedH+=el.offsetHeight+8;
+    });
+    gmapEl.style.height=Math.max(300,avail-usedH-16)+'px';
   }
 }
 window.addEventListener('load',function(){ setTimeout(setPCHeights,100); });
