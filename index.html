@@ -514,24 +514,28 @@ input[type=number],input[type=text],input[type=time],select{
     <div class="cwrap">
       <!-- インタラクティブコンパス（SVG版） -->
       <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:4px">
-        <svg id="compass-svg" width="130" height="130" viewBox="0 0 130 130"
-             style="cursor:grab;touch-action:none;user-select:none;overflow:visible">
-          <circle cx="65" cy="65" r="58" fill="none" stroke-width="1" id="c-ring"/>
-          <g id="c-ticks"></g>
-          <text x="65" y="13"  text-anchor="middle" font-size="10" font-weight="500" id="cN">N</text>
-          <text x="65" y="123" text-anchor="middle" font-size="10" font-weight="500" id="cS">S</text>
-          <text x="8"  y="69"  text-anchor="middle" font-size="10" font-weight="500" id="cW">W</text>
-          <text x="122" y="69" text-anchor="middle" font-size="10" font-weight="500" id="cE">E</text>
-          <g id="wind-g" style="cursor:grab">
-            <line id="wa" x1="65" y1="65" x2="65" y2="22" stroke="#e24b4a" stroke-width="3" stroke-linecap="round"/>
-            <circle id="wind-handle" cx="65" cy="18" r="10" fill="#e24b4a" fill-opacity="0.85"/>
-          </g>
-          <g id="ride-g" style="cursor:grab">
-            <line id="ra" x1="65" y1="65" x2="65" y2="22" stroke="#378add" stroke-width="3" stroke-linecap="round" stroke-dasharray="5,3"/>
-            <circle id="ride-handle" cx="65" cy="18" r="10" fill="#378add" fill-opacity="0.85"/>
-          </g>
-          <circle cx="65" cy="65" r="4" fill="#18180f"/>
-        </svg>
+        <div id="compass-wrap" style="position:relative;width:130px;height:130px;touch-action:none">
+          <svg id="compass-svg" width="130" height="130" viewBox="0 0 130 130"
+               style="position:absolute;top:0;left:0;overflow:visible">
+            <circle cx="65" cy="65" r="58" fill="none" stroke-width="1" id="c-ring"/>
+            <g id="c-ticks"></g>
+            <text x="65" y="13"  text-anchor="middle" font-size="10" font-weight="500" id="cN">N</text>
+            <text x="65" y="123" text-anchor="middle" font-size="10" font-weight="500" id="cS">S</text>
+            <text x="8"  y="69"  text-anchor="middle" font-size="10" font-weight="500" id="cW">W</text>
+            <text x="122" y="69" text-anchor="middle" font-size="10" font-weight="500" id="cE">E</text>
+            <g id="wind-g">
+              <line id="wa" x1="65" y1="65" x2="65" y2="22" stroke="#e24b4a" stroke-width="3" stroke-linecap="round"/>
+              <circle id="wind-handle" cx="65" cy="18" r="10" fill="#e24b4a" fill-opacity="0.9"/>
+            </g>
+            <g id="ride-g">
+              <line id="ra" x1="65" y1="65" x2="65" y2="22" stroke="#378add" stroke-width="3" stroke-linecap="round" stroke-dasharray="5,3"/>
+              <circle id="ride-handle" cx="65" cy="18" r="10" fill="#378add" fill-opacity="0.9"/>
+            </g>
+            <circle cx="65" cy="65" r="4" fill="#18180f" id="c-center"/>
+          </svg>
+          <!-- タッチ受信用の透明オーバーレイ -->
+          <div id="compass-overlay" style="position:absolute;top:0;left:0;width:130px;height:130px;cursor:grab;border-radius:50%"></div>
+        </div>
         <div style="display:flex;gap:10px;font-size:10px">
           <span style="color:#e24b4a;font-weight:500">● 風向き</span>
           <span style="color:#378add;font-weight:500">● 走行方向</span>
@@ -1070,8 +1074,9 @@ let draggingCompass = null;
 let dragging = null; // 後方互換
 
 function initCompass(){
+  const overlay=document.getElementById('compass-overlay');
   const svg=document.getElementById('compass-svg');
-  if(!svg) return;
+  if(!overlay||!svg) return;
 
   // 目盛り描画
   const tg=document.getElementById('c-ticks');
@@ -1084,48 +1089,58 @@ function initCompass(){
       line.setAttribute('x2',(cx+Math.cos(rad)*r2).toFixed(1));
       line.setAttribute('y2',(cy+Math.sin(rad)*r2).toFixed(1));
       line.setAttribute('stroke','rgba(128,128,128,0.4)');
-      line.setAttribute('stroke-width','1');
+      line.setAttribute('stroke-width','1.5');
       tg.appendChild(line);
     }
   }
 
+  // タッチ/マウス位置 → 角度変換（overlayのbounding rectを使う）
   function getAngle(e){
-    const rect=svg.getBoundingClientRect();
+    const rect=overlay.getBoundingClientRect();
+    const cx=rect.left+rect.width/2;
+    const cy=rect.top+rect.height/2;
     const pt=e.touches?e.touches[0]:e;
-    const dx=pt.clientX-rect.left-rect.width/2;
-    const dy=pt.clientY-rect.top-rect.height/2;
-    return (Math.atan2(dy,dx)*180/Math.PI+90+360)%360;
+    return (Math.atan2(pt.clientY-cy, pt.clientX-cx)*180/Math.PI+90+360)%360;
   }
 
-  // wind-g と ride-g に直接付ける（昨晩動いていた方式）
-  const wg=document.getElementById('wind-g');
-  const rg=document.getElementById('ride-g');
+  // タップ位置が風矢印と走行矢印のどちらに近いか判定
+  function chooseTarget(e){
+    const rect=overlay.getBoundingClientRect();
+    const pt=e.touches?e.touches[0]:e;
+    const px=pt.clientX-rect.left, py=pt.clientY-rect.top;
+    const wrad=(windDeg-90)*Math.PI/180;
+    const rrad=(rideDeg-90)*Math.PI/180;
+    const wx=65+Math.cos(wrad)*44, wy=65+Math.sin(wrad)*44;
+    const rx=65+Math.cos(rrad)*44, ry=65+Math.sin(rrad)*44;
+    const dw=Math.hypot(px-wx,py-wy);
+    const dr=Math.hypot(px-rx,py-ry);
+    return dw<=dr?'wind':'ride';
+  }
 
-  function startWind(e){ e.preventDefault(); draggingCompass='wind'; }
-  function startRide(e){ e.preventDefault(); draggingCompass='ride'; }
-
-  wg.addEventListener('mousedown', startWind);
-  rg.addEventListener('mousedown', startRide);
-  wg.addEventListener('touchstart', startWind, {passive:false});
-  rg.addEventListener('touchstart', startRide, {passive:false});
-
-  document.addEventListener('mousemove', e=>{
-    if(!draggingCompass) return;
-    const deg=Math.round(getAngle(e)/5)*5;
-    if(draggingCompass==='wind') windDeg=(deg+360)%360;
-    else rideDeg=(deg+360)%360;
-    renderCompass(); syncToHidden(); calc();
-  });
-  document.addEventListener('touchmove', e=>{
+  function onStart(e){
+    e.preventDefault();
+    draggingCompass=chooseTarget(e);
+    overlay.style.cursor='grabbing';
+  }
+  function onMove(e){
     if(!draggingCompass) return;
     e.preventDefault();
     const deg=Math.round(getAngle(e)/5)*5;
     if(draggingCompass==='wind') windDeg=(deg+360)%360;
     else rideDeg=(deg+360)%360;
     renderCompass(); syncToHidden(); calc();
-  },{passive:false});
-  document.addEventListener('mouseup',  ()=>{ draggingCompass=null; });
-  document.addEventListener('touchend', ()=>{ draggingCompass=null; });
+  }
+  function onEnd(){
+    draggingCompass=null;
+    overlay.style.cursor='grab';
+  }
+
+  overlay.addEventListener('mousedown', onStart);
+  overlay.addEventListener('touchstart', onStart, {passive:false});
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('touchmove', onMove, {passive:false});
+  document.addEventListener('mouseup',  onEnd);
+  document.addEventListener('touchend', onEnd);
 
   renderCompass();
 }
