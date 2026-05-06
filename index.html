@@ -195,7 +195,7 @@ input[type=number],input[type=text],input[type=time],select{
 <div class="sec on" id="sec-ride" style="display:contents">
 
 <div class="ride-map-col">
-  <div class="panel" id="map-panel">
+  <div id="map-panel" style="padding:4px;margin-bottom:4px">
     <!-- 検索ボックス -->
     <div style="margin-bottom:6px;display:flex;gap:6px">
       <input id="map-search" type="text" placeholder="地名・住所を検索..."
@@ -220,7 +220,33 @@ input[type=number],input[type=text],input[type=time],select{
         </div>
       </div>
 
-      <!-- ホバー情報：地図右下（ズームボタンの左） -->
+      <!-- 全画面時ミニパネル -->
+      <div id="fs-mini-panel" style="display:none;position:fixed;bottom:60px;left:10px;z-index:9999;background:rgba(10,10,10,0.88);backdrop-filter:blur(8px);border-radius:10px;padding:10px 14px;min-width:200px;pointer-events:auto">
+        <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px">
+          <div style="color:#fff">
+            <div style="font-size:9px;opacity:.5;text-transform:uppercase">距離</div>
+            <div style="font-size:18px;font-weight:600;color:#fff" id="fsp-dist">—</div>
+          </div>
+          <div style="color:#fff">
+            <div style="font-size:9px;opacity:.5;text-transform:uppercase">標高</div>
+            <div style="font-size:18px;font-weight:600;color:#fff" id="fsp-elev">—</div>
+          </div>
+          <div>
+            <div style="font-size:9px;opacity:.5;text-transform:uppercase;color:#fff">到着</div>
+            <div style="font-size:18px;font-weight:600;color:#fb923c" id="fsp-arrive">—</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:3px;flex-wrap:wrap">
+          <button onclick="togglePOI('コンビニ')" style="padding:3px 6px;border:none;border-radius:4px;background:rgba(255,255,255,.15);color:#fff;font-size:12px;cursor:pointer">🏪</button>
+          <button onclick="togglePOI('カフェ')" style="padding:3px 6px;border:none;border-radius:4px;background:rgba(255,255,255,.15);color:#fff;font-size:12px;cursor:pointer">☕</button>
+          <button onclick="togglePOI('レストラン')" style="padding:3px 6px;border:none;border-radius:4px;background:rgba(255,255,255,.15);color:#fff;font-size:12px;cursor:pointer">🍽️</button>
+          <button onclick="togglePOI('公園')" style="padding:3px 6px;border:none;border-radius:4px;background:rgba(255,255,255,.15);color:#fff;font-size:12px;cursor:pointer">🌳</button>
+          <button onclick="togglePOI('絶景')" style="padding:3px 6px;border:none;border-radius:4px;background:rgba(255,255,255,.15);color:#fff;font-size:12px;cursor:pointer">🏔️</button>
+          <button onclick="togglePOI('史跡')" style="padding:3px 6px;border:none;border-radius:4px;background:rgba(255,255,255,.15);color:#fff;font-size:12px;cursor:pointer">🏯</button>
+          <button onclick="togglePOI('名所・観光')" style="padding:3px 6px;border:none;border-radius:4px;background:rgba(255,255,255,.15);color:#fff;font-size:12px;cursor:pointer">⛩️</button>
+          <button onclick="togglePOI('温泉')" style="padding:3px 6px;border:none;border-radius:4px;background:rgba(255,255,255,.15);color:#fff;font-size:12px;cursor:pointer">♨️</button>
+        </div>
+      </div>
       <div id="map-hover" style="display:none;position:absolute;bottom:60px;right:52px;background:rgba(0,0,0,0.82);color:#fff;border-radius:6px;padding:7px 10px;font-size:11px;line-height:1.6;pointer-events:none;z-index:20;text-align:right">
         <div id="mh-dist"></div><div id="mh-elev"></div><div id="mh-gain"></div><div id="mh-grade"></div>
       </div>
@@ -254,7 +280,7 @@ input[type=number],input[type=text],input[type=time],select{
         <div>
           <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px">標高プロファイル（ホバーで地点確認）</div>
           <div style="position:relative">
-            <canvas id="elev-canvas" height="120" style="width:100%;border-radius:4px;background:var(--bg2);display:block;cursor:crosshair"></canvas>
+            <canvas id="elev-canvas" height="36" style="width:100%;border-radius:4px;background:var(--bg2);display:block;cursor:crosshair"></canvas>
             <div id="elev-cursor" style="display:none;position:absolute;top:0;bottom:0;width:1px;background:rgba(255,100,80,0.8);pointer-events:none"></div>
           </div>
         </div>
@@ -2245,6 +2271,20 @@ function updateRtLabel(){
 /* ══ GPS 現在地あおまる（グローバルスコープ） ══ */
 let _blueDot=null, _blueDotRing=null;
 
+function updateFsMiniPanel(){
+  const isFs=!!(document.fullscreenElement||document.webkitFullscreenElement);
+  const panel=document.getElementById('fs-mini-panel');
+  if(!panel) return;
+  panel.style.display=isFs?'block':'none';
+  if(isFs&&window._routeData){
+    const d=window._routeData;
+    document.getElementById('fsp-dist').textContent=(+d.distKm).toFixed(1)+' km';
+    document.getElementById('fsp-elev').textContent=Math.round(d.gainM)+' m';
+    const arr=document.getElementById('msb-arrive');
+    document.getElementById('fsp-arrive').textContent=arr?arr.textContent:'—';
+  }
+}
+
 function setBlueDot(lat,lng){
   if(!gmap) return;
   userLat=lat; userLon=lng;
@@ -2337,6 +2377,11 @@ function initMap(){
     gestureHandling: isMobile ? 'cooperative' : 'greedy',
     zoomControl:false,
     streetViewControl:false,
+    mapTypeControl:true,
+    mapTypeControlOptions:{
+      style:google.maps.MapTypeControlStyle.DROPDOWN_MENU,
+      position:google.maps.ControlPosition.TOP_LEFT
+    },
     styles:[{featureType:'poi',elementType:'labels',stylers:[{visibility:'off'}]}]
   });
   directionsService  = new google.maps.DirectionsService();
@@ -2423,6 +2468,10 @@ function initMap(){
     document.getElementById('elev-cursor').style.display='none';
     if(hoverPolyline){hoverPolyline.setMap(null);hoverPolyline=null;}
   });
+
+  // 全画面ミニパネル制御
+  document.addEventListener('fullscreenchange', updateFsMiniPanel);
+  document.addEventListener('webkitfullscreenchange', updateFsMiniPanel);
 
   // GPS起動（グローバル関数で呼ぶ）
   startGPS();
@@ -4144,7 +4193,7 @@ function setPCHeights(){
     [searchBar].forEach(function(el){
       if(el) usedH+=el.offsetHeight+8;
     });
-    gmapEl.style.height=Math.max(300,avail-usedH-16)+'px';
+    gmapEl.style.height=Math.max(400,avail-usedH-8)+'px';
   }
 }
 window.addEventListener('load',function(){ setTimeout(setPCHeights,100); });
