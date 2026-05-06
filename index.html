@@ -512,35 +512,10 @@ input[type=number],input[type=text],input[type=time],select{
   <div class="panel">
     <div class="pt">風・コンディション</div>
     <div class="cwrap">
-      <!-- インタラクティブコンパス -->
+      <!-- インタラクティブコンパス（Canvas版） -->
       <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:4px">
-        <svg id="compass-svg" width="130" height="130" viewBox="0 0 130 130"
-             style="cursor:grab;touch-action:none;user-select:none">
-          <!-- 外周 -->
-          <circle cx="65" cy="65" r="58" fill="none" stroke-width="0.5" id="c-ring"/>
-          <!-- 目盛り（45度ごと） -->
-          <g id="c-ticks"></g>
-          <!-- 方位 -->
-          <text x="65" y="13"  text-anchor="middle" font-size="10" font-weight="500" id="cN">N</text>
-          <text x="65" y="123" text-anchor="middle" font-size="10" font-weight="500" id="cS">S</text>
-          <text x="8"  y="69"  text-anchor="middle" font-size="10" font-weight="500" id="cW">W</text>
-          <text x="122" y="69" text-anchor="middle" font-size="10" font-weight="500" id="cE">E</text>
-          <!-- 風矢印（赤・ドラッグ可） -->
-          <g id="wind-g" style="cursor:grab">
-            <line id="wa" x1="65" y1="65" x2="65" y2="22" stroke="#e24b4a" stroke-width="2.5" stroke-linecap="round"/>
-            <polygon id="wh" points="65,14 60,25 70,25" fill="#e24b4a"/>
-            <!-- ドラッグハンドル（透明の大きい円） -->
-            <circle id="wind-handle" cx="65" cy="18" r="10" fill="transparent"/>
-          </g>
-          <!-- 走行矢印（青・ドラッグ可） -->
-          <g id="ride-g" style="cursor:grab">
-            <line id="ra" x1="65" y1="65" x2="65" y2="22" stroke="#378add" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="5,3"/>
-            <polygon id="rh" points="65,14 60,25 70,25" fill="#378add"/>
-            <circle id="ride-handle" cx="65" cy="18" r="10" fill="transparent"/>
-          </g>
-          <circle cx="65" cy="65" r="4" fill="var(--text)"/>
-        </svg>
-        <!-- 凡例 -->
+        <canvas id="compass-svg" width="130" height="130"
+                style="cursor:grab;touch-action:none;user-select:none;border-radius:50%"></canvas>
         <div style="display:flex;gap:10px;font-size:10px">
           <span style="color:#e24b4a;font-weight:500">● 風向き</span>
           <span style="color:#378add;font-weight:500">● 走行方向</span>
@@ -1085,140 +1060,143 @@ function degToLabel(deg){
 }
 
 function initCompass(){
-  // 目盛り描画
-  const tg=document.getElementById('c-ticks');
-  for(let a=0;a<360;a+=45){
-    const r1=54, r2=58, cx=65, cy=65;
-    const rad=(a-90)*Math.PI/180;
-    const x1=cx+Math.cos(rad)*r1, y1=cy+Math.sin(rad)*r1;
-    const x2=cx+Math.cos(rad)*r2, y2=cy+Math.sin(rad)*r2;
-    const line=document.createElementNS('http://www.w3.org/2000/svg','line');
-    line.setAttribute('x1',x1.toFixed(1));line.setAttribute('y1',y1.toFixed(1));
-    line.setAttribute('x2',x2.toFixed(1));line.setAttribute('y2',y2.toFixed(1));
-    line.setAttribute('stroke','var(--text3)');line.setAttribute('stroke-width','0.5');
-    tg.appendChild(line);
-  }
+  const canvas=document.getElementById('compass-svg');
+  if(!canvas) return;
+  const ctx=canvas.getContext('2d');
+  const CX=65, CY=65, R=55;
 
-  // ドラッグイベント：SVG全体に付ける（ヒットエリアを最大化）
-  const svg=document.getElementById('compass-svg');
-
-  function getAngleFromEvent(e){
-    const rect=svg.getBoundingClientRect();
-    const cx=rect.left+rect.width/2, cy=rect.top+rect.height/2;
+  function getAngle(e){
+    const rect=canvas.getBoundingClientRect();
     const pt=e.touches?e.touches[0]:e;
-    const dx=pt.clientX-cx, dy=pt.clientY-cy;
+    const dx=pt.clientX-rect.left-CX;
+    const dy=pt.clientY-rect.top-CY;
     return (Math.atan2(dy,dx)*180/Math.PI+90+360)%360;
   }
 
-  svg.addEventListener('mousedown',e=>{
-    const deg=getAngleFromEvent(e);
+  // タッチ開始
+  function onStart(e){
+    e.preventDefault();
+    e.stopPropagation();
+    const deg=getAngle(e);
     const dw=Math.abs(((deg-windDeg+540)%360)-180);
     const dr=Math.abs(((deg-rideDeg+540)%360)-180);
     dragging=dw<=dr?'wind':'ride';
-    svg.style.cursor='grabbing';
-    e.preventDefault();
-  });
-  svg.addEventListener('touchstart',e=>{
-    const deg=getAngleFromEvent(e);
-    const dw=Math.abs(((deg-windDeg+540)%360)-180);
-    const dr=Math.abs(((deg-rideDeg+540)%360)-180);
-    dragging=dw<=dr?'wind':'ride';
-    e.preventDefault();
-  },{passive:false});
-
-  // mousemove/touchmoveはSVGとdocument両方に付ける（iOSは外に出るとdocumentで拾う）
-  svg.addEventListener('mousemove', onDrag);
-  svg.addEventListener('touchmove', onDrag, {passive:false});
-  document.addEventListener('mousemove', onDrag);
-  document.addEventListener('touchmove', onDrag, {passive:false});
-  document.addEventListener('mouseup',  endDrag);
-  document.addEventListener('touchend', endDrag);
-
-  renderCompass();
-}
-
-function onDrag(e){
-  if(!dragging) return;
-  e.preventDefault();
-  const svg=document.getElementById('compass-svg');
-  const rect=svg.getBoundingClientRect();
-  const cx=rect.left+rect.width/2, cy=rect.top+rect.height/2;
-  const pt=e.touches ? e.touches[0] : e;
-  const dx=pt.clientX-cx, dy=pt.clientY-cy;
-  let deg=(Math.atan2(dy,dx)*180/Math.PI+90+360)%360;
-  deg=Math.round(deg/5)*5; // 5度スナップ
-  if(dragging==='wind') windDeg=deg;
-  else rideDeg=deg;
-  syncToHidden();
-  renderCompass();
-  calc();
-}
-
-function endDrag(){
-  dragging=null;
-  const svg=document.getElementById('compass-svg');
-  if(svg) svg.style.cursor='grab';
-}
-
-function syncToHidden(){
-  // 矢印の向き = 風が吹く方向（そのまま使う）
-  document.getElementById('r-wdir').value=windDeg;
-  document.getElementById('r-rdir').value=rideDeg;
-  document.getElementById('r-wdir-deg').value=windDeg;
-  document.getElementById('r-rdir-deg').value=rideDeg;
-  document.getElementById('r-wdir-label').textContent=degToLabel(windDeg);
-  document.getElementById('r-rdir-label').textContent=degToLabel(rideDeg);
-}
-
-function syncFromDeg(type){
-  if(type==='wind'){
-    windDeg=((+document.getElementById('r-wdir-deg').value)||0+360)%360;
-    document.getElementById('r-wdir').value=(windDeg+180)%360;
-    document.getElementById('r-wdir-label').textContent=degToLabel(windDeg);
-  } else {
-    rideDeg=((+document.getElementById('r-rdir-deg').value)||0+360)%360;
-    document.getElementById('r-rdir').value=rideDeg;
-    document.getElementById('r-rdir-label').textContent=degToLabel(rideDeg);
+    canvas.style.cursor='grabbing';
   }
+  // タッチ移動
+  function onMove(e){
+    if(!dragging) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const deg=Math.round(getAngle(e)/5)*5;
+    if(dragging==='wind') windDeg=deg;
+    else rideDeg=deg;
+    syncToHidden();
+    renderCompass();
+    calc();
+  }
+  // タッチ終了
+  function onEnd(e){
+    dragging=null;
+    canvas.style.cursor='grab';
+  }
+
+  canvas.addEventListener('mousedown', onStart, false);
+  canvas.addEventListener('mousemove', onMove, false);
+  canvas.addEventListener('mouseup',   onEnd,   false);
+  canvas.addEventListener('touchstart', onStart, {passive:false});
+  canvas.addEventListener('touchmove',  onMove,  {passive:false});
+  canvas.addEventListener('touchend',   onEnd,   {passive:false});
+
   renderCompass();
 }
+
+function onDrag(){}  // 後方互換（呼ばれても何もしない）
+function endDrag(){} // 後方互換
 
 function renderCompass(){
+  const canvas=document.getElementById('compass-svg');
+  if(!canvas||!canvas.getContext) return;
+  const ctx=canvas.getContext('2d');
   const dk=matchMedia('(prefers-color-scheme:dark)').matches;
-  const tc=dk?'#eeeee6':'#18180f';
-  ['cN','cS','cE','cW'].forEach(id=>document.getElementById(id)?.setAttribute('fill',tc));
-  document.getElementById('c-ring')?.setAttribute('stroke',dk?'rgba(255,255,255,.18)':'rgba(0,0,0,.12)');
+  const CX=65, CY=65, R=52;
+  ctx.clearRect(0,0,130,130);
 
-  drawArrNew('wa','wh','wind-handle', windDeg, '#e24b4a');
-  drawArrNew('ra','rh','ride-handle', rideDeg, '#378add');
+  // 外周リング
+  ctx.beginPath();
+  ctx.arc(CX,CY,R,0,Math.PI*2);
+  ctx.strokeStyle=dk?'rgba(255,255,255,.2)':'rgba(0,0,0,.15)';
+  ctx.lineWidth=1;
+  ctx.stroke();
+
+  // 目盛り
+  for(let a=0;a<360;a+=45){
+    const rad=(a-90)*Math.PI/180;
+    const r1=R-5, r2=R;
+    ctx.beginPath();
+    ctx.moveTo(CX+Math.cos(rad)*r1, CY+Math.sin(rad)*r1);
+    ctx.lineTo(CX+Math.cos(rad)*r2, CY+Math.sin(rad)*r2);
+    ctx.strokeStyle=dk?'rgba(255,255,255,.4)':'rgba(0,0,0,.3)';
+    ctx.lineWidth=1;
+    ctx.stroke();
+  }
+
+  // 方位文字
+  ctx.font='500 10px Helvetica Neue,Arial,sans-serif';
+  ctx.textAlign='center';
+  ctx.textBaseline='middle';
+  const tc=dk?'#eeeee6':'#18180f';
+  ctx.fillStyle=tc;
+  ctx.fillText('N',CX,CY-R+12);
+  ctx.fillText('S',CX,CY+R-12);
+  ctx.fillText('W',CX-R+12,CY);
+  ctx.fillText('E',CX+R-12,CY);
+
+  // 矢印描画関数
+  function drawArrow(deg, col, dashed){
+    const rad=(deg-90)*Math.PI/180;
+    const ex=CX+Math.cos(rad)*(R-8);
+    const ey=CY+Math.sin(rad)*(R-8);
+    ctx.beginPath();
+    if(dashed){ctx.setLineDash([5,3]);}else{ctx.setLineDash([]);}
+    ctx.moveTo(CX,CY);
+    ctx.lineTo(ex,ey);
+    ctx.strokeStyle=col;
+    ctx.lineWidth=2.5;
+    ctx.lineCap='round';
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // 矢じり
+    const a1=(deg-90+145)*Math.PI/180;
+    const a2=(deg-90+215)*Math.PI/180;
+    ctx.beginPath();
+    ctx.moveTo(ex,ey);
+    ctx.lineTo(ex+Math.cos(a1)*9, ey+Math.sin(a1)*9);
+    ctx.lineTo(ex+Math.cos(a2)*9, ey+Math.sin(a2)*9);
+    ctx.closePath();
+    ctx.fillStyle=col;
+    ctx.fill();
+  }
+
+  drawArrow(windDeg,'#e24b4a',false); // 風（赤・実線）
+  drawArrow(rideDeg,'#378add',true);  // 走行（青・破線）
+
+  // 中心点
+  ctx.beginPath();
+  ctx.arc(CX,CY,4,0,Math.PI*2);
+  ctx.fillStyle=tc;
+  ctx.fill();
 
   // 向かい風ヒント
   const wsp=+document.getElementById('r-wsp').value||0;
-  const wdirCalc=(windDeg+180)%360; // 気象表記（吹いてくる方向）
-  const h=hw(wsp, wdirCalc, rideDeg);
-  const lbl=h>0.5?`向かい風 ${h.toFixed(1)} m/s`:h<-0.5?`追い風 ${Math.abs(h).toFixed(1)} m/s`:`横風 (${Math.abs(h).toFixed(1)} m/s)`;
+  const h=hw(wsp,windDeg,rideDeg);
+  const lbl=h>0.5?`向かい風 ${h.toFixed(1)} m/s`:h<-0.5?`追い風 ${Math.abs(h).toFixed(1)} m/s`:`横風`;
   const hint=document.getElementById('r-wind-hint');
   if(hint) hint.textContent=`風影響: ${lbl}`;
 }
 
-function drawArrNew(lid,hid,handleId,deg,col){
-  const rad=(deg-90)*Math.PI/180, cx=65,cy=65,r=42;
-  const ex=cx+Math.cos(rad)*r, ey=cy+Math.sin(rad)*r;
-  const l=document.getElementById(lid);
-  if(!l)return;
-  l.setAttribute('x1','65');l.setAttribute('y1','65');
-  l.setAttribute('x2',ex.toFixed(1));l.setAttribute('y2',ey.toFixed(1));
-  l.setAttribute('stroke',col);
-  const ah=document.getElementById(hid);
-  const a1=(deg-90+150)*Math.PI/180, a2=(deg-90+210)*Math.PI/180;
-  ah.setAttribute('points',`${ex.toFixed(1)},${ey.toFixed(1)} ${(ex+Math.cos(a1)*7).toFixed(1)},${(ey+Math.sin(a1)*7).toFixed(1)} ${(ex+Math.cos(a2)*7).toFixed(1)},${(ey+Math.sin(a2)*7).toFixed(1)}`);
-  ah.setAttribute('fill',col);
-  // ハンドル位置更新
-  const hel=document.getElementById(handleId);
-  if(hel){hel.setAttribute('cx',ex.toFixed(1));hel.setAttribute('cy',ey.toFixed(1));}
-}
-
-function upCompass(){ renderCompass(); } // 後方互換
+function drawArrNew(){} // 後方互換
+function upCompass(){ renderCompass(); }
 
 /* ══════════════════════════════════════
    Ratio同期
