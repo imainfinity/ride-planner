@@ -514,8 +514,8 @@ input[type=number],input[type=text],input[type=time],select{
     <div class="cwrap">
       <!-- インタラクティブコンパス（Canvas版） -->
       <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:4px">
-        <canvas id="compass-svg" width="130" height="130"
-                style="cursor:grab;touch-action:none;user-select:none;border-radius:50%"></canvas>
+        <canvas id="compass-svg"
+                style="width:130px;height:130px;cursor:grab;touch-action:none;display:block"></canvas>
         <div style="display:flex;gap:10px;font-size:10px">
           <span style="color:#e24b4a;font-weight:500">● 風向き</span>
           <span style="color:#378add;font-weight:500">● 走行方向</span>
@@ -1059,119 +1059,109 @@ function degToLabel(deg){
   return DIR16[i]+'向き';
 }
 
+/* ── コンパス：Pointer Events API（iOS/Android/PC全対応） ── */
+let _compassReady=false;
+
 function initCompass(){
-  const canvas=document.getElementById('compass-svg');
-  if(!canvas) return;
-  const ctx=canvas.getContext('2d');
-  const CX=65, CY=65, R=55;
+  const cv=document.getElementById('compass-svg');
+  if(!cv||_compassReady) return;
+  _compassReady=true;
+
+  // canvas解像度設定（一度だけ）
+  const dpr=Math.round(window.devicePixelRatio)||1;
+  cv.width=130*dpr; cv.height=130*dpr;
+  cv.style.width='130px'; cv.style.height='130px';
 
   function getAngle(e){
-    const rect=canvas.getBoundingClientRect();
-    const pt=e.touches?e.touches[0]:e;
-    const dx=pt.clientX-rect.left-CX;
-    const dy=pt.clientY-rect.top-CY;
+    const r=cv.getBoundingClientRect();
+    const dx=e.clientX-r.left-65;
+    const dy=e.clientY-r.top-65;
     return (Math.atan2(dy,dx)*180/Math.PI+90+360)%360;
   }
 
-  // タッチ開始
-  function onStart(e){
+  cv.addEventListener('pointerdown',e=>{
     e.preventDefault();
-    e.stopPropagation();
+    cv.setPointerCapture(e.pointerId);
     const deg=getAngle(e);
     const dw=Math.abs(((deg-windDeg+540)%360)-180);
     const dr=Math.abs(((deg-rideDeg+540)%360)-180);
     dragging=dw<=dr?'wind':'ride';
-    canvas.style.cursor='grabbing';
-  }
-  // タッチ移動
-  function onMove(e){
+  });
+  cv.addEventListener('pointermove',e=>{
     if(!dragging) return;
     e.preventDefault();
-    e.stopPropagation();
     const deg=Math.round(getAngle(e)/5)*5;
-    if(dragging==='wind') windDeg=deg;
-    else rideDeg=deg;
-    syncToHidden();
-    renderCompass();
-    calc();
-  }
-  // タッチ終了
-  function onEnd(e){
-    dragging=null;
-    canvas.style.cursor='grab';
-  }
-
-  canvas.addEventListener('mousedown', onStart, false);
-  canvas.addEventListener('mousemove', onMove, false);
-  canvas.addEventListener('mouseup',   onEnd,   false);
-  canvas.addEventListener('touchstart', onStart, {passive:false});
-  canvas.addEventListener('touchmove',  onMove,  {passive:false});
-  canvas.addEventListener('touchend',   onEnd,   {passive:false});
-
+    if(dragging==='wind') windDeg=(deg+360)%360;
+    else rideDeg=(deg+360)%360;
+    syncToHidden(); renderCompass(); calc();
+  });
+  cv.addEventListener('pointerup',  ()=>{dragging=null;});
+  cv.addEventListener('pointercancel',()=>{dragging=null;});
   renderCompass();
 }
 
-function onDrag(){}  // 後方互換（呼ばれても何もしない）
-function endDrag(){} // 後方互換
+function onDrag(){} function endDrag(){}
 
 function renderCompass(){
-  const canvas=document.getElementById('compass-svg');
-  if(!canvas||!canvas.getContext) return;
-  const ctx=canvas.getContext('2d');
-  const dk=matchMedia('(prefers-color-scheme:dark)').matches;
-  const W=canvas.width, H=canvas.height;
-  ctx.clearRect(0,0,W,H);
-  // 論理サイズ130×130でスケール
-  const scale=W/130;
+  const cv=document.getElementById('compass-svg');
+  if(!cv) return;
+  const dpr=Math.round(window.devicePixelRatio)||1;
+  // 未初期化の場合のみサイズ設定
+  if(cv.width===0||cv.width===130){
+    cv.width=130*dpr; cv.height=130*dpr;
+    cv.style.width='130px'; cv.style.height='130px';
+  }
+  const ctx=cv.getContext('2d');
+  ctx.clearRect(0,0,cv.width,cv.height);
   ctx.save();
-  ctx.scale(scale,scale);
-  const CX=65, CY=65, R=52;
+  ctx.scale(dpr,dpr);
+  const CX=65,CY=65,R=52;
+  const dk=matchMedia('(prefers-color-scheme:dark)').matches;
+  const tc=dk?'#eeeee6':'#18180f';
 
-  // 外周リング
-  ctx.beginPath();ctx.arc(CX,CY,R,0,Math.PI*2);
-  ctx.strokeStyle=dk?'rgba(255,255,255,.2)':'rgba(0,0,0,.15)';
-  ctx.lineWidth=1;ctx.stroke();
+  ctx.beginPath(); ctx.arc(CX,CY,R,0,Math.PI*2);
+  ctx.strokeStyle=dk?'rgba(255,255,255,.25)':'rgba(0,0,0,.2)';
+  ctx.lineWidth=1.5; ctx.stroke();
 
-  // 目盛り
   for(let a=0;a<360;a+=45){
-    const rad=(a-90)*Math.PI/180;
+    const r=(a-90)*Math.PI/180;
     ctx.beginPath();
-    ctx.moveTo(CX+Math.cos(rad)*(R-5),CY+Math.sin(rad)*(R-5));
-    ctx.lineTo(CX+Math.cos(rad)*R,    CY+Math.sin(rad)*R);
+    ctx.moveTo(CX+Math.cos(r)*(R-6),CY+Math.sin(r)*(R-6));
+    ctx.lineTo(CX+Math.cos(r)*R,    CY+Math.sin(r)*R);
     ctx.strokeStyle=dk?'rgba(255,255,255,.4)':'rgba(0,0,0,.3)';
-    ctx.lineWidth=1;ctx.stroke();
+    ctx.lineWidth=1.5; ctx.stroke();
   }
 
-  // 方位文字
-  const tc=dk?'#eeeee6':'#18180f';
-  ctx.font='500 10px Helvetica Neue,Arial,sans-serif';
-  ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=tc;
-  ctx.fillText('N',CX,CY-R+12);ctx.fillText('S',CX,CY+R-12);
-  ctx.fillText('W',CX-R+12,CY);ctx.fillText('E',CX+R-12,CY);
+  ctx.font='600 10px Arial,sans-serif';
+  ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle=tc;
+  [['N',0],['E',90],['S',180],['W',270]].forEach(([l,a])=>{
+    const r=(a-90)*Math.PI/180;
+    ctx.fillText(l,CX+Math.cos(r)*(R-14),CY+Math.sin(r)*(R-14));
+  });
 
-  // 矢印
   function drawArrow(deg,col,dashed){
-    const rad=(deg-90)*Math.PI/180;
-    const ex=CX+Math.cos(rad)*(R-8), ey=CY+Math.sin(rad)*(R-8);
+    const r=(deg-90)*Math.PI/180;
+    const len=R-10;
+    const ex=CX+Math.cos(r)*len, ey=CY+Math.sin(r)*len;
     ctx.beginPath();
-    ctx.setLineDash(dashed?[5,3]:[]);
-    ctx.moveTo(CX,CY);ctx.lineTo(ex,ey);
-    ctx.strokeStyle=col;ctx.lineWidth=2.5;ctx.lineCap='round';ctx.stroke();
+    ctx.setLineDash(dashed?[4,3]:[]);
+    ctx.moveTo(CX,CY); ctx.lineTo(ex,ey);
+    ctx.strokeStyle=col; ctx.lineWidth=2.5; ctx.lineCap='round'; ctx.stroke();
     ctx.setLineDash([]);
+    const h1=(deg-90+145)*Math.PI/180, h2=(deg-90+215)*Math.PI/180;
     ctx.beginPath();
     ctx.moveTo(ex,ey);
-    ctx.lineTo(ex+Math.cos((deg-90+145)*Math.PI/180)*9, ey+Math.sin((deg-90+145)*Math.PI/180)*9);
-    ctx.lineTo(ex+Math.cos((deg-90+215)*Math.PI/180)*9, ey+Math.sin((deg-90+215)*Math.PI/180)*9);
-    ctx.closePath();ctx.fillStyle=col;ctx.fill();
+    ctx.lineTo(ex+Math.cos(h1)*10,ey+Math.sin(h1)*10);
+    ctx.lineTo(ex+Math.cos(h2)*10,ey+Math.sin(h2)*10);
+    ctx.closePath(); ctx.fillStyle=col; ctx.fill();
   }
   drawArrow(windDeg,'#e24b4a',false);
-  drawArrow(rideDeg,'#378add',true);
+  drawArrow(rideDeg,'#4285f4',true);
 
-  // 中心点
-  ctx.beginPath();ctx.arc(CX,CY,4,0,Math.PI*2);ctx.fillStyle=tc;ctx.fill();
+  ctx.beginPath(); ctx.arc(CX,CY,3.5,0,Math.PI*2);
+  ctx.fillStyle=tc; ctx.fill();
   ctx.restore();
 
-  // 向かい風ヒント
   const wsp=+document.getElementById('r-wsp').value||0;
   const h=hw(wsp,windDeg,rideDeg);
   const lbl=h>0.5?`向かい風 ${h.toFixed(1)} m/s`:h<-0.5?`追い風 ${Math.abs(h).toFixed(1)} m/s`:`横風`;
