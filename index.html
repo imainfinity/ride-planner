@@ -463,7 +463,7 @@ input[type=number],input[type=text],input[type=time],select{
       <div class="g2">
         <div class="field">
           <label>予想 移動速度 (km/h)</label>
-          <input type="number" id="r-movespd" value="25" step="0.5" oninput="smartCalc('speed')">
+          <input type="number" id="r-movespd" value="30" step="0.5" oninput="smartCalc('speed')">
           <div class="hint">信号・停止を除く移動速度</div>
         </div>
         <div class="field">
@@ -866,7 +866,7 @@ input[type=number],input[type=text],input[type=time],select{
       <div class="field"><label>デフォルト標高 (m)</label>
         <input type="number" id="pref-elev" value="300" step="10" oninput="saveUserPref()"></div>
       <div class="field"><label>デフォルト速度 (km/h)</label>
-        <input type="number" id="pref-spd" value="25" step="0.5" oninput="saveUserPref()"></div>
+        <input type="number" id="pref-spd" value="30" step="0.5" oninput="saveUserPref()"></div>
     </div>
     <div class="g3" style="margin-top:8px">
       <div class="field"><label>体重 (kg)</label>
@@ -3712,26 +3712,29 @@ function recalcTime(changed){
   if(!mins||mins<=0) return;
 
   if(changed==='start'){
-    // スタート変更 → ゴールを計算
     const sh=dialState.start.h, sm=dialState.start.m;
-    const endH=(sh+sm/60)+mins/60;
-    const eH=Math.floor(endH%24), eM=Math.round((endH%1)*60)%60;
+    const totalH=(sh+sm/60)+mins/60;
+    const eH=Math.floor(totalH%24), eM=Math.round((totalH%1)*60)%60;
+    const nextDay=totalH>=24;
     dialState.end={h:eH,m:eM};
     updateDialDisplay('end');
     syncDialToHidden('end');
     const w=document.getElementById('dial-end-wrap');
     if(w) w.style.opacity='1';
-    updateBar(sh,sm,eH,eM,mins);
+    updateBar(sh,sm,eH,eM,mins,nextDay?'+1日':'');
   } else {
-    // ゴール変更 → スタートを逆算
     const eh=dialState.end.h, em=dialState.end.m;
-    const startH=(eh+em/60)-mins/60;
-    const sH=Math.floor(((startH%24)+24)%24);
-    const sM=Math.round((((startH%24)+24)%24%1)*60)%60;
+    let endTotal=eh+em/60;
+    let startTotal=endTotal-mins/60;
+    // スタートが負になる→前日
+    const prevDay=startTotal<0;
+    if(prevDay) startTotal+=24;
+    const sH=Math.floor(((startTotal%24)+24)%24);
+    const sM=Math.round((((startTotal%24)+24)%24%1)*60)%60;
     dialState.start={h:sH,m:sM};
     updateDialDisplay('start');
     syncDialToHidden('start');
-    updateBar(sH,sM,eh,em,mins);
+    updateBar(sH,sM,eh,em,mins,prevDay?'-1日':'');
   }
   // calc実行（地点リスト等の更新）
   calc();
@@ -3767,14 +3770,15 @@ function calcTotalMins(){
 }
 
 // 黒帯更新
-function updateBar(sH,sM,eH,eM,mins){
+function updateBar(sH,sM,eH,eM,mins,dayLabel){
+  dayLabel=dayLabel||'';
   const bar=document.getElementById('map-stats-bar');
   if(!bar) return;
   bar.style.display='block'; document.body.style.paddingTop=(bar.offsetHeight||48)+'px';
   const startStr=`${String(sH).padStart(2,'0')}:${String(sM).padStart(2,'0')}`;
   const endStr=`${String(eH).padStart(2,'0')}:${String(eM).padStart(2,'0')}`;
   document.getElementById('msb-start').textContent=startStr;
-  document.getElementById('msb-arrive').textContent=endStr;
+  document.getElementById('msb-arrive').textContent=endStr+(dayLabel?' ('+dayLabel+')':'');
   document.getElementById('msb-time').textContent=fmtD(mins);
   document.getElementById('r-start').value=startStr;
   // 日照バーも更新
@@ -4074,12 +4078,12 @@ updateDialDisplay('start');
   const p=JSON.parse(saved);
   if(document.getElementById('r-dist'))    document.getElementById('r-dist').value=p.dist||50;
   if(document.getElementById('r-elev'))    document.getElementById('r-elev').value=p.elev||300;
-  if(document.getElementById('r-movespd')) document.getElementById('r-movespd').value=p.spd||25;
+  if(document.getElementById('r-movespd')) document.getElementById('r-movespd').value=p.spd||30;
   if(document.getElementById('r-weight'))  document.getElementById('r-weight').value=p.weight||65;
   if(document.getElementById('r-ratio'))   document.getElementById('r-ratio').value=p.ratio||85;
   if(document.getElementById('r-start'))   document.getElementById('r-start').value=p.start||'08:00';
   if(p.start) setDialFromString('start', p.start);
-  if(p.spd) baseSpdValue=+p.spd;
+  baseSpdValue=+(p.spd||30);
 })();
 
 // ══ PC高さ管理 ══
