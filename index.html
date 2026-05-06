@@ -1081,11 +1081,21 @@ function initCompass(){
     return (Math.atan2(dy,dx)*180/Math.PI+90+360)%360;
   }
 
+  // ドラッグ開始時のcanvas rect（ドラッグ中は固定）
+  let _dragRect=null;
+  function getAngleFromRect(e,rect){
+    const pt=e.touches?e.touches[0]:e;
+    const dx=pt.clientX-rect.left-CX;
+    const dy=pt.clientY-rect.top-CY;
+    return (Math.atan2(dy,dx)*180/Math.PI+90+360)%360;
+  }
+
   // タッチ開始
   function onStart(e){
     e.preventDefault();
     e.stopPropagation();
-    const deg=getAngle(e);
+    _dragRect=canvas.getBoundingClientRect();
+    const deg=getAngleFromRect(e,_dragRect);
     const dw=Math.abs(((deg-windDeg+540)%360)-180);
     const dr=Math.abs(((deg-rideDeg+540)%360)-180);
     dragging=dw<=dr?'wind':'ride';
@@ -1096,7 +1106,7 @@ function initCompass(){
     if(!dragging) return;
     e.preventDefault();
     e.stopPropagation();
-    const deg=Math.round(getAngle(e)/5)*5;
+    const deg=Math.round(getAngleFromRect(e,_dragRect)/5)*5;
     if(dragging==='wind') windDeg=deg;
     else rideDeg=deg;
     syncToHidden();
@@ -1106,15 +1116,18 @@ function initCompass(){
   // タッチ終了
   function onEnd(e){
     dragging=null;
+    _dragRect=null;
     canvas.style.cursor='grab';
   }
 
   canvas.addEventListener('mousedown', onStart, false);
-  canvas.addEventListener('mousemove', onMove, false);
-  canvas.addEventListener('mouseup',   onEnd,   false);
+  document.addEventListener('mousemove', onMove, false);
+  document.addEventListener('mouseup',   onEnd,   false);
+  canvas.addEventListener('mouseleave', function(e){ if(!dragging) canvas.style.cursor='grab'; }, false);
   canvas.addEventListener('touchstart', onStart, {passive:false});
   canvas.addEventListener('touchmove',  onMove,  {passive:false});
   canvas.addEventListener('touchend',   onEnd,   {passive:false});
+  canvas.style.cursor='grab';
 
   renderCompass();
 }
@@ -1189,10 +1202,10 @@ function renderCompass(){
 
 function syncFromDeg(type){
   if(type==='wind'){
-    windDeg=((+document.getElementById('r-wdir-deg').value)||0+360)%360;
+    windDeg=((+document.getElementById('r-wdir-deg').value%360)+360)%360;
     document.getElementById('r-wdir-label').textContent=degToLabel(windDeg);
   } else {
-    rideDeg=((+document.getElementById('r-rdir-deg').value)||0+360)%360;
+    rideDeg=((+document.getElementById('r-rdir-deg').value%360)+360)%360;
     document.getElementById('r-rdir-label').textContent=degToLabel(rideDeg);
   }
   syncToHidden();
