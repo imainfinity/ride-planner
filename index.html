@@ -2336,6 +2336,54 @@ function updateRtLabel(){
   }
 }
 
+/* ══ GPS 現在地あおまる（グローバルスコープ） ══ */
+let _blueDot=null, _blueDotRing=null;
+
+function setBlueDot(lat,lng){
+  if(!gmap) return;
+  userLat=lat; userLon=lng;
+  const pos={lat,lng};
+  if(!_blueDot){
+    _blueDotRing=new google.maps.Marker({
+      position:pos,map:gmap,zIndex:9998,clickable:false,
+      icon:{path:google.maps.SymbolPath.CIRCLE,scale:20,
+            fillColor:'#4285F4',fillOpacity:0.15,
+            strokeColor:'#4285F4',strokeWeight:1.5}
+    });
+    _blueDot=new google.maps.Marker({
+      position:pos,map:gmap,zIndex:9999,title:'現在地',
+      icon:{path:google.maps.SymbolPath.CIRCLE,scale:10,
+            fillColor:'#4285F4',fillOpacity:1,
+            strokeColor:'#ffffff',strokeWeight:2.5}
+    });
+  } else {
+    _blueDot.setPosition(pos);
+    _blueDotRing.setPosition(pos);
+  }
+  try{renderDaylight();}catch(e){}
+}
+
+function startGPS(){
+  if(!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      setBlueDot(pos.coords.latitude,pos.coords.longitude);
+      if(gmap){
+        gmap.setCenter({lat:pos.coords.latitude,lng:pos.coords.longitude});
+        gmap.setZoom(13);
+      }
+      showStartBanner(pos.coords.latitude,pos.coords.longitude);
+    },
+    err=>{ console.warn('GPS error:',err.code, err.message); },
+    {timeout:10000,enableHighAccuracy:true,maximumAge:0}
+  );
+  navigator.geolocation.watchPosition(
+    pos=>{ setBlueDot(pos.coords.latitude,pos.coords.longitude); },
+    err=>{ console.warn('GPS watch error:',err.code); },
+    {enableHighAccuracy:true,maximumAge:5000,timeout:20000}
+  );
+}
+
 function initMap(){
   // 今日の日付を確実にセット
   (function(){
@@ -2416,44 +2464,6 @@ function initMap(){
   });
   ['mouseup','dragstart'].forEach(ev=>gmap.addListener(ev,()=>clearTimeout(_lpTimer)));
 
-  // ① 現在地あおまる（Blue Dot）+ watchPosition追従
-  let _blueDot=null, _blueDotRing=null;
-  function _setBlueDot(lat,lng){
-    userLat=lat; userLon=lng;
-    const pos={lat,lng};
-    if(!_blueDot){
-      _blueDotRing=new google.maps.Marker({
-        position:pos,map:gmap,zIndex:9998,clickable:false,
-        icon:{path:google.maps.SymbolPath.CIRCLE,scale:20,
-              fillColor:'#4285F4',fillOpacity:0.15,
-              strokeColor:'#4285F4',strokeWeight:1.5}
-      });
-      _blueDot=new google.maps.Marker({
-        position:pos,map:gmap,zIndex:9999,title:'現在地',
-        icon:{path:google.maps.SymbolPath.CIRCLE,scale:10,
-              fillColor:'#4285F4',fillOpacity:1,
-              strokeColor:'#ffffff',strokeWeight:2.5}
-      });
-    } else {
-      _blueDot.setPosition(pos);
-      _blueDotRing.setPosition(pos);
-    }
-    try{renderDaylight();}catch(e){}
-  }
-  if(navigator.geolocation){
-    // 初回取得
-    navigator.geolocation.getCurrentPosition(pos=>{
-      _setBlueDot(pos.coords.latitude,pos.coords.longitude);
-      gmap.setCenter({lat:pos.coords.latitude,lng:pos.coords.longitude});
-      gmap.setZoom(13);
-      showStartBanner(pos.coords.latitude,pos.coords.longitude);
-    },{timeout:10000,enableHighAccuracy:true});
-    // 追従
-    navigator.geolocation.watchPosition(pos=>{
-      _setBlueDot(pos.coords.latitude,pos.coords.longitude);
-    },{enableHighAccuracy:true,maximumAge:5000,timeout:15000});
-  }
-
   // 標高プロファイルのホバーイベント
   const ec=document.getElementById('elev-canvas');
   ec.addEventListener('mousemove',onElevHover);
@@ -2461,6 +2471,9 @@ function initMap(){
     document.getElementById('elev-cursor').style.display='none';
     if(hoverPolyline){hoverPolyline.setMap(null);hoverPolyline=null;}
   });
+
+  // GPS起動（グローバル関数で呼ぶ）
+  startGPS();
 }
 
 let goalFixed=false; // ゴール確定済みフラグ
