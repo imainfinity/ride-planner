@@ -230,9 +230,9 @@ input[type=number],input[type=text],input[type=time],select{
     <div style="position:relative">
       <div id="gmap" style="width:100%;height:400px;border-radius:var(--rs);border:0.5px solid var(--border);background:var(--bg2)"></div>
 
-      <!-- ルート統計バー：地図内・上部中央に固定 -->
-      <div id="map-stats-bar" style="display:none;position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:20;pointer-events:none;width:calc(100% - 20px);max-width:700px">
-        <div style="background:rgba(10,10,10,0.88);backdrop-filter:blur(8px);border-radius:10px;padding:7px 10px;box-shadow:0 4px 20px rgba(0,0,0,0.4);display:flex;flex-wrap:wrap;gap:0;align-items:center;justify-content:space-around">
+      <!-- ルート統計バー：画面上部に常時固定 -->
+      <div id="map-stats-bar" style="display:none;position:fixed;top:0;left:0;right:0;z-index:300;pointer-events:none">
+        <div style="background:rgba(10,10,10,0.93);backdrop-filter:blur(8px);padding:7px 12px;box-shadow:0 2px 12px rgba(0,0,0,0.5);display:flex;flex-wrap:wrap;gap:0;align-items:center;justify-content:space-around">
           <div class="msb-cell"><div class="msb-label">距離</div><div class="msb-val" id="msb-dist">—</div></div>
           <div class="msb-cell"><div class="msb-label">獲得標高</div><div class="msb-val" id="msb-elev">—</div></div>
           <div class="msb-cell"><div class="msb-label">最大斜度</div><div class="msb-val" id="msb-grade">—</div></div>
@@ -1384,7 +1384,7 @@ function calc(){
   // ── マップ統計バーを常時更新 ──
   const bar=document.getElementById('map-stats-bar');
   if(bar){
-    bar.style.display='block';
+    bar.style.display='block'; document.body.style.paddingTop=(bar.offsetHeight||48)+'px';
     document.getElementById('msb-start').textContent=start;
     document.getElementById('msb-time').textContent=fmtD(totalMins);
     document.getElementById('msb-arrive').textContent=endTime;
@@ -2994,7 +2994,7 @@ function processElevation(elevResults,distKm,path){
   // 統計バーを即時強制更新
   const bar=document.getElementById('map-stats-bar');
   if(bar){
-    bar.style.display='block';
+    bar.style.display='block'; document.body.style.paddingTop=(bar.offsetHeight||48)+'px';
     document.getElementById('msb-dist').textContent=(+distKm).toFixed(1)+' km';
     document.getElementById('msb-elev').textContent=gainM+' m';
     document.getElementById('msb-grade').textContent=maxGrade.toFixed(1)+'%';
@@ -3041,7 +3041,7 @@ function syncRouteToUI(){
   if(rtEl) rtEl.value='0';
   updateRtLabel();
   const bar=document.getElementById('map-stats-bar');
-  if(bar) bar.style.display='block';
+  if(bar) bar.style.display='block'; document.body.style.paddingTop=(bar.offsetHeight||48)+'px';
   // ゴール設定済みならスタートを逆算、未設定なら順算
   const changed=dialState.end.h!==null?'end':'start';
   recalcTime(changed);
@@ -3060,7 +3060,7 @@ function syncStartTimeToBar(){
 function updateMapStatsBar(distKm, gainM, maxGrade){
   const bar=document.getElementById('map-stats-bar');
   if(!bar) return;
-  bar.style.display='block';
+  bar.style.display='block'; document.body.style.paddingTop=(bar.offsetHeight||48)+'px';
   document.getElementById('msb-dist').textContent=(+distKm).toFixed(1)+' km';
   document.getElementById('msb-elev').textContent=(+gainM).toFixed(0)+' m';
   document.getElementById('msb-grade').textContent=(+maxGrade).toFixed(1)+'%';
@@ -3292,7 +3292,7 @@ function addWaypoint(latLng){
     // 1点目：バーを表示してスタート時刻だけ反映
     const bar=document.getElementById('map-stats-bar');
     if(bar){
-      bar.style.display='block';
+      bar.style.display='block'; document.body.style.paddingTop=(bar.offsetHeight||48)+'px';
       const sh=dialState.start.h, sm=dialState.start.m;
       document.getElementById('msb-start').textContent=
         `${String(sh).padStart(2,'0')}:${String(sm).padStart(2,'0')}`;
@@ -3873,7 +3873,7 @@ function calcTotalMins(){
 function updateBar(sH,sM,eH,eM,mins){
   const bar=document.getElementById('map-stats-bar');
   if(!bar) return;
-  bar.style.display='block';
+  bar.style.display='block'; document.body.style.paddingTop=(bar.offsetHeight||48)+'px';
   const startStr=`${String(sH).padStart(2,'0')}:${String(sM).padStart(2,'0')}`;
   const endStr=`${String(eH).padStart(2,'0')}:${String(eM).padStart(2,'0')}`;
   document.getElementById('msb-start').textContent=startStr;
@@ -4024,7 +4024,7 @@ function smartCalc(trigger){
     document.getElementById('r-end').value=endStr;
     setDialFromString('start',startStr);
     const bar=document.getElementById('map-stats-bar');
-    if(bar){ bar.style.display='block';
+    if(bar){ bar.style.display='block'; document.body.style.paddingTop=(bar.offsetHeight||48)+'px';
       document.getElementById('msb-start').textContent=startStr;
       document.getElementById('msb-time').textContent=fmtD(totalMins);
       document.getElementById('msb-arrive').textContent=endStr;
@@ -4043,7 +4043,7 @@ function smartCalc(trigger){
     document.getElementById('r-end').value=endStr;
     setDialFromString('end',endStr);
     const bar=document.getElementById('map-stats-bar');
-    if(bar){ bar.style.display='block';
+    if(bar){ bar.style.display='block'; document.body.style.paddingTop=(bar.offsetHeight||48)+'px';
       document.getElementById('msb-start').textContent=startStr;
       document.getElementById('msb-time').textContent=fmtD(totalMins);
       document.getElementById('msb-arrive').textContent=endStr+(endH>=24?' +1日':'');
@@ -4061,7 +4061,7 @@ function smartCalc(trigger){
     document.getElementById('r-end').value=endStr;
     setDialFromString('end',endStr);
     const bar=document.getElementById('map-stats-bar');
-    if(bar){ bar.style.display='block';
+    if(bar){ bar.style.display='block'; document.body.style.paddingTop=(bar.offsetHeight||48)+'px';
       document.getElementById('msb-start').textContent=startStr;
       document.getElementById('msb-time').textContent=fmtD(totalMins);
       document.getElementById('msb-arrive').textContent=endStr+(endH>=24?' +1日':'');
@@ -4135,7 +4135,7 @@ function resetTimeDisplay(){
   // マップ統計バーをリセット
   const bar=document.getElementById('map-stats-bar');
   if(bar){
-    bar.style.display='none';
+    bar.style.display='none'; document.body.style.paddingTop='';
     ['msb-dist','msb-elev','msb-grade','msb-time','msb-arrive'].forEach(id=>{
       const el=document.getElementById(id);
       if(el) el.textContent='—';
