@@ -45,7 +45,7 @@ header .sub{font-size:11px;color:var(--text2)}
 
 /* ══ PC レイアウト（769px以上） ══ */
 body.pc-mode .app-body{display:grid;grid-template-columns:7fr 3fr}
-body.pc-mode .ride-map-col{overflow-y:auto;padding:8px}
+body.pc-mode .ride-map-col{overflow-y:auto;padding:0}
 body.pc-mode .ride-settings-col{overflow-y:scroll;border-left:1px solid var(--border);background:var(--bg);padding:8px}
 body.pc-mode #drawer-toggle{display:none}
 body.pc-mode #drawer-content{display:block !important}
@@ -195,9 +195,9 @@ input[type=number],input[type=text],input[type=time],select{
 <div class="sec on" id="sec-ride" style="display:contents">
 
 <div class="ride-map-col">
-  <div id="map-panel" style="padding:4px;margin-bottom:4px">
+  <div id="map-panel" style="padding:0;margin:0">
     <!-- 検索ボックス -->
-    <div style="margin-bottom:6px;display:flex;gap:6px">
+    <div id="map-search-bar" style="margin:0 0 2px 0;display:flex;gap:4px;padding:4px">
       <input id="map-search" type="text" placeholder="地名・住所を検索..."
              style="flex:1;font-size:13px;padding:7px 10px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text)">
       <button class="bs" onclick="searchPlace()" style="font-size:12px;padding:7px 12px">検索</button>
@@ -263,6 +263,27 @@ input[type=number],input[type=text],input[type=time],select{
         <button onclick="gmap&&gmap.setZoom(gmap.getZoom()-1)" style="width:32px;height:32px;border:none;border-radius:0 0 6px 6px;background:rgba(255,255,255,0.92);color:#333;font-size:22px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center">－</button>
       </div>
     </div><!-- /gmap relative div -->
+
+    <!-- 標高プロファイル：地図直下 -->
+    <div id="elev-wrap" style="margin-top:4px;display:none">
+      <div style="position:relative">
+        <canvas id="elev-canvas" height="60" style="width:100%;border-radius:4px;background:var(--bg2);display:block;cursor:crosshair"></canvas>
+        <div id="elev-cursor" style="display:none;position:absolute;top:0;bottom:0;width:1px;background:rgba(255,100,80,0.8);pointer-events:none"></div>
+      </div>
+    </div>
+
+    <!-- ルート情報チップ -->
+    <div id="route-info" style="display:none;margin-top:4px">
+      <div style="display:flex;gap:4px;flex-wrap:wrap">
+        <div class="ri-chip"><span class="ri-cl">距離</span><span class="ri-cv" id="ri-dist">—</span></div>
+        <div class="ri-chip"><span class="ri-cl">獲得標高</span><span class="ri-cv" id="ri-elev">—</span></div>
+        <div class="ri-chip"><span class="ri-cl">最高標高</span><span class="ri-cv" id="ri-maxelev">—</span></div>
+        <div class="ri-chip"><span class="ri-cl">特性</span><span class="ri-cv" id="ri-profile">—</span></div>
+        <div class="ri-chip"><span class="ri-cl">最大斜度</span><span class="ri-cv" id="ri-maxgrade">—</span></div>
+        <div class="ri-chip"><span class="ri-cl">方向</span><span class="ri-cv" style="font-size:11px" id="ri-bearing">—</span></div>
+      </div>
+    </div>
+
   </div><!-- /map-panel -->
 </div><!-- /ride-map-col -->
 
@@ -332,33 +353,13 @@ input[type=number],input[type=text],input[type=time],select{
     <div id="poi-results" style="margin-top:6px;max-height:120px;overflow-y:auto;font-size:11px"></div>
   </div>
 
-  <!-- 地点リスト + 標高プロファイル -->
+  <!-- 地点リスト -->
   <div id="wp-list-wrap" style="display:none;margin-bottom:6px">
     <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:3px">地点</div>
     <div style="display:grid;grid-template-columns:10px 1fr 44px 40px 44px 16px;gap:3px;padding:2px 4px;font-size:8px;font-weight:600;color:var(--text3);border-bottom:0.5px solid var(--border)">
       <span></span><span></span><span style="text-align:right">km</span><span style="text-align:right">着</span><span style="text-align:right">↑m</span><span></span>
     </div>
-    <div id="wp-list" style="max-height:120px;overflow-y:auto"></div>
-    <!-- 標高プロファイル -->
-    <div style="margin-top:6px">
-      <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:3px">標高プロファイル（ホバーで確認）</div>
-      <div style="position:relative">
-        <canvas id="elev-canvas" height="60" style="width:100%;border-radius:4px;background:var(--bg2);display:block;cursor:crosshair"></canvas>
-        <div id="elev-cursor" style="display:none;position:absolute;top:0;bottom:0;width:1px;background:rgba(255,100,80,0.8);pointer-events:none"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ルート情報チップ -->
-  <div id="route-info" style="display:none;margin-bottom:6px">
-    <div style="display:flex;gap:4px;flex-wrap:wrap">
-      <div class="ri-chip"><span class="ri-cl">距離</span><span class="ri-cv" id="ri-dist">—</span></div>
-      <div class="ri-chip"><span class="ri-cl">獲得標高</span><span class="ri-cv" id="ri-elev">—</span></div>
-      <div class="ri-chip"><span class="ri-cl">最高標高</span><span class="ri-cv" id="ri-maxelev">—</span></div>
-      <div class="ri-chip"><span class="ri-cl">特性</span><span class="ri-cv" id="ri-profile">—</span></div>
-      <div class="ri-chip"><span class="ri-cl">最大斜度</span><span class="ri-cv" id="ri-maxgrade">—</span></div>
-      <div class="ri-chip"><span class="ri-cl">方向</span><span class="ri-cv" style="font-size:11px" id="ri-bearing">—</span></div>
-    </div>
+    <div id="wp-list" style="max-height:150px;overflow-y:auto"></div>
   </div>
 
   <!-- 日照タイムライン（常時表示・最上部） -->
@@ -2624,7 +2625,8 @@ function removeWaypoint(idx){
   markers=[];
   waypoints.forEach((ll,i)=>createMarker(ll,i));
   if(waypoints.length>=2) calcRoute();
-  else{directionsRenderer.setDirections({routes:[]});document.getElementById('route-info').style.display='none';}
+  else{directionsRenderer.setDirections({routes:[]});document.getElementById('route-info').style.display='none';
+  const ew2=document.getElementById('elev-wrap'); if(ew2) ew2.style.display='none';}
   renderWpList();
 }
 
@@ -2962,6 +2964,7 @@ function processElevation(elevResults,distKm,path){
   const bearing=calcBearing(path[0].lat(),path[0].lng(),path[path.length-1].lat(),path[path.length-1].lng());
 
   document.getElementById('route-info').style.display='block';
+  const ew=document.getElementById('elev-wrap'); if(ew) ew.style.display='block';
   document.getElementById('ri-dist').textContent=distKm+' km';
   document.getElementById('ri-elev').textContent=gainM+' m';
   // 統計バーを即時強制更新
@@ -2995,6 +2998,7 @@ function processElevation(elevResults,distKm,path){
 
 function applyDistOnly(distKm){
   document.getElementById('route-info').style.display='block';
+  const ew=document.getElementById('elev-wrap'); if(ew) ew.style.display='block';
   document.getElementById('ri-dist').textContent=distKm+' km';
   ['ri-elev','ri-maxelev','ri-bearing','ri-profile','ri-maxgrade'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.textContent='—';
@@ -3209,6 +3213,7 @@ function applyWaypointState(pts){
   else if(waypoints.length<2){
     directionsRenderer.setDirections({routes:[]});
     document.getElementById('route-info').style.display='none';
+  const ew2=document.getElementById('elev-wrap'); if(ew2) ew2.style.display='none';
     document.getElementById('map-stats-bar').style.display='none';
   }
   renderWpList();
@@ -4177,8 +4182,14 @@ function setPCHeights(){
   if(settingsCol) settingsCol.style.height=avail+'px';
   if(mapCol) mapCol.style.height=avail+'px';
   if(gmapEl){
-    var sbH=searchBar?searchBar.offsetHeight:52;
-    gmapEl.style.height=Math.max(400,avail-sbH-4)+'px';
+    var sbEl=document.getElementById('map-search-bar');
+    var sbH=sbEl?sbEl.offsetHeight+2:40;
+    var ewH=0;
+    var ew=document.getElementById('elev-wrap');
+    var ri=document.getElementById('route-info');
+    if(ew&&ew.style.display!=='none') ewH+=ew.offsetHeight+4;
+    if(ri&&ri.style.display!=='none') ewH+=ri.offsetHeight+4;
+    gmapEl.style.height=Math.max(400,avail-sbH-ewH)+'px';
   }
 }
 window.addEventListener('load',function(){ setTimeout(setPCHeights,100); });
