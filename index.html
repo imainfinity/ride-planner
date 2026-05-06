@@ -519,14 +519,14 @@ input[type=number],input[type=text],input[type=time],select{
       <div class="field">
         <label>風向き</label>
         <select id="r-wdir-sel" onchange="windDegFromSel();calc()" style="font-size:13px;padding:7px 9px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text);width:100%">
-          <option value="0">↑ 北風（北→南）</option>
-          <option value="45">↗ 北東風</option>
-          <option value="90">→ 東風（東→西）</option>
-          <option value="135">↘ 南東風</option>
-          <option value="180">↓ 南風（南→北）</option>
-          <option value="225">↙ 南西風</option>
-          <option value="270">← 西風（西→東）</option>
-          <option value="315">↖ 北西風</option>
+          <option value="0">↓ 北から吹く（南へ向かう風）</option>
+          <option value="45">↙ 北東から吹く</option>
+          <option value="90">← 東から吹く（西へ向かう風）</option>
+          <option value="135">↖ 南東から吹く</option>
+          <option value="180">↑ 南から吹く（北へ向かう風）</option>
+          <option value="225">↗ 南西から吹く</option>
+          <option value="270">→ 西から吹く（東へ向かう風）</option>
+          <option value="315">↘ 北西から吹く</option>
         </select>
         <div class="hint" id="r-wind-hint"></div>
       </div>
@@ -2347,11 +2347,11 @@ function initMap(){
   // タッチの移動距離を自分で計測してパンかタップかを判定する
   let _mapDragged=false;
   let _touchStartX=0, _touchStartY=0;
-  const DRAG_THRESHOLD=8; // px以上動いたらドラッグとみなす
+  const DRAG_THRESHOLD=3; // px以上動いたらドラッグとみなす
 
   // PCマウスドラッグ
   gmap.addListener('dragstart',()=>{ _mapDragged=true; });
-  gmap.addListener('dragend',  ()=>{ setTimeout(()=>{ _mapDragged=false; },200); });
+  gmap.addListener('dragend',  ()=>{ setTimeout(()=>{ _mapDragged=false; },500); });
 
   // スマホタッチパン検出（地図のDOMに直接付ける）
   const gmapEl=document.getElementById('gmap');
@@ -2369,11 +2369,11 @@ function initMap(){
   },{passive:true});
   gmapEl.addEventListener('touchend',()=>{
     // タップ終了後200msでリセット（clickイベントより後）
-    setTimeout(()=>{ _mapDragged=false; },200);
+    setTimeout(()=>{ _mapDragged=false; },500);
   },{passive:true});
 
   gmap.addListener('click',(e)=>{
-    if(_mapDragged){ return; } // パン中・パン直後は無視
+    if(_mapDragged) return;
     if(sharedIW&&sharedIW.getMap()){sharedIW.close();return;}
     addWaypoint(e.latLng);
   });
