@@ -1119,73 +1119,57 @@ function renderCompass(){
   if(!canvas||!canvas.getContext) return;
   const ctx=canvas.getContext('2d');
   const dk=matchMedia('(prefers-color-scheme:dark)').matches;
+  const W=canvas.width, H=canvas.height;
+  ctx.clearRect(0,0,W,H);
+  // 論理サイズ130×130でスケール
+  const scale=W/130;
+  ctx.save();
+  ctx.scale(scale,scale);
   const CX=65, CY=65, R=52;
-  ctx.clearRect(0,0,130,130);
 
   // 外周リング
-  ctx.beginPath();
-  ctx.arc(CX,CY,R,0,Math.PI*2);
+  ctx.beginPath();ctx.arc(CX,CY,R,0,Math.PI*2);
   ctx.strokeStyle=dk?'rgba(255,255,255,.2)':'rgba(0,0,0,.15)';
-  ctx.lineWidth=1;
-  ctx.stroke();
+  ctx.lineWidth=1;ctx.stroke();
 
   // 目盛り
   for(let a=0;a<360;a+=45){
     const rad=(a-90)*Math.PI/180;
-    const r1=R-5, r2=R;
     ctx.beginPath();
-    ctx.moveTo(CX+Math.cos(rad)*r1, CY+Math.sin(rad)*r1);
-    ctx.lineTo(CX+Math.cos(rad)*r2, CY+Math.sin(rad)*r2);
+    ctx.moveTo(CX+Math.cos(rad)*(R-5),CY+Math.sin(rad)*(R-5));
+    ctx.lineTo(CX+Math.cos(rad)*R,    CY+Math.sin(rad)*R);
     ctx.strokeStyle=dk?'rgba(255,255,255,.4)':'rgba(0,0,0,.3)';
-    ctx.lineWidth=1;
-    ctx.stroke();
+    ctx.lineWidth=1;ctx.stroke();
   }
 
   // 方位文字
-  ctx.font='500 10px Helvetica Neue,Arial,sans-serif';
-  ctx.textAlign='center';
-  ctx.textBaseline='middle';
   const tc=dk?'#eeeee6':'#18180f';
-  ctx.fillStyle=tc;
-  ctx.fillText('N',CX,CY-R+12);
-  ctx.fillText('S',CX,CY+R-12);
-  ctx.fillText('W',CX-R+12,CY);
-  ctx.fillText('E',CX+R-12,CY);
+  ctx.font='500 10px Helvetica Neue,Arial,sans-serif';
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=tc;
+  ctx.fillText('N',CX,CY-R+12);ctx.fillText('S',CX,CY+R-12);
+  ctx.fillText('W',CX-R+12,CY);ctx.fillText('E',CX+R-12,CY);
 
-  // 矢印描画関数
-  function drawArrow(deg, col, dashed){
+  // 矢印
+  function drawArrow(deg,col,dashed){
     const rad=(deg-90)*Math.PI/180;
-    const ex=CX+Math.cos(rad)*(R-8);
-    const ey=CY+Math.sin(rad)*(R-8);
+    const ex=CX+Math.cos(rad)*(R-8), ey=CY+Math.sin(rad)*(R-8);
     ctx.beginPath();
-    if(dashed){ctx.setLineDash([5,3]);}else{ctx.setLineDash([]);}
-    ctx.moveTo(CX,CY);
-    ctx.lineTo(ex,ey);
-    ctx.strokeStyle=col;
-    ctx.lineWidth=2.5;
-    ctx.lineCap='round';
-    ctx.stroke();
+    ctx.setLineDash(dashed?[5,3]:[]);
+    ctx.moveTo(CX,CY);ctx.lineTo(ex,ey);
+    ctx.strokeStyle=col;ctx.lineWidth=2.5;ctx.lineCap='round';ctx.stroke();
     ctx.setLineDash([]);
-    // 矢じり
-    const a1=(deg-90+145)*Math.PI/180;
-    const a2=(deg-90+215)*Math.PI/180;
     ctx.beginPath();
     ctx.moveTo(ex,ey);
-    ctx.lineTo(ex+Math.cos(a1)*9, ey+Math.sin(a1)*9);
-    ctx.lineTo(ex+Math.cos(a2)*9, ey+Math.sin(a2)*9);
-    ctx.closePath();
-    ctx.fillStyle=col;
-    ctx.fill();
+    ctx.lineTo(ex+Math.cos((deg-90+145)*Math.PI/180)*9, ey+Math.sin((deg-90+145)*Math.PI/180)*9);
+    ctx.lineTo(ex+Math.cos((deg-90+215)*Math.PI/180)*9, ey+Math.sin((deg-90+215)*Math.PI/180)*9);
+    ctx.closePath();ctx.fillStyle=col;ctx.fill();
   }
-
-  drawArrow(windDeg,'#e24b4a',false); // 風（赤・実線）
-  drawArrow(rideDeg,'#378add',true);  // 走行（青・破線）
+  drawArrow(windDeg,'#e24b4a',false);
+  drawArrow(rideDeg,'#378add',true);
 
   // 中心点
-  ctx.beginPath();
-  ctx.arc(CX,CY,4,0,Math.PI*2);
-  ctx.fillStyle=tc;
-  ctx.fill();
+  ctx.beginPath();ctx.arc(CX,CY,4,0,Math.PI*2);ctx.fillStyle=tc;ctx.fill();
+  ctx.restore();
 
   // 向かい風ヒント
   const wsp=+document.getElementById('r-wsp').value||0;
@@ -1195,8 +1179,17 @@ function renderCompass(){
   if(hint) hint.textContent=`風影響: ${lbl}`;
 }
 
-function drawArrNew(){} // 後方互換
-function upCompass(){ renderCompass(); }
+function syncFromDeg(type){
+  if(type==='wind'){
+    windDeg=((+document.getElementById('r-wdir-deg').value)||0+360)%360;
+    document.getElementById('r-wdir-label').textContent=degToLabel(windDeg);
+  } else {
+    rideDeg=((+document.getElementById('r-rdir-deg').value)||0+360)%360;
+    document.getElementById('r-rdir-label').textContent=degToLabel(rideDeg);
+  }
+  syncToHidden();
+  renderCompass();
+}
 
 /* ══════════════════════════════════════
    Ratio同期
@@ -2444,21 +2437,44 @@ function initMap(){
     }
   });
 
-  // 地図クリック → 地点追加（パン後は無視）
+  // ── 地図クリック：パンと区別して地点追加 ──
+  // Google Maps の dragstart/dragend はスマホタッチパンで発火しないため
+  // タッチの移動距離を自分で計測してパンかタップかを判定する
   let _mapDragged=false;
+  let _touchStartX=0, _touchStartY=0;
+  const DRAG_THRESHOLD=8; // px以上動いたらドラッグとみなす
+
+  // PCマウスドラッグ
   gmap.addListener('dragstart',()=>{ _mapDragged=true; });
-  gmap.addListener('dragend',  ()=>{ setTimeout(()=>{ _mapDragged=false; }, 300); });
+  gmap.addListener('dragend',  ()=>{ setTimeout(()=>{ _mapDragged=false; },200); });
+
+  // スマホタッチパン検出（地図のDOMに直接付ける）
+  const gmapEl=document.getElementById('gmap');
+  gmapEl.addEventListener('touchstart',(e)=>{
+    _mapDragged=false;
+    const t=e.touches[0];
+    _touchStartX=t.clientX;
+    _touchStartY=t.clientY;
+  },{passive:true});
+  gmapEl.addEventListener('touchmove',(e)=>{
+    const t=e.touches[0];
+    const dx=Math.abs(t.clientX-_touchStartX);
+    const dy=Math.abs(t.clientY-_touchStartY);
+    if(dx>DRAG_THRESHOLD||dy>DRAG_THRESHOLD) _mapDragged=true;
+  },{passive:true});
+  gmapEl.addEventListener('touchend',()=>{
+    // タップ終了後200msでリセット（clickイベントより後）
+    setTimeout(()=>{ _mapDragged=false; },200);
+  },{passive:true});
 
   gmap.addListener('click',(e)=>{
-    if(_mapDragged) return;          // パン直後は無視
+    if(_mapDragged){ return; } // パン中・パン直後は無視
     if(sharedIW&&sharedIW.getMap()){sharedIW.close();return;}
     addWaypoint(e.latLng);
   });
 
-  // 右クリックのみ経由地確認（スマホ長押しは廃止：誤作動の原因）
-  gmap.addListener('rightclick',(e)=>{
-    showAddWaypointConfirm(e.latLng);
-  });
+  // 右クリックのみ経由地確認
+  gmap.addListener('rightclick',(e)=>{ showAddWaypointConfirm(e.latLng); });
 
   // 標高プロファイルのホバーイベント
   const ec=document.getElementById('elev-canvas');
