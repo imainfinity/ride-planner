@@ -1097,27 +1097,35 @@ function initCompass(){
     return (Math.atan2(dy,dx)*180/Math.PI+90+360)%360;
   }
 
-  svg.addEventListener('pointerdown',e=>{
-    svg.setPointerCapture(e.pointerId);
-    e.preventDefault();
-    const deg=getAngle(e);
-    const dw=Math.abs(((deg-windDeg+540)%360)-180);
-    const dr=Math.abs(((deg-rideDeg+540)%360)-180);
-    draggingCompass=dw<=dr?'wind':'ride';
+  // wind-g と ride-g に直接付ける（昨晩動いていた方式）
+  const wg=document.getElementById('wind-g');
+  const rg=document.getElementById('ride-g');
+
+  function startWind(e){ e.preventDefault(); draggingCompass='wind'; }
+  function startRide(e){ e.preventDefault(); draggingCompass='ride'; }
+
+  wg.addEventListener('mousedown', startWind);
+  rg.addEventListener('mousedown', startRide);
+  wg.addEventListener('touchstart', startWind, {passive:false});
+  rg.addEventListener('touchstart', startRide, {passive:false});
+
+  document.addEventListener('mousemove', e=>{
+    if(!draggingCompass) return;
+    const deg=Math.round(getAngle(e)/5)*5;
+    if(draggingCompass==='wind') windDeg=(deg+360)%360;
+    else rideDeg=(deg+360)%360;
+    renderCompass(); syncToHidden(); calc();
   });
-  svg.addEventListener('pointermove',e=>{
+  document.addEventListener('touchmove', e=>{
     if(!draggingCompass) return;
     e.preventDefault();
     const deg=Math.round(getAngle(e)/5)*5;
     if(draggingCompass==='wind') windDeg=(deg+360)%360;
     else rideDeg=(deg+360)%360;
     renderCompass(); syncToHidden(); calc();
-  });
-  svg.addEventListener('pointerup',e=>{
-    svg.releasePointerCapture(e.pointerId);
-    draggingCompass=null;
-  });
-  svg.addEventListener('pointercancel',()=>{draggingCompass=null;});
+  },{passive:false});
+  document.addEventListener('mouseup',  ()=>{ draggingCompass=null; });
+  document.addEventListener('touchend', ()=>{ draggingCompass=null; });
 
   renderCompass();
 }
