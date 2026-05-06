@@ -541,6 +541,7 @@ input[type=number],input[type=text],input[type=time],select{
           <span style="color:#378add;font-weight:500">● 走行方向</span>
         </div>
         <div style="font-size:10px;color:var(--text3)">矢印をドラッグして設定</div>
+        <div id="compass-debug" style="font-size:10px;color:red;min-height:14px"></div>
       </div>
 
       <div class="winds">
@@ -933,15 +934,6 @@ input[type=number],input[type=text],input[type=time],select{
 
 <script>
 
-(function(){
-  var k=['AIzaSyBhHoe','SN2ARNTD','lL7SG4fhD_48Fw5efGYw'].join('');
-  var s=document.createElement('script');
-  s.src='https://maps.googleapis.com/maps/api/js?key='+k+'&libraries=places,geometry&callback=initMap';
-  s.async=true;
-  s.defer=true;
-  document.head.appendChild(s);
-})();
-
 
 /* ══════════════════════════════════════
    物理エンジン
@@ -1120,7 +1112,11 @@ function initCompass(){
   function onStart(e){
     e.preventDefault();
     draggingCompass=chooseTarget(e);
+    overlay.style.background='rgba(255,0,0,0.15)';
     overlay.style.cursor='grabbing';
+    // デバッグ：画面に表示
+    const dbg=document.getElementById('compass-debug');
+    if(dbg) dbg.textContent='タッチ開始: '+draggingCompass;
   }
   function onMove(e){
     if(!draggingCompass) return;
@@ -1128,10 +1124,13 @@ function initCompass(){
     const deg=Math.round(getAngle(e)/5)*5;
     if(draggingCompass==='wind') windDeg=(deg+360)%360;
     else rideDeg=(deg+360)%360;
-    renderCompass(); syncToHidden(); calc();
+    renderCompass();
+    syncToHidden();
+    try{ calc(); }catch(err){}
   }
   function onEnd(){
     draggingCompass=null;
+    overlay.style.background='';
     overlay.style.cursor='grab';
   }
 
@@ -1188,9 +1187,27 @@ function onDrag(){} function endDrag(){}
 function upCompass(){ renderCompass(); }
 
 
-/* ══════════════════════════════════════
-   Ratio同期
-══════════════════════════════════════ */
+/* ══ コンパス補助関数 ══ */
+function syncToHidden(){
+  document.getElementById('r-wdir').value=windDeg;
+  document.getElementById('r-rdir').value=rideDeg;
+  const wdeg=document.getElementById('r-wdir-deg');
+  const rdeg=document.getElementById('r-rdir-deg');
+  if(wdeg) wdeg.value=windDeg;
+  if(rdeg) rdeg.value=rideDeg;
+  const wlbl=document.getElementById('r-wdir-label');
+  const rlbl=document.getElementById('r-rdir-label');
+  if(wlbl) wlbl.textContent=degToLabel(windDeg);
+  if(rlbl) rlbl.textContent=degToLabel(rideDeg);
+}
+
+function degToLabel(deg){
+  const dirs=['北','北北東','北東','東北東','東','東南東','南東','南南東',
+              '南','南南西','南西','西南西','西','西北西','北西','北北西'];
+  return dirs[Math.round(deg/22.5)%16]+'向き ('+Math.round(deg)+'°)';
+}
+
+/* ══ Ratio同期 ══ */
 function syncRatio(){
   const at=+document.getElementById('r-alltime').value;
   const nt=+document.getElementById('r-net-h').value;
@@ -1335,7 +1352,7 @@ function calc(){
   ]);
 
   // 根拠分解
-  renderBreakdown(dist,elev,effW,weight,g,hwMs,ratio,weather,cond,netMins,totalMins,moveSpd);
+  renderBreakdown(dist,effElev,effW,weight,g,hwMs,ratio,weather,cond,netMins,totalMins,moveSpd);
 
   // 終了時刻欄を自動更新（逆算入力中でなければ）
   if(!document.getElementById('r-end').value){
