@@ -2444,23 +2444,21 @@ function initMap(){
     }
   });
 
-  // 地図クリック → 地点追加
+  // 地図クリック → 地点追加（パン後は無視）
+  let _mapDragged=false;
+  gmap.addListener('dragstart',()=>{ _mapDragged=true; });
+  gmap.addListener('dragend',  ()=>{ setTimeout(()=>{ _mapDragged=false; }, 300); });
+
   gmap.addListener('click',(e)=>{
+    if(_mapDragged) return;          // パン直後は無視
     if(sharedIW&&sharedIW.getMap()){sharedIW.close();return;}
     addWaypoint(e.latLng);
   });
 
-  // ③ 右クリック → 経由地追加確認
+  // 右クリックのみ経由地確認（スマホ長押しは廃止：誤作動の原因）
   gmap.addListener('rightclick',(e)=>{
     showAddWaypointConfirm(e.latLng);
   });
-
-  // スマホ長押し（600ms）
-  let _lpTimer=null;
-  gmap.addListener('mousedown',(e)=>{
-    _lpTimer=setTimeout(()=>showAddWaypointConfirm(e.latLng),600);
-  });
-  ['mouseup','dragstart'].forEach(ev=>gmap.addListener(ev,()=>clearTimeout(_lpTimer)));
 
   // 標高プロファイルのホバーイベント
   const ec=document.getElementById('elev-canvas');
