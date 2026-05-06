@@ -1126,19 +1126,33 @@ function initCompass(){
     tg.appendChild(line);
   }
 
-  // ドラッグイベント
+  // ドラッグイベント：SVG全体に付ける（ヒットエリアを最大化）
   const svg=document.getElementById('compass-svg');
-  const wg=document.getElementById('wind-g');
-  const rg=document.getElementById('ride-g');
 
-  function startDrag(type){ return function(e){
-    dragging=type; e.preventDefault();
+  function getAngleFromEvent(e){
+    const rect=svg.getBoundingClientRect();
+    const cx=rect.left+rect.width/2, cy=rect.top+rect.height/2;
+    const pt=e.touches?e.touches[0]:e;
+    const dx=pt.clientX-cx, dy=pt.clientY-cy;
+    return (Math.atan2(dy,dx)*180/Math.PI+90+360)%360;
+  }
+
+  svg.addEventListener('mousedown',e=>{
+    // クリック位置から風か走行か判定（近い方）
+    const deg=getAngleFromEvent(e);
+    const dw=Math.abs(((deg-windDeg+540)%360)-180);
+    const dr=Math.abs(((deg-rideDeg+540)%360)-180);
+    dragging=dw<=dr?'wind':'ride';
     svg.style.cursor='grabbing';
-  };}
-  wg.addEventListener('mousedown', startDrag('wind'));
-  rg.addEventListener('mousedown', startDrag('ride'));
-  wg.addEventListener('touchstart', startDrag('wind'), {passive:false});
-  rg.addEventListener('touchstart', startDrag('ride'), {passive:false});
+    e.preventDefault();
+  });
+  svg.addEventListener('touchstart',e=>{
+    const deg=getAngleFromEvent(e);
+    const dw=Math.abs(((deg-windDeg+540)%360)-180);
+    const dr=Math.abs(((deg-rideDeg+540)%360)-180);
+    dragging=dw<=dr?'wind':'ride';
+    e.preventDefault();
+  },{passive:false});
 
   document.addEventListener('mousemove', onDrag);
   document.addEventListener('touchmove', onDrag, {passive:false});
@@ -1172,8 +1186,8 @@ function endDrag(){
 }
 
 function syncToHidden(){
-  // 計算用hiddenには「風が吹いてくる方向（旧来の気象表記）」= windDeg+180
-  document.getElementById('r-wdir').value=(windDeg+180)%360;
+  // 矢印の向き = 風が吹く方向（そのまま使う）
+  document.getElementById('r-wdir').value=windDeg;
   document.getElementById('r-rdir').value=rideDeg;
   document.getElementById('r-wdir-deg').value=windDeg;
   document.getElementById('r-rdir-deg').value=rideDeg;
