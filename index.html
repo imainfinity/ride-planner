@@ -219,6 +219,12 @@ input[type=number],input[type=text],input[type=time],select{
     <!-- 地図 -->
     <div style="position:relative">
       <div id="gmap" style="width:100%;height:400px;border-radius:var(--rs);border:0.5px solid var(--border);background:var(--bg2)"></div>
+      <!-- GPS スタートバナー -->
+      <div id="gps-start-banner" style="display:none;position:absolute;bottom:60px;left:50%;transform:translateX(-50%);z-index:50;background:rgba(10,10,10,0.88);backdrop-filter:blur(8px);border-radius:12px;padding:12px 18px;display:none;align-items:center;gap:12px;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,0.4)">
+        <span style="font-size:13px;color:#fff">📍 現在地をスタートにしますか？</span>
+        <button onclick="setGpsAsStart()" style="padding:7px 16px;background:#4ade80;color:#18180f;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer">スタートに設定</button>
+        <button onclick="document.getElementById('gps-start-banner').style.display='none'" style="padding:7px 12px;background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer">✕</button>
+      </div>
 
       <!-- フローティング ルート統計バー -->
       <div id="map-stats-bar" style="display:none;position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:20;pointer-events:none;width:calc(100% - 16px);max-width:680px">
@@ -892,6 +898,12 @@ input[type=number],input[type=text],input[type=time],select{
 <div class="sec" id="sec-settings">
   <div class="panel">
     <div class="pt">個人設定（デフォルト値）</div>
+    <!-- ⑤ デフォルト時刻モード -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:8px 10px;background:var(--bg2);border-radius:var(--rs)">
+      <span style="font-size:11px;font-weight:600;color:var(--text2)">デフォルトモード:</span>
+      <button class="modebt" id="mode-btn-start" onclick="setDefaultTimeMode('start-first')" style="flex:1;font-size:11px">🟢 スタート時刻から計算</button>
+      <button class="modebt" id="mode-btn-goal" onclick="setDefaultTimeMode('goal-first')" style="flex:1;font-size:11px">🔴 ゴール時刻から逆算</button>
+    </div>
     <div class="g3">
       <div class="field"><label>デフォルト距離 (km)</label>
         <input type="number" id="pref-dist" value="50" step="1" oninput="saveUserPref()"></div>
@@ -1399,7 +1411,8 @@ function calc(){
   }
   // 地点リストの通過時刻をリアルタイム更新
   // calc結果をグローバルに保存してrenderWpListで使用
-  window._calcResult={moveSpd, ratio, startH:+start.split(':')[0]+(+start.split(':')[1]||0)/60};
+  window._calcResult={moveSpd, ratio, startH:_sh+_sm/60};
+  window._lastTotalMins=totalMins;
   if(waypoints&&waypoints.length>0) renderWpList();
 }
 
@@ -1999,16 +2012,28 @@ function renderDaylight(){
 
   _lastTwPhases=phases;
 
-  // ライド情報取得
-  const startStr=document.getElementById('r-start').value||'08:00';
-  const [sh,sm]=startStr.split(':').map(Number);
-  const startH=sh+sm/60;
-  const totalCard=document.querySelector('#r-results .card:nth-child(2) .cv');
-  let totalMins=120;
-  if(totalCard){const m=totalCard.textContent.match(/(\d+):(\d+)/);if(m)totalMins=+m[1]*60+ +m[2];}
-  const endH=startH+totalMins/60;
-  const dist=+document.getElementById('r-dist').value||88;
-  const moveSpd=totalMins>0?dist/(totalMins/60):28;
+  // ② ライド情報をdialStateと_calcResultから直接取得（DOMに依存しない）
+  const _sh=dialState.start.h!=null?dialState.start.h:8;
+  const _sm=dialState.start.m!=null?dialState.start.m:0;
+  const startH=_sh+_sm/60;
+
+  // 終了時刻
+  let endH;
+  if(dialState.end.h!==null){
+    endH=dialState.end.h+dialState.end.m/60;
+    if(endH<=startH) endH+=24; // 日をまたぐ場合
+  } else if(window._calcResult){
+    const cr=window._calcResult;
+    const totalMins=window._lastTotalMins||120;
+    endH=startH+totalMins/60;
+  } else {
+    endH=startH+2; // デフォルト2時間
+  }
+
+  const rd=window._routeData;
+  const dist=rd&&rd.distKm>0?rd.distKm:(+document.getElementById('r-dist').value||50);
+  const totalH=endH-startH;
+  const moveSpd=totalH>0?dist/totalH:25;
 
   drawTimeCanvas(tw,startH,endH,dist,moveSpd);
 
@@ -2077,10 +2102,12 @@ function drawTimeCanvas(tw, startH, endH, dist, moveSpd){
   const containerW=wrap?wrap.offsetWidth||360:360;
   const PXH=60; // px per hour when scrollable
   const W=isBrevet?Math.max(containerW,Math.ceil(totalHours+2)*PXH):containerW;
-  canvas.width=W; canvas.height=H;
-  canvas.style.width=W+'px';
+  const dpr=window.devicePixelRatio||1;
+  canvas.width=W*dpr; canvas.height=H*dpr;
+  canvas.style.width=W+'px'; canvas.style.height=H+'px';
 
   const ctx=canvas.getContext('2d');
+  ctx.scale(dpr,dpr);
   const viewStart=startH-0.5;
   const viewEnd=endH+0.5;
   const span=viewEnd-viewStart;
@@ -2145,7 +2172,7 @@ function drawTimeCanvas(tw, startH, endH, dist, moveSpd){
     // ブルベモードはラベル表示
     if(isBrevet){
       ctx.fillStyle=dk?'rgba(255,255,255,.8)':'rgba(0,0,0,.65)';
-      ctx.font='9px sans-serif';ctx.textAlign='center';
+      ctx.font='600 9px Helvetica Neue,Arial,sans-serif';ctx.textAlign='center';
       ctx.fillText(tl.i+tl.l,x,BAR+12);
       ctx.fillText(hToHHMM(tl.h%24),x,BAR+22);
     }
@@ -2156,13 +2183,13 @@ function drawTimeCanvas(tw, startH, endH, dist, moveSpd){
     const x=xOf(h);
     ctx.strokeStyle=col;ctx.lineWidth=2.5;ctx.setLineDash([]);
     ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,BAR);ctx.stroke();
-    ctx.fillStyle=col;ctx.font='bold 10px sans-serif';ctx.textAlign='center';
+    ctx.fillStyle=col;ctx.font='700 10px Helvetica Neue,Arial,sans-serif';ctx.textAlign='center';
     const label=lbl+' '+hToHHMM(h%24)+(h>=24?' (+1日)':'');
     ctx.fillText(label,x,BAR+(isBrevet?32:14));
   });
 
   // 時刻ラベル（ブルベは1h毎、通常は整数h毎）
-  ctx.font='10px sans-serif';ctx.textAlign='center';
+  ctx.font='500 10px Helvetica Neue,Arial,sans-serif';ctx.textAlign='center';
   ctx.fillStyle=dk?'rgba(255,255,255,.55)':'rgba(0,0,0,.45)';
   const step=isBrevet?1:1;
   for(let h=Math.ceil(viewStart);h<=Math.floor(viewEnd);h+=step){
@@ -2178,7 +2205,7 @@ function drawTimeCanvas(tw, startH, endH, dist, moveSpd){
 
   // ブルベ：夜間帯に薄いオーバーレイラベル
   if(isBrevet){
-    ctx.font='bold 11px sans-serif';
+    ctx.font='700 11px Helvetica Neue,Arial,sans-serif';
     for(let d=0;d<=1;d++){
       const nightStart=d*24+tw.astroSet;
       const nightEnd  =d*24+24+tw.astroRise;
@@ -2256,7 +2283,7 @@ function drawDistCanvas(tw, startH, endH, dist, moveSpd){
     ctx.setLineDash([]);
     // ラベルは密度制限（近すぎたらスキップ）
     if(x-lastLabelX>=minPxBetweenLabels){
-      ctx.font='9px sans-serif';ctx.textAlign='center';
+      ctx.font='600 9px Helvetica Neue,Arial,sans-serif';ctx.textAlign='center';
       ctx.fillStyle=dk?'rgba(255,255,255,.85)':'rgba(0,0,0,.7)';
       ctx.fillText(`${tl.i}`,x,BAR+11);
       ctx.fillText(`${km.toFixed(0)}k`,x,BAR+21);
@@ -2265,7 +2292,7 @@ function drawDistCanvas(tw, startH, endH, dist, moveSpd){
   });
 
   // kmラベル（距離に応じて間引き）
-  ctx.font='10px sans-serif';ctx.textAlign='center';
+  ctx.font='500 10px Helvetica Neue,Arial,sans-serif';ctx.textAlign='center';
   ctx.fillStyle=dk?'rgba(255,255,255,.5)':'rgba(0,0,0,.45)';
   const step=dist>500?100:dist>200?50:dist>80?20:dist>40?10:dist>20?5:2;
   for(let km=0;km<=dist;km+=step){
@@ -2378,12 +2405,18 @@ function initMap(){
   });
   ['mouseup','dragstart'].forEach(ev=>gmap.addListener(ev,()=>clearTimeout(_lpTimer)));
 
-  // 現在地
+  // 現在地取得 → 地図センター + スタートバナー表示
   if(navigator.geolocation){
     navigator.geolocation.getCurrentPosition(pos=>{
-      // 初回のみ現在地にセンター（ズームなし）
-      gmap.setCenter({lat:pos.coords.latitude,lng:pos.coords.longitude});
-    });
+      const lat=pos.coords.latitude, lng=pos.coords.longitude;
+      userLat=lat; userLon=lng;
+      gmap.setCenter({lat,lng});
+      gmap.setZoom(13);
+      // スタートポイント設定バナー
+      showStartBanner(lat,lng);
+      // 日照も現在地で再計算
+      try{renderDaylight();}catch(e){}
+    },{timeout:8000});
   }
 
   // 標高プロファイルのホバーイベント
@@ -2396,6 +2429,43 @@ function initMap(){
 }
 
 let goalFixed=false; // ゴール確定済みフラグ
+
+/* ── GPS スタートバナー ── */
+let _gpsLat=null, _gpsLng=null;
+function showStartBanner(lat,lng){
+  _gpsLat=lat; _gpsLng=lng;
+  const b=document.getElementById('gps-start-banner');
+  if(b){ b.style.display='flex'; }
+}
+function setGpsAsStart(){
+  if(_gpsLat===null) return;
+  const ll=new google.maps.LatLng(_gpsLat,_gpsLng);
+  addWaypoint(ll);
+  document.getElementById('gps-start-banner').style.display='none';
+}
+
+/* ── デフォルトモード（ゴール優先 or スタート優先） ── */
+// 設定タブで選択、localStorageに保存
+function setDefaultTimeMode(mode){
+  // 'goal-first' or 'start-first'
+  localStorage.setItem('rpp_time_mode', mode);
+  applyDefaultTimeMode(mode);
+}
+function applyDefaultTimeMode(mode){
+  if(mode==='goal-first'){
+    // ゴール時刻をデフォルト設定（例：07:00）
+    if(dialState.end.h===null){
+      setDialFromString('end','07:00');
+      syncDialToHidden('end');
+      const w=document.getElementById('dial-end-wrap');
+      if(w) w.style.opacity='1';
+    }
+  }
+}
+(function(){
+  const saved=localStorage.getItem('rpp_time_mode')||'start-first';
+  setTimeout(()=>applyDefaultTimeMode(saved),800);
+})();
 
 function updateGoalFlagBtn(){
   const btn=document.getElementById('goal-flag-btn');
@@ -2799,7 +2869,7 @@ function drawElevProfile(elevResults){
 
   // 最高・最低ラベル
   ctx.fillStyle=dk?'rgba(255,255,255,.6)':'rgba(0,0,0,.5)';
-  ctx.font='9px sans-serif';
+  ctx.font='600 9px Helvetica Neue,Arial,sans-serif';
   ctx.textAlign='left'; ctx.fillText(`${Math.round(maxE)}m`,3,11);
   ctx.fillText(`${Math.round(minE)}m`,3,H-2);
 }
