@@ -2753,21 +2753,6 @@ function renderWpList(){
 }
 
 /* ── ルート計算（ロードバイク最適化：幹線道路優先） ── */
-function calcRoute(){
-  if(waypoints.length<2) return;
-
-  const modeEl=document.getElementById('route-mode');
-  const avoidHW=modeEl&&modeEl.value==='avoid_hw';
-  const MAX_WP=8; // 1リクエストあたりの最大経由地数
-
-  // 地点数が多い場合はセグメント分割
-  if(waypoints.length-2>MAX_WP){
-    calcRouteChunked(avoidHW,MAX_WP);
-  } else {
-    calcRouteSingle(waypoints, avoidHW, processRoute);
-  }
-}
-
 /* ══ ルーティング：1区間ずつ直列処理 ══ */
 
 function calcRoute(){
@@ -2859,8 +2844,6 @@ function routeDist(route){
   return route.legs.reduce((s,l)=>s+l.distance.value,0);
 }
 
-function calcRouteSingle(pts,avoidHW,callback){ calcRoute(); } // 後方互換
-function calcRouteChunked(){ calcRoute(); }                    // 後方互換
 
 function mergeAndProcessRoutes(results){
   let totalDist=0;
@@ -2911,8 +2894,7 @@ function mergeAndProcessRoutes(results){
     (elevResults,status)=>{
       console.log('[ELEV] status=',status,'results=',elevResults?.length);
       if(status!=='OK'||!elevResults||elevResults.length<2){
-        console.warn('[ELEV] failed, calling applyDistOnly');
-        applyDistOnly(distKm);
+                applyDistOnly(distKm);
         return;
       }
       lastElevResults=elevResults;
@@ -3120,7 +3102,6 @@ function drawElevProfile(elevResults){
 
 /* ── 標高 → プランナー反映 ── */
 function processElevation(elevResults,distKm,path){
-  console.log('processElevation called: distKm=',distKm,'elevResults=',elevResults?.length,'path=',path?.length);
   const elevs=elevResults.map(e=>e.elevation);
   const DEADBAND=1.0; // 1m未満の変動を無視
   const SPIKE_THR=30; // 30m超の急変をスパイクとして除去
@@ -3450,27 +3431,7 @@ function clearRoute(){
 }
 
 /* ── 地点追加（履歴保存） ── */
-function addWaypoint(latLng){
-  saveHistory();
-  const idx=waypoints.length;
-  waypoints.push(latLng);
-  createMarker(latLng, idx);
-  if(waypoints.length>=2){
-    calcRoute(); // ルート計算 → processElevation → syncRouteToUI → calc()の流れで全更新
-  } else {
-    // 1点目：バーを表示してスタート時刻だけ反映
-    const bar=document.getElementById('map-stats-bar');
-    if(bar){
-      bar.style.display='block'; document.body.style.paddingTop=(bar.offsetHeight||48)+'px';
-      const sh=dialState.start.h, sm=dialState.start.m;
-      document.getElementById('msb-start').textContent=
-        `${String(sh).padStart(2,'0')}:${String(sm).padStart(2,'0')}`;
-      document.getElementById('msb-arrive').textContent='—';
-    }
-  }
-  renderWpList();
-  updateGoalFlagBtn();
-}
+
 
 function searchPlace(){
   const q=document.getElementById('map-search').value;
@@ -4008,8 +3969,9 @@ function recalcTime(changed){
     syncDialToHidden('start');
     updateBar(sH,sM,eh,em,mins,prevDay?'-1日':'');
   }
-  // calc実行（地点リスト等の更新）
-  calc();
+  // calc()はdialAdjから直接呼ばない（smartCalcと競合するため）
+  // renderDaylight等のUI更新のみ
+  try{renderDaylight();}catch(e){}
 }
 
 // 所要時間（分）を計算
