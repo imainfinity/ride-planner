@@ -1258,9 +1258,35 @@ function calc(){
   const avgSpd   = dist/(totalMins/60);
   const endTime  = addM(start, totalMins);
 
+  // ── AllTimeモード：終了時刻が設定済みの場合は逆算で全値を上書き ──
+  const endVal=document.getElementById('r-end').value;
+  let allTimeMins=null, moveSpdFinal=moveSpd, netMinsFinal=netMins, totalMinsFinal=totalMins, avgSpdFinal=avgSpd, endTimeFinal=endTime;
+
+  if(endVal&&endVal.match(/^\d{2}:\d{2}$/)){
+    // AllTime（スタート〜ゴールの実拘束時間）を確定
+    const [eh,em]=endVal.split(':').map(Number);
+    let diffMins=(eh*60+em)-(sh*60+sm);
+    if(diffMins<=0) diffMins+=24*60; // 日またぎ対応
+    allTimeMins=diffMins;
+
+    // AllTimeからratio・補正を考慮して移動速度・各値を逆算
+    totalMinsFinal = allTimeMins;
+    netMinsFinal   = allTimeMins * ratio; // 実走時間 = AllTime × Ratio
+    moveSpdFinal   = dist / (netMinsFinal/60); // 移動速度 = 距離 / 実走時間
+    avgSpdFinal    = dist / (allTimeMins/60);  // 総平均速度 = 距離 / AllTime
+    endTimeFinal   = endVal;
+
+    // 逆算パワー（参考）
+    effW = s2p(moveSpdFinal, weight, g, hwMs);
+    if(inputMode==='pwr'&&IF_val!==null){
+      IF_val=effW/ftp;
+      TSS=(allTimeMins/60)*IF_val*IF_val*100;
+    }
+  }
+
   // TSS確定（パワーモード）
   if(inputMode==='pwr' && IF_val!==null){
-    TSS=(totalMins/60)*IF_val*IF_val*100;
+    TSS=(totalMinsFinal/60)*IF_val*IF_val*100;
     document.getElementById('r-ppills').innerHTML=[
       {l:'有効NP', v:effW.toFixed(0)+' W'},
       {l:'IF',     v:IF_val.toFixed(2)},
@@ -1271,21 +1297,21 @@ function calc(){
 
   document.getElementById('r-grade-hint').textContent=
     `平均斜度: ${g.toFixed(1)}% / 向かい風成分: ${(hwMs*3.6).toFixed(1)} km/h`+
-    (inputMode==='spd'?' / 速度モード（逆算パワー参考値）':'');
+    (allTimeMins ? ` / ⏱ AllTime ${fmtD(allTimeMins)}から逆算` : inputMode==='spd'?' / 速度モード':'');
 
-  // 結果カード — 速度モードはパワー列を「参考」表示
+  // 結果カード：AllTimeモード時は逆算値を使用
   const powerLabel = inputMode==='spd' ? '逆算パワー(参考)' : '有効パワー';
   cards('r-results',[
-    {l:'到着予想時刻',  v:endTime,                 xl:true, hl:true},
-    {l:'所要時間 Total',v:fmtD(totalMins),          s:`Net ${fmtD(netMins)}`},
-    {l:'移動速度',      v:moveSpd.toFixed(1)+' km/h',s:'停止除く'},
-    {l:'総平均速度',    v:avgSpd.toFixed(1)+' km/h', s:'AllTime基準'},
-    {l:powerLabel,      v:effW.toFixed(0)+' W',      s:(effW/weight).toFixed(2)+' W/kg'},
-    {l:'Ratio',         v:(ratio*100).toFixed(0)+'%', s:ratio===1?'未設定=100%':null},
+    {l:'到着予想時刻',  v:endTimeFinal,                          xl:true, hl:true},
+    {l:'所要時間 Total',v:fmtD(totalMinsFinal),                  s:`Net実走 ${fmtD(netMinsFinal)}`},
+    {l:'移動速度',      v:moveSpdFinal.toFixed(1)+' km/h',       s:'停止除く'},
+    {l:'総平均速度',    v:avgSpdFinal.toFixed(1)+' km/h',        s:'AllTime基準'},
+    {l:powerLabel,      v:effW.toFixed(0)+' W',                  s:(effW/weight).toFixed(2)+' W/kg'},
+    {l:'Ratio',         v:(ratio*100).toFixed(0)+'%',            s:allTimeMins?'⏱AllTime逆算':ratio===1?'未設定=100%':null},
   ]);
 
   // 根拠分解
-  renderBreakdown(dist,effElev,effW,weight,g,hwMs,ratio,weather,cond,netMins,totalMins,moveSpd);
+  renderBreakdown(dist,effElev,effW,weight,g,hwMs,ratio,weather,cond,netMinsFinal,totalMinsFinal,moveSpdFinal);
 
   // 終了時刻欄を自動更新（逆算入力中でなければ）
   if(!document.getElementById('r-end').value){
@@ -1304,8 +1330,8 @@ function calc(){
   if(bar){
     bar.style.display='block'; document.body.style.paddingTop=(bar.offsetHeight||48)+'px';
     document.getElementById('msb-start').textContent=start;
-    document.getElementById('msb-time').textContent=fmtD(totalMins);
-    document.getElementById('msb-arrive').textContent=endTime;
+    document.getElementById('msb-time').textContent=fmtD(totalMinsFinal);
+    document.getElementById('msb-arrive').textContent=endTimeFinal;
     const d=window._routeData;
     if(d&&d.distKm){
       document.getElementById('msb-dist').textContent=(+d.distKm).toFixed(1)+' km';
@@ -1315,9 +1341,9 @@ function calc(){
   }
 
   // 計算結果を常にダイヤルに同期（終了を手動入力中以外）
-  if(endTime&&endTime.match(/^\d{2}:\d{2}$/)&&lastTouched!=='end'){
-    setDialFromString('end',endTime);
-    document.getElementById('r-end').value=endTime;
+  if(endTimeFinal&&endTimeFinal.match(/^\d{2}:\d{2}$/)&&lastTouched!=='end'){
+    setDialFromString('end',endTimeFinal);
+    document.getElementById('r-end').value=endTimeFinal;
   }
   // スタートダイヤルも同期（逆算で変わった場合）
   if(start&&start.match(/^\d{2}:\d{2}$/)&&lastTouched!=='start'){
@@ -1331,16 +1357,16 @@ function calc(){
     document.getElementById('rsp-dist').textContent=(+d.distKm).toFixed(1)+' km';
     document.getElementById('rsp-elev').textContent=Math.round(d.gainM)+' m';
     document.getElementById('rsp-grade').textContent=(+d.maxGrade).toFixed(1)+'%';
-    document.getElementById('rsp-time').textContent=fmtD(totalMins);
+    document.getElementById('rsp-time').textContent=fmtD(totalMinsFinal);
     document.getElementById('rsp-start').textContent=start;
-    document.getElementById('rsp-arrive').textContent=endTime;
+    document.getElementById('rsp-arrive').textContent=endTimeFinal;
   }
 
   // calc結果をグローバルに保存してrenderWpListで使用
   const _sh_=dialState.start.h!=null?dialState.start.h:8;
   const _sm_=dialState.start.m!=null?dialState.start.m:0;
-  window._calcResult={moveSpd, ratio, startH:_sh_+_sm_/60};
-  window._lastTotalMins=totalMins;
+  window._calcResult={moveSpd:moveSpdFinal, ratio, startH:_sh_+_sm_/60};
+  window._lastTotalMins=totalMinsFinal;
   if(waypoints&&waypoints.length>0) renderWpList();
 }
 
