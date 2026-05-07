@@ -1335,9 +1335,10 @@ function calc(){
     document.getElementById('rsp-arrive').textContent=endTime;
   }
 
-  // 地点リストの通過時刻をリアルタイム更新
   // calc結果をグローバルに保存してrenderWpListで使用
-  window._calcResult={moveSpd, ratio, startH:_sh+_sm/60};
+  const _sh_=dialState.start.h!=null?dialState.start.h:8;
+  const _sm_=dialState.start.m!=null?dialState.start.m:0;
+  window._calcResult={moveSpd, ratio, startH:_sh_+_sm_/60};
   window._lastTotalMins=totalMins;
   if(waypoints&&waypoints.length>0) renderWpList();
 }
@@ -2701,9 +2702,11 @@ function renderWpList(){
   if(waypoints.length===0){wrap.style.display='none';return;}
   wrap.style.display='block';
 
-  // legDists
+  // legDists：mergedLegDistsがあればそれを優先、なければlastRouteResultから
   const legDists=[];
-  if(lastRouteResult){
+  if(window._mergedLegDists&&window._mergedLegDists.length>0){
+    window._mergedLegDists.forEach(d=>legDists.push(d));
+  } else if(lastRouteResult&&lastRouteResult.routes&&lastRouteResult.routes[0]){
     lastRouteResult.routes[0].legs.forEach(leg=>legDists.push(leg.distance.value/1000));
   }
 
