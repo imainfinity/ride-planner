@@ -2779,72 +2779,103 @@ function calcRoute(){
   }
 }
 
-function calcRouteSingle(pts, avoidHW, callback){
-  const origin=pts[0];
-  const destination=pts[pts.length-1];
-  const wps=pts.slice(1,-1).map(ll=>({location:ll,stopover:true}));
-  const baseReq={
-    origin, destination, waypoints:wps,
-    optimizeWaypoints:false,
-    avoidHighways:false, // 自転車も通れるバイパスを遮断しない
-    avoidTolls:false,
-    avoidFerries:true,
-    provideRouteAlternatives:true,
-  };
+/* ══ ルーティング：1区間ずつ直列処理 ══ */
 
-  // ① BICYCLINGで計算
-  directionsService.route({...baseReq, travelMode:google.maps.TravelMode.BICYCLING},
-  (bikeResult, bikeStatus)=>{
-    // ② 同時にWALKINGで計算（比較用）
-    directionsService.route({...baseReq, travelMode:google.maps.TravelMode.WALKING},
-    (walkResult, walkStatus)=>{
+function calcRoute(){
+  if(waypoints.length<2) return;
+  const modeEl=document.getElementById('route-mode');
+  const avoidHW=modeEl&&modeEl.value==='avoid_hw';
 
-      let chosen=null;
+  // 全区間を [wp0→wp1], [wp1→wp2], ... に分解して直列計算
+  const segments=[];
+  for(let i=0;i<waypoints.length-1;i++){
+    segments.push([waypoints[i], waypoints[i+1]]);
+  }
 
-      if(bikeStatus==='OK'&&walkStatus==='OK'){
-        // 複数候補から最短を選択（BICYCLING）
-        const bestBike=selectBestRoute(bikeResult);
-        const bestWalk=selectBestRoute(walkResult);
-        const bikeDist=routeDist(bikeResult.routes[bestBike]);
-        const walkDist=routeDist(walkResult.routes[bestWalk]);
+  const segResults=[];
 
-        // ③ 迂回検知：BICYCLINGがWALKINGの1.2倍超なら迂回とみなす
-        if(bikeDist > walkDist * 1.2){
-          console.log(`迂回検知: BICYCLING ${(bikeDist/1000).toFixed(1)}km > WALKING ${(walkDist/1000).toFixed(1)}km × 1.2`);
-          // WALKINGルートを採用（道路データ断絶の可能性）
-          chosen={result:walkResult, idx:bestWalk};
-        } else {
-          chosen={result:bikeResult, idx:bestBike};
-        }
-      } else if(bikeStatus==='OK'){
-        chosen={result:bikeResult, idx:selectBestRoute(bikeResult)};
-      } else if(walkStatus==='OK'){
-        chosen={result:walkResult, idx:selectBestRoute(walkResult)};
-      } else {
-        // ④ 両方失敗 → 中間点注入で再試行
-        injectMidpointsAndRetry(pts, avoidHW, callback);
-        return;
-      }
-
-      // 最良ルートを選択して返す
-      const singleResult={
-        routes:[chosen.result.routes[chosen.idx]],
-        request:chosen.result.request,
-        status:'OK'
-      };
-      callback(singleResult);
+  function nextSeg(i){
+    if(i>=segments.length){
+      mergeAndProcessRoutes(segResults);
+      return;
+    }
+    calcSegment(segments[i][0], segments[i][1], avoidHW, (result)=>{
+      segResults.push(result);
+      nextSeg(i+1);
     });
+  }
+  nextSeg(0);
+}
+
+// 1区間を計算：BICYCLING → WALKING → 中間点注入の順にフォールバック
+function calcSegment(origin, dest, avoidHW, callback){
+  directionsService.route({
+    origin, destination:dest,
+    travelMode:google.maps.TravelMode.BICYCLING,
+    avoidHighways:avoidHW, avoidFerries:true,
+    provideRouteAlternatives:true,
+  },(bikeRes, bikeSt)=>{
+    if(bikeSt==='OK'){
+      directionsService.route({
+        origin, destination:dest,
+        travelMode:google.maps.TravelMode.WALKING,
+        avoidHighways:false, avoidFerries:true,
+        provideRouteAlternatives:false,
+      },(walkRes, walkSt)=>{
+        if(walkSt==='OK'){
+          const bikeDist=routeDist(bikeRes.routes[selectBestRoute(bikeRes)]);
+          const walkDist=routeDist(walkRes.routes[0]);
+          // 迂回検知：BICYCLINGがWALKINGの1.2倍超なら迂回
+          if(bikeDist > walkDist*1.2){
+            callback({routes:[walkRes.routes[0]]});
+          } else {
+            callback({routes:[bikeRes.routes[selectBestRoute(bikeRes)]]});
+          }
+        } else {
+          callback({routes:[bikeRes.routes[selectBestRoute(bikeRes)]]});
+        }
+      });
+    } else {
+      // BICYCLINGが失敗 → WALKINGで再試行
+      directionsService.route({
+        origin, destination:dest,
+        travelMode:google.maps.TravelMode.WALKING,
+        avoidHighways:false, avoidFerries:true,
+        provideRouteAlternatives:false,
+      },(walkRes, walkSt)=>{
+        if(walkSt==='OK'){
+          callback({routes:[walkRes.routes[0]]});
+        } else {
+          // 両方失敗 → 中間点注入で再試行
+          const mid=new google.maps.LatLng(
+            (origin.lat()+dest.lat())/2,
+            (origin.lng()+dest.lng())/2
+          );
+          directionsService.route({
+            origin, destination:dest,
+            waypoints:[{location:mid,stopover:false}],
+            travelMode:google.maps.TravelMode.WALKING,
+            avoidHighways:false, avoidFerries:true,
+          },(midRes, midSt)=>{
+            if(midSt==='OK'){
+              callback({routes:[midRes.routes[0]]});
+            } else {
+              // 完全失敗：エラー表示して終了
+              document.getElementById('poi-results').innerHTML=
+                `<div style="font-size:11px;color:var(--red);padding:6px">区間ルート計算失敗（${midSt}）— 地点を変えてみてください</div>`;
+            }
+          });
+        }
+      });
+    }
   });
 }
 
-// 複数候補から最適ルートを選択（距離最短優先）
 function selectBestRoute(result){
   if(!result.routes||result.routes.length===0) return 0;
   let bestIdx=0, bestScore=Infinity;
   result.routes.forEach((r,i)=>{
-    const dist=routeDist(r);
-    const turns=r.legs.reduce((s,l)=>s+l.steps.length,0);
-    const score=dist + turns*50; // 距離 + 曲がり角ペナルティ
+    const score=routeDist(r)+r.legs.reduce((s,l)=>s+l.steps.length,0)*50;
     if(score<bestScore){bestScore=score;bestIdx=i;}
   });
   return bestIdx;
@@ -2854,69 +2885,10 @@ function routeDist(route){
   return route.legs.reduce((s,l)=>s+l.distance.value,0);
 }
 
-// 中間点注入で強制最短化
-function injectMidpointsAndRetry(pts, avoidHW, callback){
-  console.log('中間点注入で再試行');
-  // 各区間の中間点を stopover:false で注入
-  const injected=[];
-  for(let i=0;i<pts.length;i++){
-    injected.push(pts[i]);
-    if(i<pts.length-1){
-      // 中間点を計算
-      const mid=new google.maps.LatLng(
-        (pts[i].lat()+pts[i+1].lat())/2,
-        (pts[i].lng()+pts[i+1].lng())/2
-      );
-      injected.push({location:mid, stopover:false});
-    }
-  }
-  const origin=injected[0];
-  const destination=injected[injected.length-1];
-  const wps=injected.slice(1,-1).map(ll=>{
-    if(ll instanceof google.maps.LatLng) return {location:ll,stopover:false};
-    return ll;
-  });
-  directionsService.route({
-    origin, destination, waypoints:wps,
-    travelMode:google.maps.TravelMode.WALKING,
-    optimizeWaypoints:false,
-    avoidHighways:false, avoidFerries:true,
-    provideRouteAlternatives:false,
-  },(result,status)=>{
-    if(status==='OK') callback(result);
-    else {
-      document.getElementById('poi-results').innerHTML=
-        `<div style="font-size:11px;color:var(--red);padding:6px">ルート計算失敗（${status}）— 地点を変えてみてください</div>`;
-    }
-  });
-}
-
-function calcRouteChunked(avoidHW, maxWp){
-  const chunks=[];
-  let i=0;
-  while(i<waypoints.length-1){
-    const end=Math.min(i+maxWp+1, waypoints.length-1);
-    chunks.push(waypoints.slice(i,end+1));
-    i=end;
-  }
-
-  // 直列処理（並列だとAPIレート超過・結果順序が不定になる）
-  const results=[];
-  function processNext(ci){
-    if(ci>=chunks.length){
-      mergeAndProcessRoutes(results);
-      return;
-    }
-    calcRouteSingle(chunks[ci], avoidHW, (result)=>{
-      results[ci]=result;
-      processNext(ci+1);
-    });
-  }
-  processNext(0);
-}
+function calcRouteSingle(pts,avoidHW,callback){ calcRoute(); } // 後方互換
+function calcRouteChunked(){ calcRoute(); }                    // 後方互換
 
 function mergeAndProcessRoutes(results){
-  // 全レグの距離・パスを結合
   let totalDist=0;
   const fullPath=[];
   const allLegs=[];
@@ -2931,16 +2903,16 @@ function mergeAndProcessRoutes(results){
     });
   });
 
+  if(fullPath.length===0) return;
+
   const distKm=(totalDist/1000).toFixed(1);
   lastRoutePath=fullPath;
+  lastRouteResult=results[0];
+  window._mergedLegDists=allLegs.map(l=>l.distance.value/1000);
 
-  // DirectionsRendererは最初のチャンクのみ表示
-  // 残りは手動でPolylineを描画
-  lastRouteResult=results[0]; // 互換性のため
-
-  // 既存のPolylineをクリアして全パスを描画
+  // DirectionsRendererをクリアして自前Polylineで描画
   if(window._mergedPolyline) window._mergedPolyline.setMap(null);
-  directionsRenderer.setDirections({routes:[]}); // クリア
+  try{ directionsRenderer.setDirections({routes:[]}); }catch(e){}
 
   window._mergedPolyline=new google.maps.Polyline({
     path:fullPath,
@@ -2950,20 +2922,19 @@ function mergeAndProcessRoutes(results){
     map:gmap
   });
 
-  // legDistsを格納（wp-list用）
-  window._mergedLegDists=allLegs.map(l=>l.distance.value/1000);
-
   // マーカー再描画
   markers.forEach(m=>m.setMap(null)); markers=[];
   waypoints.forEach((ll,i)=>createMarker(ll,i));
 
   // 標高取得
-  const samples=Math.min(256,fullPath.length);
-  elevationService.getElevationAlongPath({path:fullPath,samples},(elevResults,status)=>{
-    if(status!=='OK'){applyDistOnly(distKm);return;}
-    lastElevResults=elevResults;
-    processElevation(elevResults,distKm,fullPath);
-  });
+  elevationService.getElevationAlongPath(
+    {path:fullPath, samples:Math.min(256,fullPath.length)},
+    (elevResults,status)=>{
+      if(status!=='OK'){applyDistOnly(distKm);return;}
+      lastElevResults=elevResults;
+      processElevation(elevResults,distKm,fullPath);
+    }
+  );
 }
 
 /* ── ルート処理（ズーム・pan一切なし） ── */
