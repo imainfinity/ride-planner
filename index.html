@@ -3147,6 +3147,7 @@ function drawElevProfile(elevResults){
 
 /* ── 標高 → プランナー反映 ── */
 function processElevation(elevResults,distKm,path){
+  console.log('processElevation called: distKm=',distKm,'elevResults=',elevResults?.length,'path=',path?.length);
   const elevs=elevResults.map(e=>e.elevation);
   const DEADBAND=1.0; // 1m未満の変動を無視
   const SPIKE_THR=30; // 30m超の急変をスパイクとして除去
