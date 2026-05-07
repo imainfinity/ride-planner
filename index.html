@@ -2380,7 +2380,7 @@ function initMap(){
   directionsService  = new google.maps.DirectionsService();
   directionsRenderer = new google.maps.DirectionsRenderer({
     map:gmap, suppressMarkers:true,
-    draggable:true,
+    draggable:false,
     preserveViewport:true,  // ← ルート表示時にビューポートを変更しない
     polylineOptions:{strokeColor:'#e24b4a',strokeWeight:4,strokeOpacity:0.85}
   });
@@ -2448,11 +2448,26 @@ function initMap(){
   gmap.addListener('click',(e)=>{
     if(_mapDragged) return;
     if(sharedIW&&sharedIW.getMap()){sharedIW.close();return;}
+    // ルートが既にある場合は右クリックのみで地点追加（誤タップ防止）
+    if(lastRouteResult){
+      return; // ルートあり：タップ無効、右クリックのみ
+    }
     addWaypoint(e.latLng);
   });
 
-  // 右クリックのみ経由地確認
+  // 右クリック → 確認ダイアログ（PC）
   gmap.addListener('rightclick',(e)=>{ showAddWaypointConfirm(e.latLng); });
+
+  // スマホ長押し（600ms）→ 地点追加確認
+  let _lpTimer=null, _lpLatLng=null;
+  gmap.addListener('mousedown',(e)=>{
+    _lpLatLng=e.latLng;
+    _lpTimer=setTimeout(()=>{
+      if(_lpLatLng) showAddWaypointConfirm(_lpLatLng);
+    },600);
+  });
+  gmap.addListener('mouseup',  ()=>clearTimeout(_lpTimer));
+  gmap.addListener('dragstart',()=>clearTimeout(_lpTimer));
 
   // 標高プロファイルのホバーイベント
   const ec=document.getElementById('elev-canvas');
@@ -3346,13 +3361,13 @@ function clearPOI(){poiMarkers.forEach(m=>m.setMap(null));poiMarkers=[];}
 function showAddWaypointConfirm(latLng){
   if(!sharedIW) sharedIW=new google.maps.InfoWindow();
   sharedIW.setContent(`
-    <div style="font-size:13px;font-weight:500;padding:2px 0 6px">📍 ここに経由地を追加しますか？</div>
-    <div style="font-size:10px;color:#666;margin-bottom:8px">${latLng.lat().toFixed(4)}, ${latLng.lng().toFixed(4)}</div>
+    <div style="font-size:13px;font-weight:600;padding:2px 0 8px">📍 ここに地点を追加しますか？</div>
+    <div style="font-size:10px;color:#666;margin-bottom:8px">追加後、マーカーをドラッグして位置を調整できます</div>
     <div style="display:flex;gap:6px">
       <button onclick="confirmAddWaypoint(${latLng.lat()},${latLng.lng()})"
-        style="padding:6px 14px;background:#18180f;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer">追加</button>
-      <button onclick="if(window._sharedIW)window._sharedIW.close()"
-        style="padding:6px 10px;background:#eee;border:none;border-radius:6px;font-size:12px;cursor:pointer">キャンセル</button>
+        style="padding:7px 16px;background:#18180f;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit">追加</button>
+      <button onclick="if(sharedIW)sharedIW.close()"
+        style="padding:7px 12px;background:#eee;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit">キャンセル</button>
     </div>`);
   window._sharedIW=sharedIW;
   sharedIW.setPosition(latLng);
