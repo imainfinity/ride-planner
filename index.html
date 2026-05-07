@@ -2809,34 +2809,39 @@ function calcSegment(origin, dest, avoidHW, callback){
   },(res, st)=>{
     if(st==='OK'){
       callback({routes:[res.routes[0]]});
-    } else {
-      // BICYCLING失敗→WALKING
+      return;
+    }
+    // BICYCLING失敗→WALKING
+    directionsService.route({
+      origin, destination:dest,
+      travelMode:google.maps.TravelMode.WALKING,
+      avoidHighways:false, avoidFerries:true,
+      provideRouteAlternatives:false,
+    },(res2, st2)=>{
+      if(st2==='OK'){
+        callback({routes:[res2.routes[0]]});
+        return;
+      }
+      // 中間点注入で再試行
+      const mid=new google.maps.LatLng(
+        (origin.lat()+dest.lat())/2,
+        (origin.lng()+dest.lng())/2
+      );
       directionsService.route({
         origin, destination:dest,
+        waypoints:[{location:mid,stopover:false}],
         travelMode:google.maps.TravelMode.WALKING,
         avoidHighways:false, avoidFerries:true,
-        provideRouteAlternatives:false,
-      },(res2, st2)=>{
-        if(st2==='OK'){
-          callback({routes:[res2.routes[0]]});
+      },(res3,st3)=>{
+        if(st3==='OK'){
+          callback({routes:[res3.routes[0]]});
         } else {
-          // 中間点注入で再試行
-          const mid=new google.maps.LatLng(
-            (origin.lat()+dest.lat())/2,
-            (origin.lng()+dest.lng())/2
-          );
-          directionsService.route({
-            origin, destination:dest,
-            waypoints:[{location:mid,stopover:false}],
-            travelMode:google.maps.TravelMode.WALKING,
-            avoidHighways:false, avoidFerries:true,
-          },(res3,st3)=>{
-            if(st3==='OK') callback({routes:[res3.routes[0]]});
-            else console.warn('区間ルート失敗:',st3);
-          });
+          // 全て失敗：この区間をスキップ（callbackにnullを渡してスキップ処理）
+          console.warn('区間ルート完全失敗:',st3);
+          callback(null);
         }
       });
-    }
+    });
   });
 }
 
@@ -2863,11 +2868,11 @@ function mergeAndProcessRoutes(results){
   const allLegs=[];
 
   results.forEach(r=>{
+    if(!r) return; // 失敗区間はスキップ
     r.routes[0].legs.forEach(leg=>{
       totalDist+=leg.distance.value;
       allLegs.push(leg);
     });
-    // step.pathではなくoverview_pathを使う（軽量・APIに適切）
     r.routes[0].overview_path.forEach(pt=>fullPath.push(pt));
   });
 
