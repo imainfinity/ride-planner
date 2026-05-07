@@ -2448,14 +2448,11 @@ function initMap(){
   gmap.addListener('click',(e)=>{
     if(_mapDragged) return;
     if(sharedIW&&sharedIW.getMap()){sharedIW.close();return;}
-    // ルートが既にある場合は右クリックのみで地点追加（誤タップ防止）
-    if(lastRouteResult){
-      return; // ルートあり：タップ無効、右クリックのみ
-    }
+    if(_routeCalculating) return; // 計算中は無視
     addWaypoint(e.latLng);
   });
 
-  // 右クリック → 確認ダイアログ（PC）
+  // 右クリック → 確認ダイアログ（PC：既存地点間に挿入したい場合）
   gmap.addListener('rightclick',(e)=>{ showAddWaypointConfirm(e.latLng); });
 
   // スマホ長押し（600ms）→ 地点追加確認
@@ -2567,14 +2564,66 @@ function toggleGoal(){
 }
 
 /* ── 地点追加（クリックで経由地を積む、ゴールは旗ボタンで確定） ── */
+/* ══ Strava風ルートスナップ実装 ══ */
+let _routeCalculating=false; // 計算中フラグ（連続クリック防止）
+
 function addWaypoint(latLng){
+  if(_routeCalculating) return; // 計算中は無視
+
+  saveHistory();
   const idx=waypoints.length;
   waypoints.push(latLng);
-  createMarker(latLng, idx);
-  if(waypoints.length>=2) calcRoute();
-  renderWpList();
-  // ゴール未確定なら旗ボタンをアクティブ表示
-  updateGoalFlagBtn();
+
+  if(waypoints.length===1){
+    // 1点目：マーカーのみ
+    createMarker(latLng, idx);
+    renderWpList();
+    updateGoalFlagBtn();
+    const bar=document.getElementById('map-stats-bar');
+    if(bar){
+      bar.style.display='block';
+      const sh=dialState.start.h!=null?dialState.start.h:8;
+      const sm=dialState.start.m!=null?dialState.start.m:0;
+      document.getElementById('msb-start').textContent=
+        `${String(sh).padStart(2,'0')}:${String(sm).padStart(2,'0')}`;
+    }
+  } else {
+    // 2点目以降：前の地点から道路スナップでルート計算
+    _routeCalculating=true;
+    snapAndAddWaypoint(latLng, idx);
+  }
+}
+
+function snapAndAddWaypoint(latLng, idx){
+  // origin = 直前のwaypoint、destination = クリック地点
+  const origin=waypoints[idx-1];
+  const modeEl=document.getElementById('route-mode');
+  const avoidHW=modeEl&&modeEl.value==='avoid_hw';
+
+  directionsService.route({
+    origin,
+    destination: latLng,
+    travelMode: google.maps.TravelMode.BICYCLING,
+    avoidHighways: avoidHW,
+    avoidFerries: true,
+    provideRouteAlternatives: false,
+  },(result, status)=>{
+    _routeCalculating=false;
+    if(status==='OK'){
+      // 道路上にスナップ：end_locationで地点を上書き
+      const snapped=result.routes[0].legs[0].end_location;
+      waypoints[idx]=snapped;
+      createMarker(snapped, idx);
+      // 全区間を再計算
+      calcRoute();
+    } else {
+      // スナップ失敗：クリック地点そのままで追加
+      createMarker(latLng, idx);
+      calcRoute();
+    }
+    renderWpList();
+    updateGoalFlagBtn();
+  });
 }
 
 function createMarker(latLng, idx){
@@ -2732,10 +2781,9 @@ function calcRoute(){
     origin,
     destination,
     waypoints: wps,
-    travelMode: google.maps.TravelMode.DRIVING,
+    travelMode: google.maps.TravelMode.BICYCLING,
     optimizeWaypoints: false,
     avoidHighways: avoidHW,
-    avoidTolls: true,
     avoidFerries: true,
     provideRouteAlternatives: false,
   },(result, status)=>{
