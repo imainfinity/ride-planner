@@ -2929,13 +2929,23 @@ function mergeAndProcessRoutes(results){
   markers.forEach(m=>m.setMap(null)); markers=[];
   waypoints.forEach((ll,i)=>createMarker(ll,i));
 
-  // 標高取得
+  // 標高取得（pathが短すぎる場合はdistKmのみ適用）
+  if(fullPath.length<2){
+    applyDistOnly(distKm);
+    return;
+  }
+  const elevSamples=Math.min(256, Math.max(2, fullPath.length));
   elevationService.getElevationAlongPath(
-    {path:fullPath, samples:Math.min(256,fullPath.length)},
+    {path:fullPath, samples:elevSamples},
     (elevResults,status)=>{
-      if(status!=='OK'){applyDistOnly(distKm);return;}
+      if(status!=='OK'||!elevResults||elevResults.length<2){
+        applyDistOnly(distKm);
+        return;
+      }
       lastElevResults=elevResults;
-      processElevation(elevResults,distKm,fullPath);
+      processElevation(elevResults, distKm, fullPath);
+      // 標高データが揃ってから地点リスト再描画
+      renderWpList();
     }
   );
 }
