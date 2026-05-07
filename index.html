@@ -2892,8 +2892,6 @@ function injectMidpointsAndRetry(pts, avoidHW, callback){
 }
 
 function calcRouteChunked(avoidHW, maxWp){
-  // waypointsをMAX_WP+2個ずつのチャンクに分割
-  // 例：25地点 → [0-9][9-18][18-24] のように末尾を次の先頭に重ねる
   const chunks=[];
   let i=0;
   while(i<waypoints.length-1){
@@ -2902,20 +2900,19 @@ function calcRouteChunked(avoidHW, maxWp){
     i=end;
   }
 
-  // 各チャンクを順次計算して結合
+  // 直列処理（並列だとAPIレート超過・結果順序が不定になる）
   const results=[];
-  let pending=chunks.length;
-
-  chunks.forEach((chunk,ci)=>{
-    calcRouteSingle(chunk, avoidHW, (result)=>{
+  function processNext(ci){
+    if(ci>=chunks.length){
+      mergeAndProcessRoutes(results);
+      return;
+    }
+    calcRouteSingle(chunks[ci], avoidHW, (result)=>{
       results[ci]=result;
-      pending--;
-      if(pending===0){
-        // 全チャンクの結果を結合
-        mergeAndProcessRoutes(results);
-      }
+      processNext(ci+1);
     });
-  });
+  }
+  processNext(0);
 }
 
 function mergeAndProcessRoutes(results){
