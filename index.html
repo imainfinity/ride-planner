@@ -2767,33 +2767,114 @@ function renderWpList(){
 function calcRoute(){
   if(waypoints.length<2) return;
 
-  const origin      = waypoints[0];
-  const destination = waypoints[waypoints.length-1];
-  const wps = waypoints.slice(1,-1).map(ll=>({
-    location: ll,
-    stopover: true
-  }));
-
   const modeEl=document.getElementById('route-mode');
-  const avoidHW = modeEl && modeEl.value==='avoid_hw';
+  const avoidHW=modeEl&&modeEl.value==='avoid_hw';
+  const MAX_WP=8; // 1リクエストあたりの最大経由地数
 
+  // 地点数が多い場合はセグメント分割
+  if(waypoints.length-2>MAX_WP){
+    calcRouteChunked(avoidHW,MAX_WP);
+  } else {
+    calcRouteSingle(waypoints, avoidHW, processRoute);
+  }
+}
+
+function calcRouteSingle(pts, avoidHW, callback){
+  const origin=pts[0];
+  const destination=pts[pts.length-1];
+  const wps=pts.slice(1,-1).map(ll=>({location:ll,stopover:true}));
   directionsService.route({
-    origin,
-    destination,
-    waypoints: wps,
-    travelMode: google.maps.TravelMode.BICYCLING,
-    optimizeWaypoints: false,
-    avoidHighways: avoidHW,
-    avoidFerries: true,
-    provideRouteAlternatives: false,
-  },(result, status)=>{
-    if(status==='OK'){
-      processRoute(result);
-    } else {
-      console.warn('Route failed:', status);
+    origin, destination, waypoints:wps,
+    travelMode:google.maps.TravelMode.BICYCLING,
+    optimizeWaypoints:false,
+    avoidHighways:avoidHW,
+    avoidFerries:true,
+    provideRouteAlternatives:false,
+  },(result,status)=>{
+    if(status==='OK') callback(result);
+    else {
+      console.warn('Route failed:',status);
       document.getElementById('poi-results').innerHTML=
-        `<div style="font-size:11px;color:var(--red);padding:6px">ルート計算失敗（${status}）— 地点を変えてみてください</div>`;
+        `<div style="font-size:11px;color:var(--red);padding:6px">ルート計算失敗（${status}）</div>`;
     }
+  });
+}
+
+function calcRouteChunked(avoidHW, maxWp){
+  // waypointsをMAX_WP+2個ずつのチャンクに分割
+  // 例：25地点 → [0-9][9-18][18-24] のように末尾を次の先頭に重ねる
+  const chunks=[];
+  let i=0;
+  while(i<waypoints.length-1){
+    const end=Math.min(i+maxWp+1, waypoints.length-1);
+    chunks.push(waypoints.slice(i,end+1));
+    i=end;
+  }
+
+  // 各チャンクを順次計算して結合
+  const results=[];
+  let pending=chunks.length;
+
+  chunks.forEach((chunk,ci)=>{
+    calcRouteSingle(chunk, avoidHW, (result)=>{
+      results[ci]=result;
+      pending--;
+      if(pending===0){
+        // 全チャンクの結果を結合
+        mergeAndProcessRoutes(results);
+      }
+    });
+  });
+}
+
+function mergeAndProcessRoutes(results){
+  // 全レグの距離・パスを結合
+  let totalDist=0;
+  const fullPath=[];
+  const allLegs=[];
+
+  results.forEach(r=>{
+    r.routes[0].legs.forEach(leg=>{
+      totalDist+=leg.distance.value;
+      allLegs.push(leg);
+      leg.steps.forEach(step=>{
+        step.path.forEach(pt=>fullPath.push(pt));
+      });
+    });
+  });
+
+  const distKm=(totalDist/1000).toFixed(1);
+  lastRoutePath=fullPath;
+
+  // DirectionsRendererは最初のチャンクのみ表示
+  // 残りは手動でPolylineを描画
+  lastRouteResult=results[0]; // 互換性のため
+
+  // 既存のPolylineをクリアして全パスを描画
+  if(window._mergedPolyline) window._mergedPolyline.setMap(null);
+  directionsRenderer.setDirections({routes:[]}); // クリア
+
+  window._mergedPolyline=new google.maps.Polyline({
+    path:fullPath,
+    strokeColor:'#e24b4a',
+    strokeWeight:4,
+    strokeOpacity:0.85,
+    map:gmap
+  });
+
+  // legDistsを格納（wp-list用）
+  window._mergedLegDists=allLegs.map(l=>l.distance.value/1000);
+
+  // マーカー再描画
+  markers.forEach(m=>m.setMap(null)); markers=[];
+  waypoints.forEach((ll,i)=>createMarker(ll,i));
+
+  // 標高取得
+  const samples=Math.min(256,fullPath.length);
+  elevationService.getElevationAlongPath({path:fullPath,samples},(elevResults,status)=>{
+    if(status!=='OK'){applyDistOnly(distKm);return;}
+    lastElevResults=elevResults;
+    processElevation(elevResults,distKm,fullPath);
   });
 }
 
@@ -3292,6 +3373,7 @@ function hardClearRoute(){
   if(window._dragOverlay){window._dragOverlay.setMap(null);window._dragOverlay=null;}
   if(hoverPolyline){hoverPolyline.setMap(null);hoverPolyline=null;}
   if(sharedIW){sharedIW.close();sharedIW=null;}
+  if(window._mergedPolyline){window._mergedPolyline.setMap(null);window._mergedPolyline=null;}
   try{ directionsRenderer.setDirections({routes:[]}); }catch(e){}
   goalFixed=false;
   historyStack=[];
