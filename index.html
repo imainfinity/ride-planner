@@ -2900,10 +2900,9 @@ function mergeAndProcessRoutes(results){
     r.routes[0].legs.forEach(leg=>{
       totalDist+=leg.distance.value;
       allLegs.push(leg);
-      leg.steps.forEach(step=>{
-        step.path.forEach(pt=>fullPath.push(pt));
-      });
     });
+    // step.pathではなくoverview_pathを使う（軽量・APIに適切）
+    r.routes[0].overview_path.forEach(pt=>fullPath.push(pt));
   });
 
   if(fullPath.length===0) return;
