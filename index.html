@@ -2934,16 +2934,18 @@ function mergeAndProcessRoutes(results){
     return;
   }
   const elevSamples=Math.min(256, Math.max(2, fullPath.length));
+  console.log('[ELEV] fullPath.length=',fullPath.length,'samples=',elevSamples,'distKm=',distKm);
   elevationService.getElevationAlongPath(
     {path:fullPath, samples:elevSamples},
     (elevResults,status)=>{
+      console.log('[ELEV] status=',status,'results=',elevResults?.length);
       if(status!=='OK'||!elevResults||elevResults.length<2){
+        console.warn('[ELEV] failed, calling applyDistOnly');
         applyDistOnly(distKm);
         return;
       }
       lastElevResults=elevResults;
       processElevation(elevResults, distKm, fullPath);
-      // 標高データが揃ってから地点リスト再描画
       renderWpList();
     }
   );
