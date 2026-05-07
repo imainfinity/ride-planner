@@ -324,6 +324,7 @@ input[type=number],input[type=text],input[type=time],select{
   </div>
 
   <!-- 🗺️ ルート操作（コンパクト） -->
+  <div id="route-mode-warn" style="display:none;font-size:10px;color:#f97316;padding:3px 6px;background:rgba(249,115,22,0.1);border-radius:4px;margin-bottom:4px">※ 一部区間で迂回/歩行ルートを使用中</div>
   <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">
     <button class="bs" onclick="hardClearRoute()"  style="font-size:11px;padding:4px 8px">🗑</button>
     <button class="bs" onclick="undoRoute()"        style="font-size:11px;padding:4px 8px">↩</button>
@@ -2440,18 +2441,9 @@ function initMap(){
   });
 
   // 右クリック → 確認ダイアログ（PC：既存地点間に挿入したい場合）
-  gmap.addListener('rightclick',(e)=>{ showAddWaypointConfirm(e.latLng); });
-
-  // スマホ長押し（600ms）→ 地点追加確認
-  let _lpTimer=null, _lpLatLng=null;
-  gmap.addListener('mousedown',(e)=>{
-    _lpLatLng=e.latLng;
-    _lpTimer=setTimeout(()=>{
-      if(_lpLatLng) showAddWaypointConfirm(_lpLatLng);
-    },600);
-  });
-  gmap.addListener('mouseup',  ()=>clearTimeout(_lpTimer));
-  gmap.addListener('dragstart',()=>clearTimeout(_lpTimer));
+  // 右クリック → 即時地点追加
+  gmap.addListener('rightclick',(e)=>{ addWaypoint(e.latLng); });
+  // 長押し廃止（誤作動の原因）
 
   // 標高プロファイルのホバーイベント
   const ec=document.getElementById('elev-canvas');
@@ -2786,45 +2778,34 @@ function calcRoute(){
 
 // 1区間を計算：BICYCLING優先、失敗時のみWALKING
 function calcSegment(origin, dest, avoidHW, callback){
+  // 第1優先: DRIVING avoidTolls（最短・安定）
   directionsService.route({
     origin, destination:dest,
-    travelMode:google.maps.TravelMode.BICYCLING,
-    avoidHighways:avoidHW, avoidFerries:true,
+    travelMode:google.maps.TravelMode.DRIVING,
+    avoidHighways:avoidHW, avoidTolls:true, avoidFerries:true,
     provideRouteAlternatives:false,
-  },(res, st)=>{
-    if(st==='OK'){
-      callback({routes:[res.routes[0]]});
-      return;
-    }
-    // BICYCLING失敗→WALKING
+  },(res,st)=>{
+    if(st==='OK'){ callback({routes:[res.routes[0]], mode:'driving'}); return; }
+
+    // 第2優先: BICYCLING
     directionsService.route({
       origin, destination:dest,
-      travelMode:google.maps.TravelMode.WALKING,
+      travelMode:google.maps.TravelMode.BICYCLING,
       avoidHighways:false, avoidFerries:true,
       provideRouteAlternatives:false,
-    },(res2, st2)=>{
-      if(st2==='OK'){
-        callback({routes:[res2.routes[0]]});
-        return;
-      }
-      // 中間点注入で再試行
-      const mid=new google.maps.LatLng(
-        (origin.lat()+dest.lat())/2,
-        (origin.lng()+dest.lng())/2
-      );
+    },(res2,st2)=>{
+      if(st2==='OK'){ callback({routes:[res2.routes[0]], mode:'alt'}); return; }
+
+      // 第3優先: WALKING（最終手段）
       directionsService.route({
         origin, destination:dest,
-        waypoints:[{location:mid,stopover:false}],
         travelMode:google.maps.TravelMode.WALKING,
         avoidHighways:false, avoidFerries:true,
+        provideRouteAlternatives:false,
       },(res3,st3)=>{
-        if(st3==='OK'){
-          callback({routes:[res3.routes[0]]});
-        } else {
-          // 全て失敗：この区間をスキップ（callbackにnullを渡してスキップ処理）
-          console.warn('区間ルート完全失敗:',st3);
-          callback(null);
-        }
+        if(st3==='OK'){ callback({routes:[res3.routes[0]], mode:'alt'}); return; }
+        console.warn('区間ルート完全失敗:',st3);
+        callback(null);
       });
     });
   });
@@ -2882,26 +2863,34 @@ function mergeAndProcessRoutes(results){
   markers.forEach(m=>m.setMap(null)); markers=[];
   waypoints.forEach((ll,i)=>createMarker(ll,i));
 
-  // 標高取得（pathが短すぎる場合はdistKmのみ適用）
-  if(fullPath.length<2){
-    applyDistOnly(distKm);
-    return;
-  }
-  const elevSamples=Math.min(256, Math.max(2, fullPath.length));
-  console.log('[ELEV] fullPath.length=',fullPath.length,'samples=',elevSamples,'distKm=',distKm);
-  elevationService.getElevationAlongPath(
-    {path:fullPath, samples:elevSamples},
-    (elevResults,status)=>{
-      console.log('[ELEV] status=',status,'results=',elevResults?.length);
-      if(status!=='OK'||!elevResults||elevResults.length<2){
-                applyDistOnly(distKm);
-        return;
+  // 迂回モード警告
+  const hasAlt=results.some(r=>r&&r.mode==='alt');
+  const warnEl=document.getElementById('route-mode-warn');
+  if(warnEl) warnEl.style.display=hasAlt?'block':'none';
+
+  // 標高取得：最大150点に間引き（OVER_QUERY_LIMIT回避）
+  if(fullPath.length<2){ applyDistOnly(distKm); return; }
+  const N=150;
+  const sampled=fullPath.length<=N ? fullPath :
+    Array.from({length:N},(_,i)=>fullPath[Math.round(i*(fullPath.length-1)/(N-1))]);
+
+  function fetchElev(attempt){
+    elevationService.getElevationAlongPath(
+      {path:sampled, samples:sampled.length},
+      (elevResults,status)=>{
+        if(status==='OK'&&elevResults&&elevResults.length>=2){
+          lastElevResults=elevResults;
+          processElevation(elevResults, distKm, fullPath);
+          renderWpList();
+        } else if(status==='OVER_QUERY_LIMIT'&&attempt<3){
+          setTimeout(()=>fetchElev(attempt+1), 1000*(attempt+1));
+        } else {
+          applyDistOnly(distKm);
+        }
       }
-      lastElevResults=elevResults;
-      processElevation(elevResults, distKm, fullPath);
-      renderWpList();
-    }
-  );
+    );
+  }
+  fetchElev(0);
 }
 
 /* ── ルート処理（ズーム・pan一切なし） ── */
