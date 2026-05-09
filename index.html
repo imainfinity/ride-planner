@@ -152,6 +152,23 @@ input[type=number],input[type=text],input[type=time],select{
 /* ── misc ── */
 .ppills{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:8px}
 @media(max-width:500px){.g4{grid-template-columns:1fr 1fr}.g3{grid-template-columns:1fr 1fr}.ppills{grid-template-columns:1fr 1fr}}
+
+/* ── MCP: 一元管理パネル ── */
+#mcp-bar{border-bottom:1.5px solid var(--border2)}
+/* tabs の sticky位置をheader分下げる */
+.tabs{top:44px !important}
+/* MCP は tabs の下に固定 */
+#mcp-bar{top:88px !important}
+@media(max-width:500px){
+  #mcp-bar{gap:5px;padding:6px 8px}
+  #mcp-bar input[type=number]{width:64px;font-size:13px;padding:3px 5px}
+  #mcp-end-h,#mcp-end-m,#mcp-start-h,#mcp-start-m{font-size:15px;min-width:22px}
+}
+/* pp pill */
+.pp{background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--rs);padding:5px 8px;text-align:center}
+.ppl{font-size:8px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:2px}
+.ppv{font-size:13px;font-weight:600;color:var(--text)}
+
 </style>
 
 <script>
@@ -187,6 +204,69 @@ input[type=number],input[type=text],input[type=time],select{
   <button class="tab" onclick="sw('saved')">📁 保存</button>
   <button class="tab" onclick="sw('log')">ログ</button>
   <button class="tab" onclick="sw('settings')">⚙️ 設定</button>
+</div>
+
+<!-- ══ MCP: 一元管理パネル（Master Control Panel） ══ -->
+<div id="mcp-bar" style="
+  background:var(--bg);border-bottom:1.5px solid var(--border2);
+  padding:8px 12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+  position:sticky;top:0;z-index:198;
+">
+  <!-- 距離 -->
+  <div style="display:flex;flex-direction:column;gap:2px;min-width:80px">
+    <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">距離 (km)</div>
+    <input id="mcp-dist" type="number" step="0.1" value="50"
+      style="font-size:15px;font-weight:600;padding:4px 6px;border:1.5px solid var(--border2);border-radius:var(--rs);background:var(--bg2);color:var(--text);width:80px"
+      oninput="mcpChange('dist')">
+  </div>
+  <!-- 速度 -->
+  <div style="display:flex;flex-direction:column;gap:2px;min-width:80px">
+    <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">速度 (km/h)</div>
+    <input id="mcp-spd" type="number" step="0.5" value="30"
+      style="font-size:15px;font-weight:600;padding:4px 6px;border:1.5px solid var(--border2);border-radius:var(--rs);background:var(--bg2);color:var(--text);width:80px"
+      oninput="mcpChange('spd')">
+  </div>
+  <!-- スタート -->
+  <div style="display:flex;flex-direction:column;gap:2px">
+    <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">🟢 スタート</div>
+    <div style="display:flex;align-items:center;gap:3px">
+      <button onclick="mcpDialAdj('start','h',-1)" style="width:22px;height:32px;border:0.5px solid var(--border2);border-radius:4px 0 0 4px;background:var(--bg2);color:var(--text2);font-size:14px;cursor:pointer">▲</button>
+      <div id="mcp-start-h" style="font-size:18px;font-weight:600;min-width:26px;text-align:center;color:var(--text)">08</div>
+      <div style="font-size:18px;color:var(--text3)">:</div>
+      <div id="mcp-start-m" style="font-size:18px;font-weight:600;min-width:26px;text-align:center;color:var(--text)">00</div>
+      <button onclick="mcpDialAdj('start','h',1)" style="width:22px;height:32px;border:0.5px solid var(--border2);border-radius:0 4px 4px 0;background:var(--bg2);color:var(--text2);font-size:14px;cursor:pointer">▼</button>
+      <button onclick="mcpDialAdj('start','m',-5)" style="width:22px;height:32px;border:0.5px solid var(--border2);border-radius:4px 0 0 4px;background:var(--bg2);color:var(--text2);font-size:14px;cursor:pointer;margin-left:2px">▲</button>
+      <button onclick="mcpDialAdj('start','m',5)" style="width:22px;height:32px;border:0.5px solid var(--border2);border-radius:0 4px 4px 0;background:var(--bg2);color:var(--text2);font-size:14px;cursor:pointer">▼</button>
+    </div>
+    <input type="hidden" id="mcp-start-val" value="08:00">
+  </div>
+  <!-- 区切り -->
+  <div style="font-size:20px;color:var(--text3);padding-top:14px">→</div>
+  <!-- 到着 -->
+  <div style="display:flex;flex-direction:column;gap:2px">
+    <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">🔴 到着</div>
+    <div style="display:flex;align-items:center;gap:3px">
+      <button onclick="mcpDialAdj('end','h',-1)" style="width:22px;height:32px;border:0.5px solid var(--border2);border-radius:4px 0 0 4px;background:var(--bg2);color:var(--text2);font-size:14px;cursor:pointer">▲</button>
+      <div id="mcp-end-h" style="font-size:18px;font-weight:600;min-width:26px;text-align:center;color:var(--amber)">--</div>
+      <div style="font-size:18px;color:var(--text3)">:</div>
+      <div id="mcp-end-m" style="font-size:18px;font-weight:600;min-width:26px;text-align:center;color:var(--amber)">--</div>
+      <button onclick="mcpDialAdj('end','h',1)" style="width:22px;height:32px;border:0.5px solid var(--border2);border-radius:0 4px 4px 0;background:var(--bg2);color:var(--text2);font-size:14px;cursor:pointer">▼</button>
+      <button onclick="mcpDialAdj('end','m',-5)" style="width:22px;height:32px;border:0.5px solid var(--border2);border-radius:4px 0 0 4px;background:var(--bg2);color:var(--text2);font-size:14px;cursor:pointer;margin-left:2px">▲</button>
+      <button onclick="mcpDialAdj('end','m',5)" style="width:22px;height:32px;border:0.5px solid var(--border2);border-radius:0 4px 4px 0;background:var(--bg2);color:var(--text2);font-size:14px;cursor:pointer">▼</button>
+      <button onclick="mcpClearEnd()" title="到着クリア" style="margin-left:4px;width:24px;height:32px;border:0.5px solid var(--border2);border-radius:4px;background:none;color:var(--text3);font-size:12px;cursor:pointer">✕</button>
+    </div>
+    <input type="hidden" id="mcp-end-val" value="">
+  </div>
+  <!-- 所要時間 表示のみ -->
+  <div style="display:flex;flex-direction:column;gap:2px;margin-left:4px">
+    <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">所要時間</div>
+    <div id="mcp-total" style="font-size:18px;font-weight:600;color:var(--text);padding:4px 0">—</div>
+  </div>
+  <!-- ソース表示 + 再計算 -->
+  <div style="margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+    <div id="mcp-source" style="font-size:9px;color:var(--text3)">手動入力</div>
+    <button onclick="mcpForceRecalc()" style="padding:6px 14px;border:none;border-radius:var(--rs);background:var(--acc);color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">🔄 再計算</button>
+  </div>
 </div>
 
 <div class="app-body" id="app-body">
@@ -460,7 +540,7 @@ input[type=number],input[type=text],input[type=time],select{
 
     <!-- コース情報 -->
     <div class="g3" style="margin-bottom:4px">
-      <div class="field"><label>片道距離 (km)</label><input type="number" id="r-dist" value="50" step="0.1" oninput="smartCalc('dist');updateRtLabel()"></div>
+      <div class="field"><label>片道距離 (km)</label><input type="number" id="r-dist" value="50" step="0.1" oninput="if(mcp.source!=='route'){mcp.dist=+this.value||50;document.getElementById('mcp-dist').value=mcp.dist;}smartCalc('dist');updateRtLabel()"></div>
       <div class="field"><label>獲得標高 (m)</label><input type="number" id="r-elev" value="300" step="10" oninput="smartCalc('dist')"></div>
       <div class="field"><label>往復コース</label>
         <select id="r-roundtrip" onchange="smartCalc('dist');updateRtLabel()" style="font-size:13px;padding:7px 9px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text)">
@@ -505,7 +585,7 @@ input[type=number],input[type=text],input[type=time],select{
       <div class="g2">
         <div class="field">
           <label>予想 移動速度 (km/h)</label>
-          <input type="number" id="r-movespd" value="30" step="0.5" oninput="smartCalc('speed')">
+          <input type="number" id="r-movespd" value="30" step="0.5" oninput="mcp.spd=+this.value||30;document.getElementById('mcp-spd').value=mcp.spd;baseSpdValue=mcp.spd;smartCalc('speed')">
           <div class="hint">信号・停止を除く移動速度</div>
         </div>
         <div class="field">
@@ -1786,15 +1866,20 @@ function applyUserPref(){
   if(document.getElementById('r-weight'))  document.getElementById('r-weight').value=p.weight;
   if(document.getElementById('r-ftp'))     document.getElementById('r-ftp').value=p.ftp;
   if(document.getElementById('r-ratio'))   document.getElementById('r-ratio').value=p.ratio;
-  if(document.getElementById('r-start'))   document.getElementById('r-start').value=p.start;
-  // ダイヤルにも反映
-  setDialFromString('start', p.start||'08:00');
-  baseSpdValue=+p.spd||25;
+  // ★ MCPに反映して一元管理
+  mcp.dist = +p.dist || 50;
+  mcp.spd  = +p.spd  || 30;
+  baseSpdValue = mcp.spd;
+  const [sh=8,sm=0] = (p.start||'08:00').split(':').map(Number);
+  mcp.startH = sh; mcp.startM = sm;
+  mcp.endH = null; mcp.endM = null; // 設定適用時は到着をリセット
+  document.getElementById('mcp-dist').value = mcp.dist;
+  document.getElementById('mcp-spd').value  = mcp.spd;
   // 都道府県
   const prefEl=document.getElementById('dl-pref');
   if(prefEl&&p.pref) prefEl.value=p.pref;
   sw('ride');
-  calc();
+  mcpCalc('start');
 }
 
 function resetUserPref(){
@@ -3178,7 +3263,8 @@ function processElevation(elevResults,distKm,path){
   if(rtEl) rtEl.value='0';
   updateRtLabel();
   rideDeg=bearing; syncToHidden(); renderCompass();
-  syncRouteToUI();
+  // ★ MCP経由で全UI同期（競合防止）
+  mcpSyncFromRoute();
   updateMapStatsBar(distKm, gainM, maxGrade);
 }
 
@@ -3190,7 +3276,7 @@ function applyDistOnly(distKm){
     const el=document.getElementById(id); if(el) el.textContent='—';
   });
   window._routeData={distKm:+distKm,gainM:0,bearing:0,maxGrade:0};
-  syncRouteToUI();
+  mcpSyncFromRoute();
   updateMapStatsBar(distKm, 0, 0);
 }
 
@@ -3252,86 +3338,10 @@ function fmtTimeInput(el){
   }
 }
 
-/* ── 手動同期・再計算（万能ボタン） ── */
+/* ── 手動同期・再計算（万能ボタン）→ MCP強制再計算に統一 ── */
 function manualSync(){
-  // ① ルートデータがあればプランナーに反映
-  if(window._routeData){
-    const d=window._routeData;
-    document.getElementById('r-dist').value=d.distKm;
-    document.getElementById('r-elev').value=d.gainM;
-    rideDeg=d.bearing; syncToHidden(); renderCompass();
-  }
-
-  // ② 終了時刻が入っていれば逆算、なければ通常calc
-  const endEl=document.getElementById('r-end');
-  const endVal=endEl?endEl.value.trim():'';
-  const endMatch=endVal.match(/^(\d{1,2}):(\d{2})$/);
-
-  if(endMatch){
-    const eh=+endMatch[1], em=+endMatch[2];
-    if(eh<0||eh>23||em<0||em>59){
-      document.getElementById('r-grade-hint').textContent='終了時刻が無効です（00:00〜23:59）';
-      return;
-    }
-    const endH=eh+em/60;
-
-    const distBase=+document.getElementById('r-dist').value||88;
-    const rt=+document.getElementById('r-roundtrip').value||0;
-    const effDist=rt?distBase*2:distBase;
-    const elev=+document.getElementById('r-elev').value||0;
-    const effElev=elev;
-    const spd=+document.getElementById('r-movespd')?.value||28;
-    const ratio=(+document.getElementById('r-ratio')?.value||85)/100;
-    const wsp=+document.getElementById('r-wsp')?.value||0;
-    const wDir=+document.getElementById('r-wdir')?.value||0;
-    const rDir=+document.getElementById('r-rdir')?.value||0;
-    const weather=+document.getElementById('r-weather')?.value||1;
-    const cond=+document.getElementById('r-cond')?.value||1;
-    const g=grade(effElev,effDist);
-    const hwMs=hw(wsp,wDir,rDir)/3.6;
-
-    let moveSpd;
-    if(inputMode==='spd'){
-      const weight=+document.getElementById('r-weight')?.value||65;
-      const baseW=s2p(spd,weight,0,0);
-      moveSpd=p2s(baseW*weather*cond,weight,g,hwMs);
-    } else {
-      const weight=+document.getElementById('r-weight-pwr')?.value||65;
-      const wkg=+document.getElementById('r-wkg')?.value||2.5;
-      const npRaw=+document.getElementById('r-np')?.value;
-      const targetW=npRaw>0?npRaw:wkg*weight;
-      moveSpd=p2s(targetW*weather*cond,weight,g,hwMs);
-    }
-
-    const totalMins=effDist/moveSpd*60/ratio;
-    const startH=endH-totalMins/60;
-    const startHH=Math.floor(((startH%24)+24)%24);
-    const startMM=Math.round((((startH%24)+24)%24%1)*60);
-    const startStr=`${String(startHH).padStart(2,'0')}:${String(Math.min(startMM,59)).padStart(2,'0')}`;
-    document.getElementById('r-start').value=startStr;
-    setDialFromString('start',startStr);
-
-    // マップ統計バーの到着予定も即更新
-    const arrEl=document.getElementById('msb-arrive');
-    if(arrEl) arrEl.textContent=endVal;
-    const timeEl=document.getElementById('msb-time');
-    if(timeEl) timeEl.textContent=fmtD(totalMins);
-    document.getElementById('map-stats-bar').style.display='block';
-
-    // フィードバック
-    const hint=document.getElementById('r-grade-hint');
-    hint.innerHTML=`⇄ 逆算完了: 終了 <strong>${endVal}</strong> → スタート <strong>${startStr}</strong>（所要 ${fmtD(totalMins)} / ${moveSpd.toFixed(1)} km/h）`;
-    hint.style.color='var(--blue)';
-    setTimeout(()=>{hint.innerHTML='';hint.style.color='';},5000);
-  }
-
-  calc();
-  renderDaylight(); // 常に実行
-  updateMapStatsBar(
-    window._routeData?.distKm||+document.getElementById('r-dist').value||0,
-    window._routeData?.gainM ||+document.getElementById('r-elev').value||0,
-    window._routeData?.maxGrade||0
-  );
+  mcpForceRecalc();
+  renderDaylight();
 }
 
 function applyRouteToPlanner(){
@@ -3928,29 +3938,12 @@ function setCourseProfile(type){
 let dialState={start:{h:8,m:0},end:{h:null,m:null}};
 
 function clearEndDial(){
-  dialState.end={h:null,m:null};
-  updateDialDisplay('end');
-  syncDialToHidden('end');
-  const w=document.getElementById('dial-end-wrap');
-  if(w) w.style.opacity='0.5';
-  // 終了クリア → スタートから順算に切り替え
-  smartCalc('start');
+  mcpClearEnd();
 }
 
 function dialAdj(type,part,delta){
-  // 値を更新
-  const s=dialState[type];
-  if(type==='end'&&s.h===null){s.h=(dialState.start.h+1)%24;s.m=dialState.start.m;}
-  if(part==='h') s.h=(((s.h||0)+delta)%24+24)%24;
-  else{ const sn=Math.round((s.m||0)/5)*5; s.m=((sn+delta)%60+60)%60; }
-  updateDialDisplay(type);
-  syncDialToHidden(type);
-  if(type==='end'){
-    const w=document.getElementById('dial-end-wrap');
-    if(w) w.style.opacity='1';
-  }
-  // 再計算
-  recalcTime(type);
+  // ★ MCPへ委譲（従来のdialStateはMCPが管理）
+  mcpDialAdj(type, part, delta);
 }
 
 // シンプルな双方向計算
@@ -4107,119 +4100,264 @@ function onTimeCanvasScroll(el){
 
 function syncTimelineScroll(){} // 旧関数（後方互換）
 
+/* ══════════════════════════════════════════════════════
+   MCP: Master Control Panel エンジン
+   ─ 速度・距離・スタート・到着を一元管理 ─
+   ─ すべての計算はここを通す。他は表示専用 ─
+══════════════════════════════════════════════════════ */
+
+/* ── MCP 内部状態 ── */
+const mcp = {
+  dist: 50,         // km （ルート確定時は_routeDataで上書き）
+  spd:  30,         // km/h（入力速度・補正前）
+  startH: 8, startM: 0,
+  endH: null, endM: null,  // null = 未設定
+  source: 'manual', // 'manual' | 'route'
+};
+
+/* ── MCP → サブUIへの一斉書き込み（唯一の書き込み経路） ── */
+function mcpFlushAll(totalMins, moveSpdEff){
+  // ① MCP バー自身の表示更新
+  document.getElementById('mcp-dist').value = mcp.dist;
+  document.getElementById('mcp-spd').value  = mcp.spd;
+  _mcpShowDial('start', mcp.startH, mcp.startM);
+  const endIsSet = mcp.endH !== null;
+  if(endIsSet){
+    _mcpShowDial('end', mcp.endH, mcp.endM);
+  } else {
+    document.getElementById('mcp-end-h').textContent = '--';
+    document.getElementById('mcp-end-m').textContent = '--';
+  }
+  document.getElementById('mcp-total').textContent = totalMins ? fmtD(totalMins) : '—';
+  document.getElementById('mcp-source').textContent = mcp.source === 'route' ? '📍 マップルート' : '手動入力';
+
+  // ② サブUI（走力入力パネル）
+  const spdEl = document.getElementById('r-movespd');
+  if(spdEl && document.activeElement !== spdEl) spdEl.value = mcp.spd;
+  const distEl = document.getElementById('r-dist');
+  if(distEl && document.activeElement !== distEl) distEl.value = mcp.dist;
+
+  // ③ ダイヤル（既存UI）
+  const startStr = `${String(mcp.startH).padStart(2,'0')}:${String(mcp.startM).padStart(2,'0')}`;
+  setDialFromString('start', startStr);
+  document.getElementById('r-start').value = startStr;
+  document.getElementById('mcp-start-val').value = startStr;
+
+  if(endIsSet){
+    const endStr = `${String(mcp.endH).padStart(2,'0')}:${String(mcp.endM).padStart(2,'0')}`;
+    setDialFromString('end', endStr);
+    document.getElementById('r-end').value = endStr;
+    document.getElementById('mcp-end-val').value = endStr;
+  } else {
+    document.getElementById('r-end').value = '';
+    document.getElementById('mcp-end-val').value = '';
+    dialState.end = {h: null, m: null};
+    updateDialDisplay('end');
+  }
+
+  // ④ 黒帯バー（map-stats-bar）
+  const bar = document.getElementById('map-stats-bar');
+  if(bar && bar.style.display !== 'none'){
+    document.getElementById('msb-start').textContent = startStr;
+    document.getElementById('msb-time').textContent  = totalMins ? fmtD(totalMins) : '—';
+    if(endIsSet){
+      const endStr2 = `${String(mcp.endH).padStart(2,'0')}:${String(mcp.endM).padStart(2,'0')}`;
+      document.getElementById('msb-arrive').textContent = endStr2;
+    }
+  }
+}
+
+function _mcpShowDial(type, h, m){
+  document.getElementById(`mcp-${type}-h`).textContent = h !== null ? String(h).padStart(2,'0') : '--';
+  document.getElementById(`mcp-${type}-m`).textContent = m !== null ? String(m).padStart(2,'0') : '--';
+}
+
+/* ── MCP メイン計算エンジン ── */
+/* trigger: 'dist'|'spd'|'start'|'end'|'detail'|'route'|'force' */
+function mcpCalc(trigger){
+  // ルートデータ優先
+  const rd = window._routeData;
+  if(rd && rd.distKm > 0){
+    mcp.dist   = rd.distKm;
+    mcp.source = 'route';
+    // ルート確定後はMCPのdist入力を更新
+    document.getElementById('mcp-dist').value = mcp.dist;
+  } else {
+    mcp.source = 'manual';
+  }
+
+  // 速度同期（MCP→サブUI or サブUI→MCP）
+  if(trigger === 'spd'){
+    // MCP速度バーを触った場合はサブUIにも反映
+    const sEl = document.getElementById('r-movespd');
+    if(sEl) sEl.value = mcp.spd;
+    baseSpdValue = mcp.spd;
+  } else if(trigger === 'detail' || trigger === 'course'){
+    // サブUI（走力・風・体調等）が変化した場合はそちらを正とする
+    const v = +document.getElementById('r-movespd')?.value;
+    if(v > 0){ mcp.spd = v; baseSpdValue = v; }
+  }
+  if(trigger === 'dist'){
+    const dEl = document.getElementById('r-dist');
+    if(dEl) dEl.value = mcp.dist;
+  }
+
+  // 所要時間を算出（物理モデル経由）
+  const effDist = mcp.dist;
+  const effElev = rd && rd.gainM > 0 ? rd.gainM : (+document.getElementById('r-elev').value || 0);
+  const ratio   = (+document.getElementById('r-ratio').value || 85) / 100;
+  const weather = +document.getElementById('r-weather').value || 1;
+  const cond    = +document.getElementById('r-cond').value   || 1;
+  const wsp     = +document.getElementById('r-wsp')?.value   || 0;
+  const wDir    = +document.getElementById('r-wdir')?.value  || 0;
+  const rDir    = +document.getElementById('r-rdir')?.value  || 0;
+  const g       = grade(effElev, effDist);
+  const hwMs    = hw(wsp, wDir, rDir) / 3.6;
+
+  let moveSpd;
+  if(inputMode === 'spd'){
+    const wt = +document.getElementById('r-weight')?.value || 65;
+    moveSpd = p2s(s2p(mcp.spd, wt, 0, 0) * weather * cond, wt, g, hwMs);
+  } else {
+    const wt  = +document.getElementById('r-weight-pwr')?.value || 65;
+    const wkg = +document.getElementById('r-wkg')?.value || 2.5;
+    const npR = +document.getElementById('r-np')?.value  || 0;
+    const tW  = npR > 0 ? npR : wkg * wt;
+    moveSpd   = p2s(tW * weather * cond, wt, g, hwMs);
+    // パワーモードではMCPの速度欄に逆算値を反映
+    mcp.spd   = +moveSpd.toFixed(1);
+  }
+  window._lastMoveSpd = moveSpd;
+
+  const netMins   = effDist / moveSpd * 60;
+  const totalMins = netMins / ratio;
+
+  // ── 時刻の双方向解決 ──
+  if(trigger === 'end' && mcp.endH !== null){
+    // 到着固定 → スタート逆算
+    const endTotal = mcp.endH + mcp.endM / 60;
+    let   startH2  = endTotal - totalMins / 60;
+    if(startH2 < 0) startH2 += 24;
+    mcp.startH = Math.floor(((startH2 % 24) + 24) % 24);
+    mcp.startM = Math.round((((startH2 % 24) + 24) % 24 % 1) * 60) % 60;
+  } else if(mcp.endH !== null && trigger !== 'start'){
+    // 到着設定済み & スタート以外のトリガー → 到着固定でスタート逆算
+    const endTotal = mcp.endH + mcp.endM / 60;
+    let   startH2  = endTotal - totalMins / 60;
+    if(startH2 < 0) startH2 += 24;
+    mcp.startH = Math.floor(((startH2 % 24) + 24) % 24);
+    mcp.startM = Math.round((((startH2 % 24) + 24) % 24 % 1) * 60) % 60;
+  } else {
+    // スタート固定 → 到着順算（endHはMCPが管理しているので上書きしない; 表示だけ計算）
+    const startTotal = mcp.startH + mcp.startM / 60;
+    const endTotal2  = startTotal + totalMins / 60;
+    // endが未設定か、或いはstartトリガーの場合のみ到着を計算して表示
+    if(mcp.endH === null || trigger === 'start'){
+      // 到着は「表示専用」としてMCPに反映（未設定状態は維持）
+      const eH = Math.floor(endTotal2 % 24);
+      const eM = Math.round((endTotal2 % 1) * 60) % 60;
+      // ★表示はするが mcp.endH/M は null のまま（ユーザーが触るまで固定しない）
+      document.getElementById('mcp-end-h').textContent = String(eH).padStart(2,'0');
+      document.getElementById('mcp-end-m').textContent = String(eM).padStart(2,'0');
+      // サブUI（ダイヤル）に反映
+      const endStr = `${String(eH).padStart(2,'0')}:${String(eM).padStart(2,'0')}`;
+      setDialFromString('end', endStr);
+      document.getElementById('r-end').value = endStr;
+      document.getElementById('mcp-end-val').value = endStr;
+    }
+  }
+
+  // 全サブUIに一斉書き込み
+  mcpFlushAll(totalMins, moveSpd);
+
+  // calc() を呼んで結果カード・分解バーも更新
+  calc();
+}
+
+/* ── MCP フィールド変更ハンドラ ── */
+function mcpChange(field){
+  if(field === 'dist'){
+    const v = +document.getElementById('mcp-dist').value;
+    if(v > 0) mcp.dist = v;
+  } else if(field === 'spd'){
+    const v = +document.getElementById('mcp-spd').value;
+    if(v > 0){ mcp.spd = v; baseSpdValue = v; }
+  }
+  mcpCalc(field);
+}
+
+/* ── MCP ダイヤル操作 ── */
+function mcpDialAdj(type, part, delta){
+  if(type === 'start'){
+    if(part === 'h') mcp.startH = ((mcp.startH + delta) % 24 + 24) % 24;
+    else             mcp.startM = ((Math.round(mcp.startM / 5) * 5 + delta) % 60 + 60) % 60;
+    mcpCalc('start');
+  } else {
+    // 到着ダイヤル操作時は endH/M を確定させる
+    if(mcp.endH === null){ mcp.endH = (mcp.startH + 1) % 24; mcp.endM = mcp.startM; }
+    if(part === 'h') mcp.endH = ((mcp.endH + delta) % 24 + 24) % 24;
+    else             mcp.endM = ((Math.round(mcp.endM / 5) * 5 + delta) % 60 + 60) % 60;
+    const ew = document.getElementById('dial-end-wrap');
+    if(ew) ew.style.opacity = '1';
+    mcpCalc('end');
+  }
+}
+
+/* ── 到着クリア ── */
+function mcpClearEnd(){
+  mcp.endH = null; mcp.endM = null;
+  document.getElementById('mcp-end-h').textContent = '--';
+  document.getElementById('mcp-end-m').textContent = '--';
+  document.getElementById('r-end').value = '';
+  document.getElementById('mcp-end-val').value = '';
+  dialState.end = {h: null, m: null};
+  updateDialDisplay('end');
+  const ew = document.getElementById('dial-end-wrap');
+  if(ew) ew.style.opacity = '0.5';
+  mcpCalc('start'); // スタート固定で再計算
+}
+
+/* ── ルートデータ確定時の同期（processElevation/applyDistOnly から呼ぶ） ── */
+function mcpSyncFromRoute(){
+  const rd = window._routeData;
+  if(!rd || !rd.distKm) return;
+  mcp.dist   = rd.distKm;
+  mcp.source = 'route';
+  document.getElementById('mcp-dist').value = mcp.dist;
+  mcpCalc('route');
+}
+
+/* ── 強制再計算ボタン ── */
+function mcpForceRecalc(){
+  // サブUIの現在値をMCPに取り込んでから全算出
+  const v = +document.getElementById('r-movespd')?.value;
+  if(v > 0){ mcp.spd = v; baseSpdValue = v; }
+  document.getElementById('mcp-spd').value = mcp.spd;
+  const d = +document.getElementById('r-dist').value;
+  if(d > 0 && mcp.source !== 'route') mcp.dist = d;
+  document.getElementById('mcp-dist').value = mcp.dist;
+  mcpCalc('force');
+}
+
 /* ══════════════════════════════════════
    スマート自動計算エンジン
    最後に触った欄を起点に全フィールドを自動更新
 ══════════════════════════════════════ */
 let lastTouched='start'; // 'start' | 'end' | 'dist' | 'speed' | 'course'
 
+/* smartCalc → MCPに委譲（既存コードとの互換ラッパー） */
 function smartCalc(trigger){
-  lastTouched=trigger;
-
-  // ルート指定済みの場合は_routeDataを優先
-  const rd=window._routeData;
-  const hasRoute=rd&&rd.distKm>0;
-
-  const distBase= hasRoute ? rd.distKm : (+document.getElementById('r-dist').value||50);
-  const elevBase= hasRoute ? rd.gainM  : (+document.getElementById('r-elev').value||0);
-  // ルート指定済みは往復フラグを無視（実ルート距離が正）
-  const rt= 0; // 往復フラグ完全無効化
-  const effDist=rt?distBase*2:distBase;
-  const effElev=rt?elevBase*2:elevBase;
-  const ratio=(+document.getElementById('r-ratio').value||85)/100;
-  const weather=+document.getElementById('r-weather').value||1;
-  const cond=+document.getElementById('r-cond').value||1;
-  const wsp=+document.getElementById('r-wsp')?.value||0;
-  const wDir=+document.getElementById('r-wdir')?.value||0;
-  const rDir=+document.getElementById('r-rdir')?.value||0;
-  const g=grade(effElev,effDist);
-  const hwMs=hw(wsp,wDir,rDir)/3.6;
-
-  // 実効移動速度を算出
-  let moveSpd;
-  if(inputMode==='spd'){
-    const baseSpd=+document.getElementById('r-movespd').value||28;
-    const wt=+document.getElementById('r-weight')?.value||65;
-    const baseW=s2p(baseSpd,wt,0,0);
-    moveSpd=p2s(baseW*weather*cond,wt,g,hwMs);
-  } else {
-    const ftp=+document.getElementById('r-ftp')?.value||220;
-    const wt=+document.getElementById('r-weight-pwr')?.value||65;
-    const wkg=+document.getElementById('r-wkg')?.value||2.5;
-    const npRaw=+document.getElementById('r-np')?.value;
-    const targetW=npRaw>0?npRaw:wkg*wt;
-    moveSpd=p2s(targetW*weather*cond,wt,g,hwMs);
-  }
-
-  const netMins=effDist/moveSpd*60;
-  const totalMins=netMins/ratio;
-
-  // ── 終了時刻が設定済みなら常に逆算（triggerに関わらず） ──
-  const endVal=document.getElementById('r-end')?.value?.trim()||'';
-  const endMatch=endVal.match(/^(\d{1,2}):(\d{2})$/);
-
-  // 終了ダイヤルが設定済み = 逆算モード
-  const endIsSet = dialState.end.h!==null && dialState.end.m!==null;
-
-  if(endIsSet && trigger!=='start'){
-    // 終了時刻固定 → スタートを逆算（スタートダイヤル操作中は上書きしない）
-    const eh=dialState.end.h, em=dialState.end.m;
-    const endH=eh+em/60;
-    const endStr=`${String(eh).padStart(2,'0')}:${String(em).padStart(2,'0')}`;
-    const startH=endH-totalMins/60;
-    const sHH=Math.floor(((startH%24)+24)%24);
-    const sMM=Math.round((((startH%24)+24)%24%1)*60);
-    const startStr=`${String(sHH).padStart(2,'0')}:${String(Math.min(sMM,59)).padStart(2,'0')}`;
-    document.getElementById('r-start').value=startStr;
-    document.getElementById('r-end').value=endStr;
-    setDialFromString('start',startStr);
-    const bar=document.getElementById('map-stats-bar');
-    if(bar){ bar.style.display='block'; document.body.style.paddingTop=(bar.offsetHeight||48)+'px';
-      document.getElementById('msb-start').textContent=startStr;
-      document.getElementById('msb-time').textContent=fmtD(totalMins);
-      document.getElementById('msb-arrive').textContent=endStr;
-    }
-  } else if(endIsSet && trigger==='start'){
-    // スタートダイヤル操作中：スタートを固定してゴールを再計算
-    const sh=dialState.start.h!=null?dialState.start.h:8;
-    const sm=dialState.start.m!=null?dialState.start.m:0;
-    const startStr=`${String(sh).padStart(2,'0')}:${String(sm).padStart(2,'0')}`;
-    const startH=sh+sm/60;
-    const endH=startH+totalMins/60;
-    const eHH=Math.floor(endH%24);
-    const eMM=Math.round((endH%1)*60);
-    const endStr=`${String(eHH).padStart(2,'0')}:${String(Math.min(eMM,59)).padStart(2,'0')}`;
-    document.getElementById('r-start').value=startStr;
-    document.getElementById('r-end').value=endStr;
-    setDialFromString('end',endStr);
-    const bar=document.getElementById('map-stats-bar');
-    if(bar){ bar.style.display='block'; document.body.style.paddingTop=(bar.offsetHeight||48)+'px';
-      document.getElementById('msb-start').textContent=startStr;
-      document.getElementById('msb-time').textContent=fmtD(totalMins);
-      document.getElementById('msb-arrive').textContent=endStr+(endH>=24?' +1日':'');
-    }
-  } else {
-    // 終了未設定 → スタート固定で到着を順算
-    const sh=dialState.start.h!=null?dialState.start.h:8;
-    const sm=dialState.start.m!=null?dialState.start.m:0;
-    const startStr=`${String(sh).padStart(2,'0')}:${String(sm).padStart(2,'0')}`;
-    const startH=sh+sm/60;
-    const endH=startH+totalMins/60;
-    const eHH=Math.floor(endH%24);
-    const eMM=Math.round((endH%1)*60);
-    const endStr=`${String(eHH).padStart(2,'0')}:${String(Math.min(eMM,59)).padStart(2,'0')}`;
-    document.getElementById('r-end').value=endStr;
-    setDialFromString('end',endStr);
-    const bar=document.getElementById('map-stats-bar');
-    if(bar){ bar.style.display='block'; document.body.style.paddingTop=(bar.offsetHeight||48)+'px';
-      document.getElementById('msb-start').textContent=startStr;
-      document.getElementById('msb-time').textContent=fmtD(totalMins);
-      document.getElementById('msb-arrive').textContent=endStr+(endH>=24?' +1日':'');
-    }
-  }
-
-  // 通常のcalc処理を実行
-  calc();
+  lastTouched = trigger;
+  // サブUI→MCPへ最新値を取り込んでからMCP計算
+  const v = +document.getElementById('r-movespd')?.value;
+  if(v > 0 && trigger !== 'spd') { mcp.spd = v; baseSpdValue = v; }
+  const mcpTrigger =
+    trigger === 'speed' ? 'spd' :
+    trigger === 'dist'  ? 'dist' :
+    trigger === 'start' ? 'start' :
+    trigger === 'end'   ? 'end' :
+    'detail';
+  mcpCalc(mcpTrigger);
 }
 
 function onStartChange(){
@@ -4320,6 +4458,21 @@ calcRun();calcTri();
 setCourseProfile('flat');
 updateRtLabel();
 updateDialDisplay('start');
+// ★ MCP初期化（保存設定を反映後に実行）
+(function initMCP(){
+  const saved=localStorage.getItem('rpp_user_pref');
+  if(saved){
+    const p=JSON.parse(saved);
+    mcp.spd   = +p.spd   || 30;
+    mcp.dist  = +p.dist  || 50;
+    const [sh=8, sm=0] = (p.start||'08:00').split(':').map(Number);
+    mcp.startH = sh; mcp.startM = sm;
+    document.getElementById('mcp-dist').value = mcp.dist;
+    document.getElementById('mcp-spd').value  = mcp.spd;
+  }
+  _mcpShowDial('start', mcp.startH, mcp.startM);
+  mcpCalc('start');
+})();
 // 個人設定を自動適用
 (function(){
   const saved=localStorage.getItem('rpp_user_pref');
