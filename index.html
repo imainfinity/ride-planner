@@ -2204,8 +2204,50 @@ function sw(t){
   if(t==='log') renderLog();
   if(t==='saved') renderSaved();
   if(t==='ride'){upCompass();calc();}
-  if(t==='run') calcRun();
+  if(t==='run'){
+    // ランタブ: ライドのデータ（routeData・時刻）を引き継がない
+    _initRunTab();
+    calcRun();
+  }
   if(t==='tri') calcTri();
+}
+
+/* ランタブを独立した初期値で初期化 */
+function _initRunTab(){
+  // 保存済みのラン設定を読み込む（なければデフォルト値）
+  const saved = localStorage.getItem('rpp_run_pref');
+  const p = saved ? JSON.parse(saved) : {};
+
+  // 距離・標高・往復をラン用デフォルトにリセット
+  const distEl = document.getElementById('n-dist');
+  const elevEl = document.getElementById('n-elev');
+  const rtEl   = document.getElementById('n-roundtrip');
+  if(distEl && !distEl.dataset.userEdited) distEl.value = p.dist || 10;
+  if(elevEl) elevEl.value = 0;
+  if(rtEl)   rtEl.value   = '0';
+
+  // 体重・Ratio をラン設定から反映
+  const wtEl    = document.getElementById('n-weight');
+  const ratioEl = document.getElementById('n-ratio');
+  if(wtEl    && !wtEl.dataset.userEdited)    wtEl.value    = p.weight || 65;
+  if(ratioEl && !ratioEl.dataset.userEdited) ratioEl.value = p.ratio  || 80;
+
+  // ペースをラン設定から反映
+  if(p.pace && p.pace > 0){
+    _paceState.min = Math.floor(p.pace);
+    _paceState.sec = Math.round((p.pace - Math.floor(p.pace)) * 60);
+    _syncPaceDial();
+  }
+
+  // ラン用の時刻をライドから引き継がない（ラン独自のdialStateを使う）
+  // n-start は runDialState で管理されているのでそのまま
+  document.getElementById('n-end').value = '';
+  runDialState.end = {h:null, m:null};
+  updateRunDial('end');
+  const ew = document.getElementById('run-dial-end-wrap');
+  if(ew) ew.style.opacity = '0.5';
+
+  // ユーザー編集フラグは付けない（次回タブ切替でもリセット可能に）
 }
 
 /* ── ユーザー個人設定 ── */
@@ -2248,25 +2290,34 @@ function applyUserPref(){
   const saved=localStorage.getItem('rpp_user_pref');
   if(!saved) return;
   const p=JSON.parse(saved);
-  // ライドタブに反映
-  if(document.getElementById('r-dist'))    document.getElementById('r-dist').value=p.dist;
-  if(document.getElementById('r-elev'))    document.getElementById('r-elev').value=p.elev;
-  if(document.getElementById('r-movespd')) document.getElementById('r-movespd').value=p.spd;
-  if(document.getElementById('r-weight'))  document.getElementById('r-weight').value=p.weight;
-  if(document.getElementById('r-ftp'))     document.getElementById('r-ftp').value=p.ftp;
-  if(document.getElementById('r-ratio'))   document.getElementById('r-ratio').value=p.ratio;
-  // ★ MCPに反映して一元管理
+
+  // ── MCP を主として速度・距離を設定 ──
   mcp.dist = +p.dist || 50;
   mcp.spd  = +p.spd  || 30;
   baseSpdValue = mcp.spd;
   const [sh=8,sm=0] = (p.start||'08:00').split(':').map(Number);
   mcp.startH = sh; mcp.startM = sm;
-  mcp.endH = null; mcp.endM = null; // 設定適用時は到着をリセット
+  mcp.endH = null; mcp.endM = null;
+
+  // MCPバー・サイドバーの入力欄に反映
   document.getElementById('mcp-dist').value = mcp.dist;
   document.getElementById('mcp-spd').value  = mcp.spd;
+
+  // サブUI（走力パネル）にも反映（表示の整合性）
+  const spdEl = document.getElementById('r-movespd');
+  if(spdEl) spdEl.value = mcp.spd;
+  if(document.getElementById('r-dist'))   document.getElementById('r-dist').value   = mcp.dist;
+  if(document.getElementById('r-elev'))   document.getElementById('r-elev').value   = p.elev||0;
+  if(document.getElementById('r-weight')) document.getElementById('r-weight').value = p.weight||65;
+  if(document.getElementById('r-ftp'))    document.getElementById('r-ftp').value    = p.ftp||220;
+  if(document.getElementById('r-ratio'))  document.getElementById('r-ratio').value  = p.ratio||85;
+
   // 都道府県
   const prefEl=document.getElementById('dl-pref');
   if(prefEl&&p.pref) prefEl.value=p.pref;
+
+  // ライドタブへ切替 & MCP再計算
+  closeSettingsModal();
   sw('ride');
   mcpCalc('start');
 }
