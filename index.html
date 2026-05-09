@@ -732,7 +732,7 @@ input[type=number],input[type=text],input[type=time],select{
     </div>
     <!-- お酒タブ -->
     <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">🍺 お酒で換算</div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:12px" id="cal-drink-grid"></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:12px;row-gap:5px" id="cal-drink-grid"></div>
     <!-- 食べ物タブ -->
     <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">🍙 食事で換算</div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px" id="cal-food-grid"></div>
@@ -1536,20 +1536,26 @@ function renderBreakdown(dist,elev,effW,weight,g,hwMs,ratio,weather,cond,netMins
    消費kcal全体 = 運動消費 + 基礎代謝分（実走中）
 ══════════════════════════════════════ */
 const DRINK_DATA=[
-  {name:'ビール',    icon:'🍺', unit:'缶(350ml)', kcal:140},
-  {name:'ワイン',    icon:'🍷', unit:'グラス',    kcal:90},
-  {name:'日本酒',    icon:'🍶', unit:'1合',       kcal:185},
-  {name:'ウイスキー',icon:'🥃', unit:'ショット',  kcal:70},
+  {name:'ビール',      icon:'🍺', unit:'缶(350ml)', kcal:140},
+  {name:'ワイン',      icon:'🍷', unit:'グラス',    kcal:90},
+  {name:'日本酒',      icon:'🍶', unit:'1合',       kcal:185},
+  {name:'ウイスキー',  icon:'🥃', unit:'ショット',  kcal:70},
+  {name:'コーラ',      icon:'🥤', unit:'缶(350ml)', kcal:147},
+  {name:'レッドブル',  icon:'⚡', unit:'缶(250ml)', kcal:113},
+  {name:'Oジュース',   icon:'🍊', unit:'コップ',    kcal:84},
 ];
 const FOOD_DATA=[
-  {name:'おにぎり',  icon:'🍙', unit:'個',    kcal:175},
-  {name:'定食',      icon:'🍱', unit:'食',    kcal:700},
-  {name:'ラーメン',  icon:'🍜', unit:'杯',    kcal:500},
-  {name:'カレー',    icon:'🍛', unit:'皿',    kcal:650},
-  {name:'チャーハン',icon:'🍚', unit:'皿',    kcal:550},
-  {name:'パスタ',    icon:'🍝', unit:'皿',    kcal:480},
-  {name:'バーガー',  icon:'🍔', unit:'個',    kcal:520},
-  {name:'ポテチ',    icon:'🥔', unit:'袋',    kcal:360},
+  {name:'おにぎり',    icon:'🍙', unit:'個',    kcal:175},
+  {name:'定食',        icon:'🍱', unit:'食',    kcal:700},
+  {name:'ラーメン',    icon:'🍜', unit:'杯',    kcal:500},
+  {name:'カレー',      icon:'🍛', unit:'皿',    kcal:650},
+  {name:'チャーハン',  icon:'🍚', unit:'皿',    kcal:550},
+  {name:'パスタ',      icon:'🍝', unit:'皿',    kcal:480},
+  {name:'バーガー',    icon:'🍔', unit:'個',    kcal:520},
+  {name:'ポテチ',      icon:'🥔', unit:'袋',    kcal:360},
+  {name:'からあげ',    icon:'🍗', unit:'3個',   kcal:240},
+  {name:'とんかつ',    icon:'🥩', unit:'定食',  kcal:750},
+  {name:'ハンバーグ',  icon:'🍽️', unit:'定食',  kcal:680},
 ];
 
 function calcCalorie(netMins, weight){
