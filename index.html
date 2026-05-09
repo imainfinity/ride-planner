@@ -418,20 +418,37 @@ input[type=number],input[type=text],input[type=time],select{
     </select>
   </div>
 
-  <!-- 📍 POI（1行コンパクト） -->
+  <!-- 📍 POI（オンデマンド・エリア指定方式） -->
   <div style="margin-bottom:6px">
+    <!-- カテゴリ選択行 -->
     <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:2px;margin-bottom:4px">
-      <button class="poi-icon-btn" id="poi-btn-コンビニ"   onclick="togglePOI('コンビニ')"   title="コンビニ">🏪<div>CVS</div></button>
-      <button class="poi-icon-btn" id="poi-btn-カフェ"     onclick="togglePOI('カフェ')"     title="カフェ">☕<div>Café</div></button>
-      <button class="poi-icon-btn" id="poi-btn-レストラン" onclick="togglePOI('レストラン')" title="食事">🍽️<div>食事</div></button>
-      <button class="poi-icon-btn" id="poi-btn-公園"       onclick="togglePOI('公園')"       title="公園">🌳<div>公園</div></button>
-      <button class="poi-icon-btn" id="poi-btn-絶景"       onclick="togglePOI('絶景')"       title="絶景">🏔️<div>絶景</div></button>
-      <button class="poi-icon-btn" id="poi-btn-史跡"       onclick="togglePOI('史跡')"       title="史跡">🏯<div>史跡</div></button>
-      <button class="poi-icon-btn" id="poi-btn-名所・観光" onclick="togglePOI('名所・観光')" title="名所">⛩️<div>名所</div></button>
-      <button class="poi-icon-btn" id="poi-btn-温泉"       onclick="togglePOI('温泉')"       title="温泉">♨️<div>温泉</div></button>
+      <button class="poi-icon-btn" id="poi-btn-コンビニ"   onclick="selectPOICategory('コンビニ')"   title="コンビニ">🏪<div>CVS</div></button>
+      <button class="poi-icon-btn" id="poi-btn-カフェ"     onclick="selectPOICategory('カフェ')"     title="カフェ">☕<div>Café</div></button>
+      <button class="poi-icon-btn" id="poi-btn-レストラン" onclick="selectPOICategory('レストラン')" title="食事">🍽️<div>食事</div></button>
+      <button class="poi-icon-btn" id="poi-btn-公園"       onclick="selectPOICategory('公園')"       title="公園">🌳<div>公園</div></button>
+      <button class="poi-icon-btn" id="poi-btn-絶景"       onclick="selectPOICategory('絶景')"       title="絶景">🏔️<div>絶景</div></button>
+      <button class="poi-icon-btn" id="poi-btn-史跡"       onclick="selectPOICategory('史跡')"       title="史跡">🏯<div>史跡</div></button>
+      <button class="poi-icon-btn" id="poi-btn-名所・観光" onclick="selectPOICategory('名所・観光')" title="名所">⛩️<div>名所</div></button>
+      <button class="poi-icon-btn" id="poi-btn-温泉"       onclick="selectPOICategory('温泉')"       title="温泉">♨️<div>温泉</div></button>
     </div>
-    <button class="bs" onclick="clearAllPOI()" style="width:100%;font-size:10px;padding:3px">✕ 全解除</button>
-    <div id="poi-results" style="margin-top:6px;max-height:120px;overflow-y:auto;font-size:11px"></div>
+    <!-- エリア指定プロンプト（カテゴリ選択後に表示） -->
+    <div id="poi-area-prompt" style="display:none;background:var(--bluebg);border:1px solid var(--blue);border-radius:var(--rs);padding:7px 10px;margin-bottom:4px;font-size:11px;color:var(--blue);display:none">
+      <div style="font-weight:700;margin-bottom:3px" id="poi-prompt-label">📍 地図上で探したいエリアをタップ</div>
+      <div style="font-size:10px;color:var(--text2)">タップした地点の周辺 <select id="poi-radius-sel" style="font-size:10px;padding:1px 3px;border:0.5px solid var(--border2);border-radius:3px;background:var(--bg);color:var(--text)">
+        <option value="500">500m</option>
+        <option value="1000" selected>1km</option>
+        <option value="2000">2km</option>
+        <option value="3000">3km</option>
+        <option value="5000">5km</option>
+      </select> を検索</div>
+      <button onclick="cancelPOISelect()" style="margin-top:4px;padding:2px 8px;border:0.5px solid var(--border2);border-radius:3px;background:var(--bg);color:var(--text2);font-size:10px;cursor:pointer">キャンセル</button>
+    </div>
+    <!-- 結果一覧 + クリア -->
+    <div style="display:flex;gap:4px;margin-bottom:3px">
+      <button class="bs" onclick="clearAllPOI()" style="flex:1;font-size:10px;padding:3px">✕ 全解除</button>
+      <span id="poi-cache-badge" style="display:none;font-size:9px;padding:2px 6px;background:var(--greenbg);color:var(--green);border-radius:10px;align-self:center">💾 キャッシュ</span>
+    </div>
+    <div id="poi-results" style="margin-top:4px;max-height:160px;overflow-y:auto;font-size:11px"></div>
   </div>
 
   <!-- 地点リスト -->
@@ -2354,7 +2371,7 @@ function drawDistCanvas(tw, startH, endH, dist, moveSpd){
 ══════════════════════════════════════ */
 let gmap=null, directionsService=null, directionsRenderer=null;
 let elevationService=null, geocoder=null, placesService=null;
-let waypoints=[], markers=[], poiMarkers=[];
+let waypoints=[], markers=[];
 let lastRouteResult=null, lastElevResults=null, lastRoutePath=null;
 let hoverPolyline=null; // ルート線上ホバー用の透明な太いライン
 
@@ -3507,7 +3524,11 @@ function bearingToLabel(b){
          '南','南南西','南西','西南西','西','西北西','北西','北北西'][Math.round(b/22.5)%16]+'へ ('+Math.round(b)+'°)';
 }
 
-/* ── POI検索 ── */
+/* ══════════════════════════════════════
+   POI エンジン v2: オンデマンド・エリア指定・キャッシュ方式
+   ─ アイコン選択 → マップクリック待ち → 1リクエストで検索 ─
+   ─ 同一カテゴリ×エリアはキャッシュ再利用（APIコスト最小化）─
+══════════════════════════════════════ */
 const POI_TYPES={
   'コンビニ':   {keyword:'コンビニ セブン ローソン ファミマ',  type:'convenience_store', icon:'🏪',col:'#e24b4a'},
   'カフェ':     {keyword:'カフェ coffee cafe',                 type:'cafe',              icon:'☕',col:'#8b5cf6'},
@@ -3518,7 +3539,142 @@ const POI_TYPES={
   '名所・観光': {keyword:'観光 名所 神社 寺 城',              type:'tourist_attraction', icon:'⛩️',col:'#0ea5e9'},
   '温泉':       {keyword:'温泉 銭湯 湯',                       type:'spa',               icon:'♨️',col:'#f97316'},
 };
+
+/* ── 状態管理 ── */
+let poiMarkers=[];
+let _poiSelectMode=false;
+let _poiSelectedLabel=null;
+let _poiClickListener=null;
+let _poiSearchCircle=null;
+const _poiCache=new Map(); // key: `${label}:${lat.toFixed(3)},${lng.toFixed(3)}:${radius}`
+const activePOIs=new Set();
+let sharedIW=null;
+
+/* ── カテゴリアイコン押下 → エリア指定モード開始 ── */
+function selectPOICategory(label){
+  const cfg=POI_TYPES[label];
+  if(!cfg||!gmap) return;
+  if(_poiSelectMode&&_poiSelectedLabel===label){ cancelPOISelect(); return; }
+  if(_poiSelectMode) cancelPOISelect(true);
+  _poiSelectMode=true; _poiSelectedLabel=label;
+  document.querySelectorAll('.poi-icon-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('poi-btn-'+label)?.classList.add('active');
+  const prompt=document.getElementById('poi-area-prompt');
+  document.getElementById('poi-prompt-label').textContent=`${cfg.icon} ${label}を探したいエリアを地図でタップ`;
+  prompt.style.display='block';
+  gmap.setOptions({draggableCursor:'crosshair'});
+  _poiClickListener=gmap.addListener('click',e=>{ executePOISearch(label,e.latLng); });
+}
+
+function cancelPOISelect(silent=false){
+  _poiSelectMode=false; _poiSelectedLabel=null;
+  if(_poiClickListener){google.maps.event.removeListener(_poiClickListener);_poiClickListener=null;}
+  if(_poiSearchCircle){_poiSearchCircle.setMap(null);_poiSearchCircle=null;}
+  gmap?.setOptions({draggableCursor:null});
+  document.getElementById('poi-area-prompt').style.display='none';
+  if(!silent){
+    document.querySelectorAll('.poi-icon-btn').forEach(b=>{
+      const lbl=b.id.replace('poi-btn-','');
+      if(!activePOIs.has(lbl))b.classList.remove('active');
+    });
+  }
+}
+
+/* ── エリアクリック後：1リクエストで検索 ── */
+function executePOISearch(label,latLng){
+  const cfg=POI_TYPES[label];
+  if(!cfg)return;
+  if(_poiClickListener){google.maps.event.removeListener(_poiClickListener);_poiClickListener=null;}
+  gmap.setOptions({draggableCursor:null});
+  document.getElementById('poi-area-prompt').style.display='none';
+  _poiSelectMode=false;
+  const radius=+document.getElementById('poi-radius-sel').value||1000;
+  const lat=latLng.lat(),lng=latLng.lng();
+  const cacheKey=`${label}:${lat.toFixed(3)},${lng.toFixed(3)}:${radius}`;
+  // 検索円を2.5秒表示
+  if(_poiSearchCircle)_poiSearchCircle.setMap(null);
+  _poiSearchCircle=new google.maps.Circle({center:latLng,radius,map:gmap,
+    fillColor:cfg.col,fillOpacity:0.12,strokeColor:cfg.col,strokeWeight:1.5,strokeOpacity:0.7});
+  setTimeout(()=>{if(_poiSearchCircle){_poiSearchCircle.setMap(null);_poiSearchCircle=null;}},2500);
+  // キャッシュヒット
+  if(_poiCache.has(cacheKey)){
+    activePOIs.add(label);
+    renderPOI(_poiCache.get(cacheKey),cfg,label,true);
+    return;
+  }
+  document.getElementById('poi-results').innerHTML=
+    `<div style="font-size:11px;color:var(--text2);padding:4px">🔍 ${cfg.icon} ${label}を検索中…</div>`;
+  document.getElementById('poi-cache-badge').style.display='none';
+  if(!placesService)return;
+  // ★ 1リクエストのみ（コース全自動スキャン廃止）
+  placesService.nearbySearch({location:latLng,radius,keyword:cfg.keyword},(res,status)=>{
+    const places=(status==='OK'&&res)?res:[];
+    _poiCache.set(cacheKey,places);
+    activePOIs.add(label);
+    renderPOI(places,cfg,label,false);
+  });
+}
+
+/* ── マーカー描画 ── */
+function renderPOI(places,cfg,label,fromCache=false){
+  if(!sharedIW)sharedIW=new google.maps.InfoWindow();
+  // 同カテゴリの旧マーカー削除
+  poiMarkers=poiMarkers.filter(m=>{if(m._poiLabel===label){m.setMap(null);return false;}return true;});
+  places.forEach(pl=>{
+    const m=new google.maps.Marker({position:pl.geometry.location,map:gmap,title:pl.name,zIndex:50,
+      icon:{path:google.maps.SymbolPath.CIRCLE,scale:13,fillColor:cfg.col,fillOpacity:0.9,strokeColor:'#fff',strokeWeight:2}});
+    m._poiLabel=label;
+    const ml=new google.maps.Marker({position:pl.geometry.location,map:gmap,zIndex:51,clickable:false,
+      label:{text:cfg.icon,fontSize:'13px'},
+      icon:{path:google.maps.SymbolPath.CIRCLE,scale:0,fillOpacity:0,strokeOpacity:0}});
+    ml._poiLabel=label;
+    m.addListener('click',()=>{
+      const su='https://www.google.com/search?q='+encodeURIComponent(pl.name+(pl.vicinity?' '+pl.vicinity:''));
+      sharedIW.setContent(`<div style="min-width:160px;max-width:220px;font-family:sans-serif">
+        <a href="${su}" target="_blank" rel="noopener"
+           style="font-size:13px;font-weight:600;color:#1a73e8;text-decoration:none;display:block;margin-bottom:4px">
+          ${cfg.icon} ${pl.name} 🔗</a>
+        <div style="font-size:11px;color:#666;margin-bottom:2px">${pl.vicinity||''}</div>
+        ${pl.rating?`<div style="font-size:11px">⭐ ${pl.rating}${pl.user_ratings_total?' ('+pl.user_ratings_total+'件)':''}</div>`:''}</div>`);
+      sharedIW.open(gmap,m);
+    });
+    poiMarkers.push(m,ml);
+  });
+  document.getElementById('poi-cache-badge').style.display=fromCache?'inline-block':'none';
+  const box=document.getElementById('poi-results');
+  const tag=fromCache?'<span style="font-size:9px;padding:1px 5px;background:var(--greenbg);color:var(--green);border-radius:8px;margin-left:4px">キャッシュ</span>':'';
+  const newContent=places.length===0
+    ?`<div style="font-size:11px;color:var(--text3);padding:4px 0">${cfg.icon} ${label}は周辺に見つかりませんでした<br>
+       <span style="font-size:10px">半径を広げるか別エリアで再検索してください</span></div>`
+    :`<div style="font-size:10px;font-weight:700;color:var(--text3);padding:4px 0 3px">${cfg.icon} ${label} ${places.length}件${tag}
+       <button onclick="selectPOICategory('${label}')"
+         style="margin-left:6px;font-size:9px;padding:1px 6px;border:0.5px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text2);cursor:pointer">+ 別エリア追加</button>
+     </div>`+
+     places.slice(0,15).map(pl=>{
+       const su='https://www.google.com/search?q='+encodeURIComponent(pl.name+(pl.vicinity?' '+pl.vicinity:''));
+       return `<div style="padding:4px 0;border-bottom:0.5px solid var(--border);display:flex;align-items:center;gap:6px">
+         <span onclick="gmap.panTo(new google.maps.LatLng(${pl.geometry.location.lat()},${pl.geometry.location.lng()}))"
+               style="cursor:pointer;flex:1;font-size:11px;color:var(--text)">${cfg.icon} ${pl.name}${pl.rating?' ⭐'+pl.rating:''}</span>
+         <a href="${su}" target="_blank" rel="noopener" style="font-size:10px;color:#1a73e8;text-decoration:none">🔍</a></div>`;
+     }).join('');
+  // 既存結果の「検索中」表示を置換、それ以外は累積追記
+  if(box.innerHTML.includes('検索中')||!box.innerHTML.trim()){box.innerHTML=newContent;}
+  else{box.innerHTML+=newContent;}
+  document.getElementById('poi-btn-'+label)?.classList.add('active');
+}
+
+/* ── POIクリア系 ── */
 function clearPOI(){poiMarkers.forEach(m=>m.setMap(null));poiMarkers=[];}
+function clearAllPOI(){
+  activePOIs.clear(); cancelPOISelect(true); clearPOI();
+  document.querySelectorAll('.poi-icon-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('poi-results').innerHTML='';
+  document.getElementById('poi-cache-badge').style.display='none';
+}
+/* 後方互換：fs-mini-panelのtogglePOI呼び出し対応 */
+function togglePOI(label){selectPOICategory(label);}
+function searchPOI(label){selectPOICategory(label);}
+
 /* ── ③ 明示的地点追加ダイアログ ── */
 function showAddWaypointConfirm(latLng){
   if(!sharedIW) sharedIW=new google.maps.InfoWindow();
@@ -3539,134 +3695,6 @@ function showAddWaypointConfirm(latLng){
 function confirmAddWaypoint(lat,lng){
   if(sharedIW) sharedIW.close();
   addWaypoint(new google.maps.LatLng(lat,lng));
-}
-
-/* ── ④ Polyline沿い施設検索（改善版） ── */
-function searchPOI(label){
-  const cfg=POI_TYPES[label];
-  if(!cfg) return;
-  const btn=document.getElementById('poi-btn-'+label);
-  if(btn) btn.classList.add('active');
-  document.getElementById('poi-results').innerHTML=
-    `<div style="font-size:11px;color:var(--text2);padding:4px">🔍 ${label}を検索中...</div>`;
-  const all=new Map();
-
-  if(lastRouteResult){
-    // ② 沿道検索：Polylineを5-10km間隔でサンプリング
-    const path=lastRouteResult.routes[0].overview_path;
-    let distAcc=0, pts=[path[0]];
-    const SAMPLE_INTERVAL=7000; // 7km間隔
-    for(let i=1;i<path.length;i++){
-      distAcc+=google.maps.geometry.spherical.computeDistanceBetween(path[i-1],path[i]);
-      if(distAcc>=SAMPLE_INTERVAL){pts.push(path[i]);distAcc=0;}
-    }
-    pts.push(path[path.length-1]); // 終点も追加
-    // 重複排除しながら全点検索
-    let pending=pts.length;
-    pts.forEach(pt=>{
-      placesService.nearbySearch({
-        location:pt, radius:1500, keyword:cfg.keyword,
-      },(res)=>{
-        pending--;
-        if(res) res.forEach(pl=>{if(!all.has(pl.place_id))all.set(pl.place_id,pl);});
-        if(pending===0) renderPOI([...all.values()],cfg,label);
-      });
-    });
-  } else if(waypoints.length>0){
-    // スタート地点周辺5km
-    placesService.nearbySearch({location:waypoints[0],radius:5000,keyword:cfg.keyword},
-      (res)=>{if(res)res.forEach(pl=>all.set(pl.place_id,pl));renderPOI([...all.values()],cfg,label);});
-  } else {
-    // 現在地周辺3km
-    navigator.geolocation&&navigator.geolocation.getCurrentPosition(pos=>{
-      placesService.nearbySearch({
-        location:{lat:pos.coords.latitude,lng:pos.coords.longitude},
-        radius:3000,keyword:cfg.keyword,
-      },(res)=>{if(res)res.forEach(pl=>all.set(pl.place_id,pl));renderPOI([...all.values()],cfg,label);});
-    });
-  }
-}
-// 共有InfoWindow（1つだけ開く）
-let sharedIW=null;
-
-function renderPOI(places,cfg,label){
-  // 共有InfoWindowを初期化
-  if(!sharedIW) sharedIW=new google.maps.InfoWindow();
-
-  places.forEach(pl=>{
-    const m=new google.maps.Marker({
-      position:pl.geometry.location,map:gmap,title:pl.name,zIndex:50,
-      icon:{path:google.maps.SymbolPath.CIRCLE,scale:13,
-            fillColor:cfg.col,fillOpacity:0.9,strokeColor:'#fff',strokeWeight:2}
-    });
-    // アイコンラベル
-    const ml=new google.maps.Marker({
-      position:pl.geometry.location,map:gmap,zIndex:51,clickable:false,
-      label:{text:cfg.icon,fontSize:'13px'},
-      icon:{path:google.maps.SymbolPath.CIRCLE,scale:0,fillOpacity:0,strokeOpacity:0}
-    });
-    // クリックで共有IWを開く（前のは自動で閉じる）
-    m.addListener('click',()=>{
-      const searchUrl='https://www.google.com/search?q='+encodeURIComponent(pl.name+(pl.vicinity?' '+pl.vicinity:''));
-      sharedIW.setContent(`
-        <div style="min-width:160px;max-width:220px;font-family:sans-serif">
-          <a href="${searchUrl}" target="_blank" rel="noopener"
-             style="font-size:13px;font-weight:600;color:#1a73e8;text-decoration:none;display:block;margin-bottom:4px">
-            ${cfg.icon} ${pl.name} 🔗
-          </a>
-          <div style="font-size:11px;color:#666;margin-bottom:2px">${pl.vicinity||''}</div>
-          ${pl.rating?`<div style="font-size:11px">⭐ ${pl.rating}${pl.user_ratings_total?' ('+pl.user_ratings_total+'件)':''}</div>`:''}
-        </div>`);
-      sharedIW.open(gmap,m);
-    });
-    poiMarkers.push(m,ml);
-  });
-
-  // サイドバーリスト表示
-  const box=document.getElementById('poi-results');
-  const existing=box.innerHTML;
-  const newContent=places.length===0
-    ?`<div style="font-size:11px;color:var(--text3);padding:4px 0">${label}は沿線に見つかりませんでした</div>`
-    :`<div style="font-size:10px;font-weight:700;color:var(--text3);padding:4px 0 3px">${cfg.icon} ${label} ${places.length}件</div>`+
-    places.slice(0,15).map(pl=>{
-      const searchUrl='https://www.google.com/search?q='+encodeURIComponent(pl.name+(pl.vicinity?' '+pl.vicinity:''));
-      return `<div style="padding:4px 0;border-bottom:0.5px solid var(--border);display:flex;align-items:center;gap:6px">
-        <span onclick="gmap.panTo(new google.maps.LatLng(${pl.geometry.location.lat()},${pl.geometry.location.lng()}))"
-              style="cursor:pointer;flex:1;font-size:11px;color:var(--text)">${cfg.icon} ${pl.name}${pl.rating?' ⭐'+pl.rating:''}</span>
-        <a href="${searchUrl}" target="_blank" rel="noopener"
-           style="font-size:10px;color:#1a73e8;text-decoration:none;flex-shrink:0">検索</a>
-      </div>`;
-    }).join('');
-  box.innerHTML=existing+newContent;
-}
-
-
-
-/* ══════════════════════════════════════
-   POI トグル（サイドバー）
-══════════════════════════════════════ */
-const activePOIs=new Set();
-
-function togglePOI(label){
-  const btn=document.getElementById('poi-btn-'+label);
-  if(activePOIs.has(label)){
-    activePOIs.delete(label);
-    btn?.classList.remove('active');
-    clearPOI();
-    // 残りのアクティブPOIを再描画
-    activePOIs.forEach(l=>searchPOI(l));
-  } else {
-    activePOIs.add(label);
-    btn?.classList.add('active');
-    searchPOI(label);
-  }
-}
-
-function clearAllPOI(){
-  activePOIs.clear();
-  document.querySelectorAll('.poi-btn').forEach(b=>b.classList.remove('active'));
-  clearPOI();
-  document.getElementById('poi-results').innerHTML='';
 }
 
 /* ══════════════════════════════════════
