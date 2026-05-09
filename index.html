@@ -1337,13 +1337,8 @@ function rideDegFromSel(){
 function initCompass(){ windDegFromSel(); }
 function renderCompass(){ windDegFromSel(); }
 function upCompass(){}
-function syncToHidden(){
-  document.getElementById('r-wdir').value=windDeg;
-  document.getElementById('r-rdir').value=rideDeg;
-}
 function syncFromDeg(){}
 function drawArrNew(){}
-function onDrag(){} function endDrag(){}
 function onDrag(){}
 function endDrag(){}
 
@@ -2155,6 +2150,8 @@ function exportCSV(){
 function openSettingsModal(){
   document.getElementById('settings-modal').style.display='block';
   loadUserPrefUI();
+  loadPrefRunUI();
+  // タブのon状態は変えない（ライドタブのままにする）
 }
 function closeSettingsModal(){
   document.getElementById('settings-modal').style.display='none';
@@ -4528,7 +4525,7 @@ function onTimeCanvasScroll(el){
   });
 }
 
-function syncTimelineScroll(){} // 旧関数（後方互換）
+
 
 /* ══════════════════════════════════════════════════════
    MCP: Master Control Panel エンジン
@@ -4882,15 +4879,6 @@ function resetTimeDisplay(){
 }
 
 /* ── スタート↔終了バー同期 ── */
-function syncStartTimeToBar(){
-  const bar=document.getElementById('map-stats-bar');
-  if(!bar||bar.style.display==='none') return;
-  const timeEl=document.querySelector('#r-results .card:nth-child(2) .cv');
-  const arrEl =document.querySelector('#r-results .card:nth-child(1) .cv');
-  if(timeEl) document.getElementById('msb-time').textContent=timeEl.textContent;
-  if(arrEl&&arrEl.textContent.match(/\d{2}:\d{2}/))
-    document.getElementById('msb-arrive').textContent=arrEl.textContent;
-}
 
 function toggleDrawer(){
   const content=document.getElementById('drawer-content');
