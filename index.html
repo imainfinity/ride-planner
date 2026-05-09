@@ -280,66 +280,12 @@ body.pc-mode .ride-settings-col{padding-top:0}
   <div style="margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:4px">
     <div id="mcp-source" style="font-size:9px;color:var(--text3)">手動入力</div>
     <div style="display:flex;gap:4px">
-      <button onclick="toggleCondPanel()" id="cond-toggle-btn"
+      <button onclick="openSettingsModal()" id="cond-toggle-btn"
         style="padding:6px 12px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg2);color:var(--text);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">
         ⚙️ 条件
       </button>
       <button onclick="mcpForceRecalc()" style="padding:6px 14px;border:none;border-radius:var(--rs);background:var(--acc);color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">🔄 再計算</button>
     </div>
-  </div>
-</div>
-
-<!-- ⚙️ 条件設定バナー（MCPバー直下・トグル表示） -->
-<div id="cond-panel" style="display:none;background:var(--bg2);border-bottom:2px solid var(--acc);padding:10px 14px;z-index:197;position:sticky;top:130px">
-  <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
-    <span>⚙️ ライド条件設定 <span style="font-size:8px;color:var(--text3);font-weight:400">— 入力確定（Tab/Enter/フォーカスアウト）で自動計算</span></span>
-    <button onclick="toggleCondPanel()" style="border:none;background:none;color:var(--text3);font-size:14px;cursor:pointer;padding:0 4px">✕</button>
-  </div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px">
-    <!-- 距離 -->
-    <div style="display:flex;flex-direction:column;gap:3px">
-      <label style="font-size:9px;font-weight:700;color:var(--text2)">距離 (km)</label>
-      <input type="number" id="cp-dist" step="0.5" value="50"
-        style="font-size:15px;font-weight:600;padding:6px 9px;border:1.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text)"
-        onchange="cpApply('dist')" onkeydown="if(event.key==='Enter')this.blur()">
-      <div style="font-size:9px;color:var(--text3)" id="cp-dist-hint"></div>
-    </div>
-    <!-- 速度 -->
-    <div style="display:flex;flex-direction:column;gap:3px">
-      <label style="font-size:9px;font-weight:700;color:var(--text2)">速度 (km/h)</label>
-      <input type="number" id="cp-spd" step="0.5" value="30"
-        style="font-size:15px;font-weight:600;padding:6px 9px;border:1.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text)"
-        onchange="cpApply('spd')" onkeydown="if(event.key==='Enter')this.blur()">
-      <div style="font-size:9px;color:var(--text3)" id="cp-spd-hint"></div>
-    </div>
-    <!-- 体重 -->
-    <div style="display:flex;flex-direction:column;gap:3px">
-      <label style="font-size:9px;font-weight:700;color:var(--text2)">体重 (kg)</label>
-      <input type="number" id="cp-weight" step="0.5" value="65"
-        style="font-size:15px;font-weight:600;padding:6px 9px;border:1.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text)"
-        onchange="cpApply('weight')" onkeydown="if(event.key==='Enter')this.blur()">
-      <div style="font-size:9px;color:var(--text3)">設定値に自動同期</div>
-    </div>
-    <!-- 風速 -->
-    <div style="display:flex;flex-direction:column;gap:3px">
-      <label style="font-size:9px;font-weight:700;color:var(--text2)">風速 (m/s)</label>
-      <input type="number" id="cp-wsp" step="0.5" value="0" min="0"
-        style="font-size:15px;font-weight:600;padding:6px 9px;border:1.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text)"
-        onchange="cpApply('wsp')" onkeydown="if(event.key==='Enter')this.blur()">
-      <div style="font-size:9px;color:var(--text3)">風向は走力パネルで設定</div>
-    </div>
-    <!-- 獲得標高 -->
-    <div style="display:flex;flex-direction:column;gap:3px">
-      <label style="font-size:9px;font-weight:700;color:var(--text2)">獲得標高 (m)</label>
-      <input type="number" id="cp-elev" step="10" value="0"
-        style="font-size:15px;font-weight:600;padding:6px 9px;border:1.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text)"
-        onchange="cpApply('elev')" onkeydown="if(event.key==='Enter')this.blur()">
-      <div style="font-size:9px;color:var(--text3)" id="cp-elev-hint"></div>
-    </div>
-  </div>
-  <div style="margin-top:8px;display:flex;gap:6px;align-items:center">
-    <button onclick="cpApplyAll()" style="padding:6px 16px;border:none;border-radius:var(--rs);background:var(--acc);color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">✅ 適用して計算</button>
-    <span style="font-size:10px;color:var(--text3)" id="cp-saved-hint"></span>
   </div>
 </div>
 
@@ -5120,7 +5066,6 @@ function _cpSavedMsg(){
   clearTimeout(el._t);
   el._t=setTimeout(()=>{el.textContent='';},2000);
 }
-
 </script>
 </body>
 </html>
