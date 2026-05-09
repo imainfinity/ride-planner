@@ -276,10 +276,70 @@ body.pc-mode .ride-settings-col{padding-top:0}
     <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">所要時間</div>
     <div id="mcp-total" style="font-size:18px;font-weight:600;color:var(--text);padding:4px 0">—</div>
   </div>
-  <!-- ソース表示 + 再計算 -->
+  <!-- ソース表示 + 設定 + 再計算 -->
   <div style="margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:4px">
     <div id="mcp-source" style="font-size:9px;color:var(--text3)">手動入力</div>
-    <button onclick="mcpForceRecalc()" style="padding:6px 14px;border:none;border-radius:var(--rs);background:var(--acc);color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">🔄 再計算</button>
+    <div style="display:flex;gap:4px">
+      <button onclick="toggleCondPanel()" id="cond-toggle-btn"
+        style="padding:6px 12px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg2);color:var(--text);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">
+        ⚙️ 条件
+      </button>
+      <button onclick="mcpForceRecalc()" style="padding:6px 14px;border:none;border-radius:var(--rs);background:var(--acc);color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">🔄 再計算</button>
+    </div>
+  </div>
+</div>
+
+<!-- ⚙️ 条件設定バナー（MCPバー直下・トグル表示） -->
+<div id="cond-panel" style="display:none;background:var(--bg2);border-bottom:2px solid var(--acc);padding:10px 14px;z-index:197;position:sticky;top:130px">
+  <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
+    <span>⚙️ ライド条件設定 <span style="font-size:8px;color:var(--text3);font-weight:400">— 入力確定（Tab/Enter/フォーカスアウト）で自動計算</span></span>
+    <button onclick="toggleCondPanel()" style="border:none;background:none;color:var(--text3);font-size:14px;cursor:pointer;padding:0 4px">✕</button>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px">
+    <!-- 距離 -->
+    <div style="display:flex;flex-direction:column;gap:3px">
+      <label style="font-size:9px;font-weight:700;color:var(--text2)">距離 (km)</label>
+      <input type="number" id="cp-dist" step="0.5" value="50"
+        style="font-size:15px;font-weight:600;padding:6px 9px;border:1.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text)"
+        onchange="cpApply('dist')" onkeydown="if(event.key==='Enter')this.blur()">
+      <div style="font-size:9px;color:var(--text3)" id="cp-dist-hint"></div>
+    </div>
+    <!-- 速度 -->
+    <div style="display:flex;flex-direction:column;gap:3px">
+      <label style="font-size:9px;font-weight:700;color:var(--text2)">速度 (km/h)</label>
+      <input type="number" id="cp-spd" step="0.5" value="30"
+        style="font-size:15px;font-weight:600;padding:6px 9px;border:1.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text)"
+        onchange="cpApply('spd')" onkeydown="if(event.key==='Enter')this.blur()">
+      <div style="font-size:9px;color:var(--text3)" id="cp-spd-hint"></div>
+    </div>
+    <!-- 体重 -->
+    <div style="display:flex;flex-direction:column;gap:3px">
+      <label style="font-size:9px;font-weight:700;color:var(--text2)">体重 (kg)</label>
+      <input type="number" id="cp-weight" step="0.5" value="65"
+        style="font-size:15px;font-weight:600;padding:6px 9px;border:1.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text)"
+        onchange="cpApply('weight')" onkeydown="if(event.key==='Enter')this.blur()">
+      <div style="font-size:9px;color:var(--text3)">設定値に自動同期</div>
+    </div>
+    <!-- 風速 -->
+    <div style="display:flex;flex-direction:column;gap:3px">
+      <label style="font-size:9px;font-weight:700;color:var(--text2)">風速 (m/s)</label>
+      <input type="number" id="cp-wsp" step="0.5" value="0" min="0"
+        style="font-size:15px;font-weight:600;padding:6px 9px;border:1.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text)"
+        onchange="cpApply('wsp')" onkeydown="if(event.key==='Enter')this.blur()">
+      <div style="font-size:9px;color:var(--text3)">風向は走力パネルで設定</div>
+    </div>
+    <!-- 獲得標高 -->
+    <div style="display:flex;flex-direction:column;gap:3px">
+      <label style="font-size:9px;font-weight:700;color:var(--text2)">獲得標高 (m)</label>
+      <input type="number" id="cp-elev" step="10" value="0"
+        style="font-size:15px;font-weight:600;padding:6px 9px;border:1.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text)"
+        onchange="cpApply('elev')" onkeydown="if(event.key==='Enter')this.blur()">
+      <div style="font-size:9px;color:var(--text3)" id="cp-elev-hint"></div>
+    </div>
+  </div>
+  <div style="margin-top:8px;display:flex;gap:6px;align-items:center">
+    <button onclick="cpApplyAll()" style="padding:6px 16px;border:none;border-radius:var(--rs);background:var(--acc);color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">✅ 適用して計算</button>
+    <span style="font-size:10px;color:var(--text3)" id="cp-saved-hint"></span>
   </div>
 </div>
 
@@ -424,13 +484,13 @@ body.pc-mode .ride-settings-col{padding-top:0}
         <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:2px">距離 (km)</div>
         <input id="mcp-sb-dist" type="number" step="0.1" value="50"
           style="font-size:14px;font-weight:600;padding:3px 6px;border:1.5px solid var(--border2);border-radius:var(--rs);background:var(--bg2);color:var(--text);width:100%"
-          oninput="mcp.dist=+this.value||50;document.getElementById('mcp-dist').value=mcp.dist;mcpChange('dist')">
+          onchange="mcp.dist=+this.value||50;document.getElementById('mcp-dist').value=mcp.dist;mcpChange('dist')">
       </div>
       <div>
         <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:2px">速度 (km/h)</div>
         <input id="mcp-sb-spd" type="number" step="0.5" value="30"
           style="font-size:14px;font-weight:600;padding:3px 6px;border:1.5px solid var(--border2);border-radius:var(--rs);background:var(--bg2);color:var(--text);width:100%"
-          oninput="mcp.spd=+this.value||30;document.getElementById('mcp-spd').value=mcp.spd;mcpChange('spd')">
+          onchange="mcp.spd=+this.value||30;document.getElementById('mcp-spd').value=mcp.spd;mcpChange('spd')">
       </div>
       <div>
         <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:2px">所要時間</div>
@@ -597,8 +657,8 @@ body.pc-mode .ride-settings-col{padding-top:0}
 
     <!-- コース情報 -->
     <div class="g3" style="margin-bottom:4px">
-      <div class="field"><label>片道距離 (km)</label><input type="number" id="r-dist" value="50" step="0.1" oninput="if(mcp.source!=='route'){mcp.dist=+this.value||50;document.getElementById('mcp-dist').value=mcp.dist;}smartCalc('dist');updateRtLabel()"></div>
-      <div class="field"><label>獲得標高 (m)</label><input type="number" id="r-elev" value="300" step="10" oninput="smartCalc('dist')"></div>
+      <div class="field"><label>片道距離 (km)</label><input type="number" id="r-dist" value="50" step="0.1" onchange="if(mcp.source!=='route'){mcp.dist=+this.value||50;document.getElementById('mcp-dist').value=mcp.dist;}smartCalc('dist');updateRtLabel()"></div>
+      <div class="field"><label>獲得標高 (m)</label><input type="number" id="r-elev" value="300" step="10" onchange="smartCalc('dist')"></div>
       <div class="field"><label>往復コース</label>
         <select id="r-roundtrip" onchange="smartCalc('dist');updateRtLabel()" style="font-size:13px;padding:7px 9px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text)">
           <option value="0">片道</option>
@@ -642,12 +702,12 @@ body.pc-mode .ride-settings-col{padding-top:0}
       <div class="g2">
         <div class="field">
           <label>予想 移動速度 (km/h)</label>
-          <input type="number" id="r-movespd" value="30" step="0.5" oninput="mcp.spd=+this.value||30;document.getElementById('mcp-spd').value=mcp.spd;baseSpdValue=mcp.spd;smartCalc('speed')">
+          <input type="number" id="r-movespd" value="30" step="0.5" onchange="mcp.spd=+this.value||30;document.getElementById('mcp-spd').value=mcp.spd;baseSpdValue=mcp.spd;smartCalc('speed')">
           <div class="hint">信号・停止を除く移動速度</div>
         </div>
         <div class="field">
           <label>体重 (kg) — 任意</label>
-          <input type="number" id="r-weight" value="65" step="0.5" oninput="savePref();calc()">
+          <input type="number" id="r-weight" value="65" step="0.5" onchange="savePref();calc()">
           <div class="hint">入力すると根拠分解のW表示が有効</div>
         </div>
       </div>
@@ -656,10 +716,10 @@ body.pc-mode .ride-settings-col{padding-top:0}
     <!-- モードB：パワー（折りたたみ） -->
     <div id="block-pwr" style="display:none">
       <div class="g4">
-        <div class="field"><label>FTP (W)</label><input type="number" id="r-ftp" value="220" step="1" oninput="savePref();calc()"></div>
-        <div class="field"><label>体重 (kg)</label><input type="number" id="r-weight-pwr" value="65" step="0.5" oninput="savePref();calc()"></div>
-        <div class="field"><label>目標 W/kg</label><input type="number" id="r-wkg" value="2.5" step="0.05" oninput="syncZoneFromWkg();calc()"></div>
-        <div class="field"><label>NP直接 (W)</label><input type="number" id="r-np" step="1" placeholder="空欄=W/kgから" oninput="smartCalc('speed')"></div>
+        <div class="field"><label>FTP (W)</label><input type="number" id="r-ftp" value="220" step="1" onchange="savePref();calc()"></div>
+        <div class="field"><label>体重 (kg)</label><input type="number" id="r-weight-pwr" value="65" step="0.5" onchange="savePref();calc()"></div>
+        <div class="field"><label>目標 W/kg</label><input type="number" id="r-wkg" value="2.5" step="0.05" onchange="syncZoneFromWkg();calc()"></div>
+        <div class="field"><label>NP直接 (W)</label><input type="number" id="r-np" step="1" placeholder="空欄=W/kgから" onchange="smartCalc('speed')"></div>
       </div>
       <div class="pt" style="margin-bottom:6px">ゾーン（クリック→W/kg自動セット）</div>
       <div class="zbar" id="r-zonebar"></div>
@@ -671,7 +731,7 @@ body.pc-mode .ride-settings-col{padding-top:0}
       <div class="g3">
         <div class="field">
           <label>WORKOUT Ratio (%)</label>
-          <input type="number" id="r-ratio" value="85" step="1" min="50" max="100" oninput="smartCalc('speed')">
+          <input type="number" id="r-ratio" value="85" step="1" min="50" max="100" onchange="smartCalc('speed')">
           <div class="hint">Net÷AllTime / 空欄=100%扱い</div>
         </div>
         <div class="field">
@@ -693,7 +753,7 @@ body.pc-mode .ride-settings-col{padding-top:0}
     <div class="g2" style="margin-bottom:8px">
       <div class="field">
         <label>風速 (m/s)</label>
-        <input type="number" id="r-wsp" value="3" step="0.5" min="0" oninput="smartCalc('speed')">
+        <input type="number" id="r-wsp" value="3" step="0.5" min="0" onchange="smartCalc('speed')">
       </div>
       <div class="field">
         <label>風向き</label>
@@ -739,7 +799,7 @@ body.pc-mode .ride-settings-col{padding-top:0}
           <option value="0.93">🌧 雨</option>
         </select>
       </div>
-      <div class="field"><label>気温 (°C)</label><input type="number" id="r-temp" value="22" step="1" oninput="smartCalc('speed')"></div>
+      <div class="field"><label>気温 (°C)</label><input type="number" id="r-temp" value="22" step="1" onchange="smartCalc('speed')"></div>
       <div class="field"><label>体調</label>
         <select id="r-cond" onchange="smartCalc('speed')">
           <option value="1.00">良好</option>
@@ -4987,4 +5047,81 @@ function toggleLayout(){
 
 </script>
 </body>
-</html>
+</html
+/* ══════════════════════════════════════
+   条件設定パネル（cpanel）
+   距離・速度・体重・風速・標高を集約管理
+   → 各サブUIに同期 → 計算実行
+══════════════════════════════════════ */
+function toggleCondPanel(){
+  const p=document.getElementById('cond-panel');
+  const btn=document.getElementById('cond-toggle-btn');
+  const isOpen=p.style.display!=='none';
+  p.style.display=isOpen?'none':'block';
+  btn.style.background=isOpen?'var(--bg2)':'var(--acc)';
+  btn.style.color=isOpen?'var(--text)':'#fff';
+  if(!isOpen) cpSync();
+}
+function cpSync(){
+  const dist  =document.getElementById('r-dist')?.value   ||mcp.dist||50;
+  const spd   =document.getElementById('r-movespd')?.value||mcp.spd ||30;
+  const weight=document.getElementById('r-weight')?.value ||65;
+  const wsp   =document.getElementById('r-wsp')?.value    ||0;
+  const elev  =document.getElementById('r-elev')?.value   ||0;
+  document.getElementById('cp-dist').value  =dist;
+  document.getElementById('cp-spd').value   =spd;
+  document.getElementById('cp-weight').value=weight;
+  document.getElementById('cp-wsp').value   =wsp;
+  document.getElementById('cp-elev').value  =elev;
+  document.getElementById('cp-dist-hint').textContent=
+    window._routeData?.distKm?`📍 マップ: ${window._routeData.distKm}km`:'';
+  document.getElementById('cp-elev-hint').textContent=
+    window._routeData?.gainM?`📍 マップ: ${window._routeData.gainM}m`:'';
+  const s=+spd;
+  document.getElementById('cp-spd-hint').textContent=s>0?`≈ ${(60/s).toFixed(1)} min/km`:'';
+}
+function cpApply(field){
+  const v=+document.getElementById('cp-'+field).value;
+  if(isNaN(v)||v<0) return;
+  if(field==='dist'){
+    if(mcp.source!=='route'){
+      mcp.dist=v;
+      document.getElementById('mcp-dist').value=v;
+      document.getElementById('r-dist').value=v;
+    }
+    document.getElementById('cp-dist-hint').textContent=
+      mcp.source==='route'?'📍 マップルート優先':'';
+  }
+  if(field==='spd'){
+    mcp.spd=v; baseSpdValue=v;
+    document.getElementById('mcp-spd').value=v;
+    document.getElementById('r-movespd').value=v;
+    document.getElementById('cp-spd-hint').textContent=v>0?`≈ ${(60/v).toFixed(1)} min/km`:'';
+  }
+  if(field==='weight'){
+    const w=document.getElementById('r-weight');
+    const wp=document.getElementById('r-weight-pwr');
+    if(w) w.value=v; if(wp) wp.value=v;
+  }
+  if(field==='wsp'){
+    const el=document.getElementById('r-wsp'); if(el) el.value=v;
+  }
+  if(field==='elev'){
+    if(mcp.source!=='route'){
+      const el=document.getElementById('r-elev'); if(el) el.value=v;
+    }
+    document.getElementById('cp-elev-hint').textContent=
+      mcp.source==='route'?'📍 マップルート優先':'';
+  }
+  mcpCalc('detail');
+  _cpSavedMsg();
+}
+function cpApplyAll(){['dist','spd','weight','wsp','elev'].forEach(f=>cpApply(f));}
+function _cpSavedMsg(){
+  const el=document.getElementById('cp-saved-hint');
+  el.textContent='✓ 計算しました';
+  clearTimeout(el._t);
+  el._t=setTimeout(()=>{el.textContent='';},2000);
+}
+
+>
