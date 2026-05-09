@@ -719,13 +719,29 @@ input[type=number],input[type=text],input[type=time],select{
   <div class="panel">
     <div class="pt">各要因の時間寄与</div>
     <div id="r-breakdown"></div>
-      
-    </div>
+  </div>
 
-    <div class="field" style="margin-top:10px">
-      <label>メモ</label>
-      <input type="text" id="r-memo" placeholder="ルート名・補給ポイントなど">
+  <!-- ⑥ 消費カロリー換算 -->
+  <div class="panel" id="calorie-panel" style="display:none">
+    <div class="pt">🔥 消費カロリー換算</div>
+    <!-- カロリー合計 -->
+    <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:10px">
+      <div id="cal-total" style="font-size:32px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums">—</div>
+      <div style="font-size:13px;color:var(--text2)">kcal</div>
+      <div id="cal-sub" style="font-size:11px;color:var(--text3);margin-left:4px"></div>
     </div>
+    <!-- お酒タブ -->
+    <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">🍺 お酒で換算</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:12px" id="cal-drink-grid"></div>
+    <!-- 食べ物タブ -->
+    <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">🍙 食事で換算</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px" id="cal-food-grid"></div>
+    <div style="margin-top:8px;font-size:10px;color:var(--text3)">※ MET法（自転車 8.0 METs）× 体重 × 実走時間で算出</div>
+  </div>
+
+  <div class="field" style="margin-top:10px">
+    <label>メモ</label>
+    <input type="text" id="r-memo" placeholder="ルート名・補給ポイントなど">
   </div>
 
   <div class="brow">
@@ -1466,6 +1482,9 @@ function calc(){
   window._calcResult={moveSpd:moveSpdFinal, ratio, startH:_sh_+_sm_/60};
   window._lastTotalMins=totalMinsFinal;
   if(waypoints&&waypoints.length>0) renderWpList();
+
+  // ★ カロリー換算パネルを更新
+  renderCaloriePanel(netMinsFinal, weight);
 }
 
 /* ── 根拠分解（常時） ── */
@@ -1508,6 +1527,77 @@ function renderBreakdown(dist,elev,effW,weight,g,hwMs,ratio,weather,cond,netMins
     `</div>`;
 }
 
+
+
+/* ══════════════════════════════════════
+   カロリー換算エンジン
+   MET法: kcal = MET × 体重(kg) × 時間(h)
+   自転車ロード走行 MET = 8.0（一般的ライド）
+   消費kcal全体 = 運動消費 + 基礎代謝分（実走中）
+══════════════════════════════════════ */
+const DRINK_DATA=[
+  {name:'ビール',    icon:'🍺', unit:'缶(350ml)', kcal:140},
+  {name:'ワイン',    icon:'🍷', unit:'グラス',    kcal:90},
+  {name:'日本酒',    icon:'🍶', unit:'1合',       kcal:185},
+  {name:'ウイスキー',icon:'🥃', unit:'ショット',  kcal:70},
+];
+const FOOD_DATA=[
+  {name:'おにぎり',  icon:'🍙', unit:'個',    kcal:175},
+  {name:'定食',      icon:'🍱', unit:'食',    kcal:700},
+  {name:'ラーメン',  icon:'🍜', unit:'杯',    kcal:500},
+  {name:'カレー',    icon:'🍛', unit:'皿',    kcal:650},
+  {name:'チャーハン',icon:'🍚', unit:'皿',    kcal:550},
+  {name:'パスタ',    icon:'🍝', unit:'皿',    kcal:480},
+  {name:'バーガー',  icon:'🍔', unit:'個',    kcal:520},
+  {name:'ポテチ',    icon:'🥔', unit:'袋',    kcal:360},
+];
+
+function calcCalorie(netMins, weight){
+  // MET法: 自転車ロード走行 = 8.0 METs
+  const MET = 8.0;
+  const kcal = Math.round(MET * weight * (netMins / 60));
+  return kcal;
+}
+
+function renderCaloriePanel(netMins, weight){
+  const kcal = calcCalorie(netMins, weight);
+  if(!kcal || kcal <= 0){
+    document.getElementById('calorie-panel').style.display = 'none';
+    return;
+  }
+  document.getElementById('calorie-panel').style.display = 'block';
+  document.getElementById('cal-total').textContent = kcal.toLocaleString();
+  document.getElementById('cal-sub').textContent =
+    `(実走 ${Math.round(netMins)}分 × 体重 ${weight}kg)`;
+
+  // お酒グリッド
+  document.getElementById('cal-drink-grid').innerHTML = DRINK_DATA.map(d=>{
+    const cnt = kcal / d.kcal;
+    const cntStr = cnt >= 10 ? cnt.toFixed(0) : cnt.toFixed(1);
+    return _calCard(d.icon, d.name, cntStr, d.unit, d.kcal);
+  }).join('');
+
+  // 食べ物グリッド
+  document.getElementById('cal-food-grid').innerHTML = FOOD_DATA.map(f=>{
+    const cnt = kcal / f.kcal;
+    const cntStr = cnt >= 10 ? cnt.toFixed(0) : cnt.toFixed(1);
+    return _calCard(f.icon, f.name, cntStr, f.unit, f.kcal);
+  }).join('');
+}
+
+function _calCard(icon, name, cnt, unit, kcalPer){
+  // カウントに応じてゲージ色を変える（1未満=緑、1-2=黄、2超=赤）
+  const n = parseFloat(cnt);
+  const col = n < 1 ? 'var(--green)' : n <= 2 ? 'var(--amber)' : 'var(--red)';
+  const bg  = n < 1 ? 'var(--greenbg)' : n <= 2 ? 'var(--amberbg)' : 'var(--redbg)';
+  return `<div style="background:${bg};border-radius:var(--rs);padding:7px 6px;text-align:center">
+    <div style="font-size:18px;line-height:1.2">${icon}</div>
+    <div style="font-size:9px;color:var(--text2);margin:2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</div>
+    <div style="font-size:17px;font-weight:700;color:${col};font-variant-numeric:tabular-nums">${cnt}</div>
+    <div style="font-size:9px;color:var(--text3)">${unit}</div>
+    <div style="font-size:8px;color:var(--text3);margin-top:1px">${kcalPer}kcal/${unit}</div>
+  </div>`;
+}
 
 /* ══════════════════════════════════════
    RUN
