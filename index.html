@@ -2150,8 +2150,6 @@ function exportCSV(){
 function openSettingsModal(){
   document.getElementById('settings-modal').style.display='block';
   loadUserPrefUI();
-  loadPrefRunUI();
-  // タブのon状態は変えない（ライドタブのままにする）
 }
 function closeSettingsModal(){
   document.getElementById('settings-modal').style.display='none';
@@ -4524,7 +4522,6 @@ function onTimeCanvasScroll(el){
     cell.querySelector('.twi-time').style.color=current?p.col:'var(--text)';
   });
 }
-
 
 
 /* ══════════════════════════════════════════════════════
