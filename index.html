@@ -217,7 +217,7 @@ body.pc-mode .ride-settings-col{padding-top:0}
   <button class="tab" onclick="sw('tri')">Bike→Run</button>
   <button class="tab" onclick="sw('saved')">📁 保存</button>
   <button class="tab" onclick="sw('log')">ログ</button>
-  <button class="tab" id="tab-settings" onclick="openSettingsModal()">⚙️ 設定</button>
+  <button class="tab" id="tab-settings" onclick="sw('settings')">⚙️ 設定</button>
 </div>
 
 <!-- ══ MCP: 一元管理パネル（Master Control Panel） ══ -->
@@ -280,7 +280,7 @@ body.pc-mode .ride-settings-col{padding-top:0}
   <div style="margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:4px">
     <div id="mcp-source" style="font-size:9px;color:var(--text3)">手動入力</div>
     <div style="display:flex;gap:4px">
-      <button onclick="openSettingsModal()" id="cond-toggle-btn"
+      <button onclick="sw('settings')" id="cond-toggle-btn"
         style="padding:6px 12px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg2);color:var(--text);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">
         ⚙️ 条件
       </button>
@@ -1864,7 +1864,7 @@ function calcRun(){
   ]);
 
   // 日照Canvas更新
-  renderRunDaylight(start, endTime);
+  try{ renderDaylight(); }catch(e){}
 
   // ★ ランニングカロリー換算（MET 9.8）
   renderRunCaloriePanel(netMins, weight);
@@ -2127,25 +2127,22 @@ function exportCSV(){
 /* ══════════════════════════════════════
    設定モーダル
 ══════════════════════════════════════ */
-function openSettingsModal(){
-  sw('settings');
-  loadUserPrefUI();
-}
+function openSettingsModal(){ sw('settings'); }
 function closeSettingsModal(){
   sw('ride');
 }
 // ESCキーで閉じる
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape') closeSettingsModal();
+  if(e.key==='Escape') sw('ride');
 });
 
 function sw(t){
-  if(t==='settings'){ openSettingsModal(); return; }
   const ns=['ride','run','tri','saved','log','settings'];
   document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('on',ns[i]===t));
   document.querySelectorAll('.sec').forEach(el=>el.classList.remove('on'));
   document.getElementById('sec-'+t)?.classList.add('on');
   if(t==='log') renderLog();
+  if(t==='settings') { loadUserPrefUI(); }
   if(t==='saved') renderSaved();
   if(t==='ride'){upCompass();calc();}
   if(t==='run'){
