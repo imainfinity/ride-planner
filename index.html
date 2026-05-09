@@ -156,6 +156,12 @@ input[type=number],input[type=text],input[type=time],select{
 
 /* ── misc ── */
 .ppills{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:8px}
+
+/* ── 設定モーダル ── */
+#settings-modal{animation:fadeIn .15s ease}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+#settings-modal>div{animation:slideUp .18s ease}
+@keyframes slideUp{from{transform:translate(-50%,-48%);opacity:.5}to{transform:translate(-50%,-50%);opacity:1}}
 @media(max-width:500px){.g4{grid-template-columns:1fr 1fr}.g3{grid-template-columns:1fr 1fr}.ppills{grid-template-columns:1fr 1fr}}
 
 /* ── MCP: 一元管理パネル ── */
@@ -211,7 +217,7 @@ body.pc-mode .ride-settings-col{padding-top:0}
   <button class="tab" onclick="sw('tri')">Bike→Run</button>
   <button class="tab" onclick="sw('saved')">📁 保存</button>
   <button class="tab" onclick="sw('log')">ログ</button>
-  <button class="tab" onclick="sw('settings')">⚙️ 設定</button>
+  <button class="tab" id="tab-settings" onclick="openSettingsModal()">⚙️ 設定</button>
 </div>
 
 <!-- ══ MCP: 一元管理パネル（Master Control Panel） ══ -->
@@ -1073,101 +1079,104 @@ body.pc-mode .ride-settings-col{padding-top:0}
   </div>
 </div>
 
-<!-- 設定タブ -->
-<div class="sec" id="sec-settings">
-  <div class="panel">
-    <div class="pt">個人設定（デフォルト値）</div>
-    <!-- ⑤ デフォルト時刻モード -->
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:8px 10px;background:var(--bg2);border-radius:var(--rs)">
-      <span style="font-size:11px;font-weight:600;color:var(--text2)">デフォルトモード:</span>
-      <button class="modebt" id="mode-btn-start" onclick="setDefaultTimeMode('start-first')" style="flex:1;font-size:11px">🟢 スタートから計算</button>
-      <button class="modebt" id="mode-btn-goal" onclick="setDefaultTimeMode('goal-first')" style="flex:1;font-size:11px">🔴 ゴールから逆算</button>
+<!-- ⚙️ 設定モーダル（タブ切替なし・app-body外のポップアップ） -->
+<div id="settings-modal" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.45);backdrop-filter:blur(3px)" onclick="if(event.target===this)closeSettingsModal()">
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    width:min(560px,94vw);max-height:88vh;overflow-y:auto;
+    background:var(--bg);border-radius:14px;box-shadow:0 8px 48px rgba(0,0,0,0.35);
+    display:flex;flex-direction:column">
+    <!-- ヘッダー -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px 10px;border-bottom:0.5px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:1;border-radius:14px 14px 0 0">
+      <div style="font-size:15px;font-weight:700;color:var(--text)">⚙️ 設定</div>
+      <button onclick="closeSettingsModal()" style="width:30px;height:30px;border:none;border-radius:50%;background:var(--bg3);color:var(--text2);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">✕</button>
     </div>
-    <div id="goal-time-row" style="margin-bottom:10px">
-      <div class="field"><label>デフォルトゴール時刻</label>
-        <input type="time" id="pref-goal-time" value="07:00" oninput="saveUserPref()" style="font-size:18px;padding:8px 12px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text)">
-      </div>
-    </div>
-    <div class="g3">
-      <div class="field"><label>デフォルト距離 (km)</label>
-        <input type="number" id="pref-dist" value="50" step="1" oninput="saveUserPref()"></div>
-      <div class="field"><label>デフォルト標高 (m)</label>
-        <input type="number" id="pref-elev" value="300" step="10" oninput="saveUserPref()"></div>
-      <div class="field"><label>デフォルト速度 (km/h)</label>
-        <input type="number" id="pref-spd" value="30" step="0.5" oninput="saveUserPref()"></div>
-    </div>
-    <div class="g3" style="margin-top:8px">
-      <div class="field"><label>体重 (kg)</label>
-        <input type="number" id="pref-weight" value="65" step="0.5" oninput="saveUserPref()"></div>
-      <div class="field"><label>FTP (W)</label>
-        <input type="number" id="pref-ftp" value="220" step="1" oninput="saveUserPref()"></div>
-      <div class="field"><label>Ratio (%)</label>
-        <input type="number" id="pref-ratio" value="85" step="1" oninput="saveUserPref()"></div>
-    </div>
-    <div class="g2" style="margin-top:8px">
-      <div class="field"><label>デフォルトスタート時刻</label>
-        <input type="time" id="pref-start" value="08:00" oninput="saveUserPref()"></div>
-      <div class="field"><label>都道府県（日照）</label>
-        <select id="pref-pref" onchange="saveUserPref()" style="font-size:13px;padding:7px 9px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text)">
-          <option value="33.61,130.42">福岡</option>
-          <option value="35.69,139.69">東京</option>
-          <option value="34.69,135.50">大阪</option>
-          <option value="35.18,136.91">愛知</option>
-          <option value="43.06,141.35">北海道</option>
-          <option value="26.21,127.68">沖縄</option>
-        </select>
-      </div>
-    </div>
-    <div style="margin-top:12px;display:flex;gap:8px">
-      <button class="bp" onclick="applyUserPref()">✅ 設定を適用</button>
-      <button class="bs" onclick="resetUserPref()">↩ リセット</button>
-    </div>
-    <div class="hint" id="pref-saved" style="margin-top:8px"></div>
-  </div>
+    <!-- コンテンツ -->
+    <div style="padding:14px 18px;display:flex;flex-direction:column;gap:14px">
 
-  <!-- 🏃 ランニング設定バナー -->
-  <div class="panel" style="border-left:4px solid var(--green);background:var(--greenbg)">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-      <div style="font-size:22px">🏃</div>
+      <!-- ライド設定 -->
       <div>
-        <div style="font-size:13px;font-weight:700;color:var(--green)">ランニング設定</div>
-        <div style="font-size:10px;color:var(--text2)">ランタブで使用するデフォルト値</div>
-      </div>
-    </div>
-    <!-- ペース設定 -->
-    <div style="margin-bottom:12px">
-      <label style="font-size:10px;font-weight:600;color:var(--text2);display:block;margin-bottom:6px">🏃 基準ペース (min:sec / km)</label>
-      <div style="display:flex;align-items:center;gap:8px;background:var(--bg);border:1.5px solid var(--border2);border-radius:var(--rs);padding:8px 14px;width:fit-content">
-        <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
-          <button onclick="prefPaceAdj('min',-1)" class="dial-btn">▲</button>
-          <div id="pref-pace-min-disp" style="font-size:26px;font-weight:600;min-width:38px;text-align:center;color:var(--text)">05</div>
-          <button onclick="prefPaceAdj('min',1)" class="dial-btn">▼</button>
+        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px;display:flex;align-items:center;gap:6px"><span style="font-size:14px">🚴</span> ライド設定（デフォルト値）</div>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;padding:7px 10px;background:var(--bg2);border-radius:var(--rs)">
+          <span style="font-size:10px;font-weight:600;color:var(--text2);white-space:nowrap">モード:</span>
+          <button class="modebt" id="mode-btn-start" onclick="setDefaultTimeMode('start-first')" style="flex:1;font-size:11px">🟢 スタートから計算</button>
+          <button class="modebt" id="mode-btn-goal"  onclick="setDefaultTimeMode('goal-first')"  style="flex:1;font-size:11px">🔴 ゴールから逆算</button>
         </div>
-        <div style="font-size:22px;font-weight:700;color:var(--text2)">:</div>
-        <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
-          <button onclick="prefPaceAdj('sec',-5)" class="dial-btn">▲</button>
-          <div id="pref-pace-sec-disp" style="font-size:26px;font-weight:600;min-width:38px;text-align:center;color:var(--text)">00</div>
-          <button onclick="prefPaceAdj('sec',5)" class="dial-btn">▼</button>
+        <div id="goal-time-row" style="margin-bottom:10px">
+          <div class="field"><label>デフォルトゴール時刻</label>
+            <input type="time" id="pref-goal-time" value="07:00" oninput="saveUserPref()"
+              style="font-size:16px;padding:6px 10px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text)">
+          </div>
         </div>
-        <div style="font-size:11px;color:var(--text3)">/km</div>
-        <input type="hidden" id="pref-run-pace" value="5.0">
+        <div class="g3">
+          <div class="field"><label>距離 (km)</label><input type="number" id="pref-dist" value="50" step="1" oninput="saveUserPref()"></div>
+          <div class="field"><label>標高 (m)</label><input type="number" id="pref-elev" value="300" step="10" oninput="saveUserPref()"></div>
+          <div class="field"><label>速度 (km/h)</label><input type="number" id="pref-spd" value="30" step="0.5" oninput="saveUserPref()"></div>
+        </div>
+        <div class="g3" style="margin-top:8px">
+          <div class="field"><label>体重 (kg)</label><input type="number" id="pref-weight" value="65" step="0.5" oninput="saveUserPref()"></div>
+          <div class="field"><label>FTP (W)</label><input type="number" id="pref-ftp" value="220" step="1" oninput="saveUserPref()"></div>
+          <div class="field"><label>Ratio (%)</label><input type="number" id="pref-ratio" value="85" step="1" oninput="saveUserPref()"></div>
+        </div>
+        <div class="g2" style="margin-top:8px">
+          <div class="field"><label>スタート時刻</label>
+            <input type="time" id="pref-start" value="08:00" oninput="saveUserPref()"></div>
+          <div class="field"><label>都道府県（日照）</label>
+            <select id="pref-pref" onchange="saveUserPref()" style="font-size:13px;padding:7px 9px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text);width:100%">
+              <option value="33.61,130.42">福岡</option><option value="35.69,139.69">東京</option>
+              <option value="34.69,135.50">大阪</option><option value="35.18,136.91">愛知</option>
+              <option value="43.06,141.35">北海道</option><option value="26.21,127.68">沖縄</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px">
+          <button class="bp" onclick="applyUserPref()">✅ ライドに適用</button>
+          <button class="bs" onclick="resetUserPref()">↩ リセット</button>
+        </div>
+        <div class="hint" id="pref-saved" style="margin-top:6px"></div>
       </div>
-      <div style="font-size:10px;color:var(--text3);margin-top:4px" id="pref-pace-hint"></div>
-    </div>
-    <div class="g3">
-      <div class="field"><label>デフォルト距離 (km)</label>
-        <input type="number" id="pref-run-dist" value="10" step="0.5" oninput="savePrefRun()"></div>
-      <div class="field"><label>体重 (kg)</label>
-        <input type="number" id="pref-run-weight" value="65" step="0.5" oninput="savePrefRun()"></div>
-      <div class="field"><label>Ratio (%)</label>
-        <input type="number" id="pref-run-ratio" value="80" step="1" oninput="savePrefRun()"></div>
-    </div>
-    <div style="margin-top:10px;display:flex;gap:8px">
-      <button class="bp" style="background:var(--green)" onclick="applyPrefRun()">✅ ランに適用</button>
-    </div>
-    <div class="hint" id="pref-run-saved" style="margin-top:6px"></div>
-  </div>
-</div>
+
+      <!-- 区切り -->
+      <div style="border-top:0.5px solid var(--border)"></div>
+
+      <!-- ラン設定 -->
+      <div style="background:var(--greenbg);border-radius:var(--rs);padding:12px 14px;border-left:3px solid var(--green)">
+        <div style="font-size:10px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px;display:flex;align-items:center;gap:6px"><span style="font-size:14px">🏃</span> ランニング設定</div>
+        <div style="margin-bottom:10px">
+          <label style="font-size:10px;font-weight:600;color:var(--text2);display:block;margin-bottom:6px">基準ペース (min:sec / km)</label>
+          <div style="display:flex;align-items:center;gap:6px;background:var(--bg);border:1.5px solid var(--border2);border-radius:var(--rs);padding:7px 12px;width:fit-content">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:1px">
+              <button onclick="prefPaceAdj('min',-1)" class="dial-btn">▲</button>
+              <div id="pref-pace-min-disp" style="font-size:24px;font-weight:600;min-width:34px;text-align:center;color:var(--text)">05</div>
+              <button onclick="prefPaceAdj('min',1)" class="dial-btn">▼</button>
+            </div>
+            <div style="font-size:20px;font-weight:700;color:var(--text2)">:</div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:1px">
+              <button onclick="prefPaceAdj('sec',-5)" class="dial-btn">▲</button>
+              <div id="pref-pace-sec-disp" style="font-size:24px;font-weight:600;min-width:34px;text-align:center;color:var(--text)">00</div>
+              <button onclick="prefPaceAdj('sec',5)" class="dial-btn">▼</button>
+            </div>
+            <div style="font-size:11px;color:var(--text3)">/km</div>
+            <input type="hidden" id="pref-run-pace" value="5.0">
+          </div>
+          <div style="font-size:10px;color:var(--text3);margin-top:3px" id="pref-pace-hint"></div>
+        </div>
+        <div class="g3">
+          <div class="field"><label>距離 (km)</label><input type="number" id="pref-run-dist" value="10" step="0.5" oninput="savePrefRun()"></div>
+          <div class="field"><label>体重 (kg)</label><input type="number" id="pref-run-weight" value="65" step="0.5" oninput="savePrefRun()"></div>
+          <div class="field"><label>Ratio (%)</label><input type="number" id="pref-run-ratio" value="80" step="1" oninput="savePrefRun()"></div>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px">
+          <button class="bp" style="background:var(--green)" onclick="applyPrefRun()">✅ ランに適用</button>
+        </div>
+        <div class="hint" id="pref-run-saved" style="margin-top:6px"></div>
+      </div>
+
+    </div><!-- /contents -->
+  </div><!-- /modal box -->
+</div><!-- /settings-modal -->
+
+<!-- sec-settings は空のままタブ互換性のために残す -->
+<div class="sec" id="sec-settings" style="display:none"></div>
   <div class="lh">
     <span style="font-size:12px;color:var(--text2)" id="log-count">0件</span>
     <div style="display:flex;gap:7px">
@@ -2168,14 +2177,32 @@ function exportCSV(){
 /* ══════════════════════════════════════
    タブ
 ══════════════════════════════════════ */
+
+/* ══════════════════════════════════════
+   設定モーダル
+══════════════════════════════════════ */
+function openSettingsModal(){
+  document.getElementById('settings-modal').style.display='block';
+  loadUserPrefUI();
+  loadPrefRunUI();
+  // タブのon状態は変えない（ライドタブのままにする）
+}
+function closeSettingsModal(){
+  document.getElementById('settings-modal').style.display='none';
+}
+// ESCキーで閉じる
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape') closeSettingsModal();
+});
+
 function sw(t){
+  if(t==='settings'){ openSettingsModal(); return; }
   const ns=['ride','run','tri','saved','log','settings'];
   document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('on',ns[i]===t));
   document.querySelectorAll('.sec').forEach(el=>el.classList.remove('on'));
-  document.getElementById('sec-'+t).classList.add('on');
+  document.getElementById('sec-'+t)?.classList.add('on');
   if(t==='log') renderLog();
   if(t==='saved') renderSaved();
-  if(t==='settings'){loadUserPrefUI();loadPrefRunUI();}
   if(t==='ride'){upCompass();calc();}
   if(t==='run') calcRun();
   if(t==='tri') calcTri();
