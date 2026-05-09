@@ -862,10 +862,33 @@ input[type=number],input[type=text],input[type=time],select{
 
     <!-- ペースモード -->
     <div id="run-block-pace">
+      <!-- ペース入力：分:秒ダイヤル -->
+      <div style="margin-bottom:10px">
+        <label style="font-size:10px;font-weight:600;color:var(--text2);display:block;margin-bottom:6px">🏃 目標ペース (min:sec / km)</label>
+        <div style="display:flex;align-items:center;gap:6px;background:var(--bg2);border:1.5px solid var(--border2);border-radius:var(--rs);padding:8px 12px;justify-content:center">
+          <!-- 分 -->
+          <div class="dial-col">
+            <button class="dial-btn" onclick="paceAdj('min',-1)">▲</button>
+            <div class="dial-val" id="pace-min-disp" style="min-width:40px">05</div>
+            <button class="dial-btn" onclick="paceAdj('min',1)">▼</button>
+          </div>
+          <div class="dial-sep" style="font-size:24px;font-weight:700">:</div>
+          <!-- 秒 -->
+          <div class="dial-col">
+            <button class="dial-btn" onclick="paceAdj('sec',-5)">▲</button>
+            <div class="dial-val" id="pace-sec-disp" style="min-width:40px">00</div>
+            <button class="dial-btn" onclick="paceAdj('sec',5)">▼</button>
+          </div>
+          <div style="font-size:11px;color:var(--text3);margin-left:4px">/km</div>
+        </div>
+        <input type="hidden" id="n-pace" value="5.0">
+        <div style="text-align:center;margin-top:4px;font-size:11px;color:var(--text3)" id="pace-kmh-hint"></div>
+      </div>
       <div class="g2">
         <div class="field">
-          <label>目標ペース (min/km)</label>
-          <input type="number" id="n-pace" value="5.0" step="0.05" oninput="calcRun()">
+          <label>体重 (kg)</label>
+          <input type="number" id="n-weight" value="65" step="0.5" oninput="calcRun()">
+          <div class="hint">カロリー計算に使用</div>
         </div>
         <div class="field">
           <label>WORKOUT Ratio (%)</label>
@@ -913,6 +936,22 @@ input[type=number],input[type=text],input[type=time],select{
   </div>
 
   <div class="rg" id="n-results"></div>
+
+  <!-- ラン：消費カロリー換算パネル -->
+  <div class="panel" id="run-calorie-panel" style="display:none">
+    <div class="pt">🔥 消費カロリー換算（ランニング）</div>
+    <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:10px">
+      <div id="run-cal-total" style="font-size:32px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums">—</div>
+      <div style="font-size:13px;color:var(--text2)">kcal</div>
+      <div id="run-cal-sub" style="font-size:11px;color:var(--text3);margin-left:4px"></div>
+    </div>
+    <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">🍺 お酒で換算</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:12px" id="run-cal-drink-grid"></div>
+    <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">🍙 食事で換算</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px" id="run-cal-food-grid"></div>
+    <div style="margin-top:8px;font-size:10px;color:var(--text3)">※ MET法（ランニング 9.8 METs）× 体重 × 実走時間で算出</div>
+  </div>
+
   <div class="brow">
     <button class="bp" onclick="saveLog('run')">ログ保存</button>
     <span class="sm" id="n-saved"></span>
@@ -1051,6 +1090,49 @@ input[type=number],input[type=text],input[type=time],select{
       <button class="bs" onclick="resetUserPref()">↩ リセット</button>
     </div>
     <div class="hint" id="pref-saved" style="margin-top:8px"></div>
+  </div>
+
+  <!-- 🏃 ランニング設定バナー -->
+  <div class="panel" style="border-left:4px solid var(--green);background:var(--greenbg)">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <div style="font-size:22px">🏃</div>
+      <div>
+        <div style="font-size:13px;font-weight:700;color:var(--green)">ランニング設定</div>
+        <div style="font-size:10px;color:var(--text2)">ランタブで使用するデフォルト値</div>
+      </div>
+    </div>
+    <!-- ペース設定 -->
+    <div style="margin-bottom:12px">
+      <label style="font-size:10px;font-weight:600;color:var(--text2);display:block;margin-bottom:6px">🏃 基準ペース (min:sec / km)</label>
+      <div style="display:flex;align-items:center;gap:8px;background:var(--bg);border:1.5px solid var(--border2);border-radius:var(--rs);padding:8px 14px;width:fit-content">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+          <button onclick="prefPaceAdj('min',-1)" class="dial-btn">▲</button>
+          <div id="pref-pace-min-disp" style="font-size:26px;font-weight:600;min-width:38px;text-align:center;color:var(--text)">05</div>
+          <button onclick="prefPaceAdj('min',1)" class="dial-btn">▼</button>
+        </div>
+        <div style="font-size:22px;font-weight:700;color:var(--text2)">:</div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+          <button onclick="prefPaceAdj('sec',-5)" class="dial-btn">▲</button>
+          <div id="pref-pace-sec-disp" style="font-size:26px;font-weight:600;min-width:38px;text-align:center;color:var(--text)">00</div>
+          <button onclick="prefPaceAdj('sec',5)" class="dial-btn">▼</button>
+        </div>
+        <div style="font-size:11px;color:var(--text3)">/km</div>
+        <input type="hidden" id="pref-run-pace" value="5.0">
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin-top:4px" id="pref-pace-hint"></div>
+    </div>
+    <div class="g3">
+      <div class="field"><label>デフォルト距離 (km)</label>
+        <input type="number" id="pref-run-dist" value="10" step="0.5" oninput="savePrefRun()"></div>
+      <div class="field"><label>体重 (kg)</label>
+        <input type="number" id="pref-run-weight" value="65" step="0.5" oninput="savePrefRun()"></div>
+      <div class="field"><label>Ratio (%)</label>
+        <input type="number" id="pref-run-ratio" value="80" step="1" oninput="savePrefRun()"></div>
+    </div>
+    <div style="margin-top:10px;display:flex;gap:8px">
+      <button class="bp" style="background:var(--green)" onclick="applyPrefRun()">✅ ランに適用</button>
+    </div>
+    <div class="hint" id="pref-run-saved" style="margin-top:6px"></div>
   </div>
 </div>
   <div class="lh">
@@ -1731,22 +1813,21 @@ function calcRun(){
   const cond=+document.getElementById('n-cond').value||1;
   const start=document.getElementById('n-start').value||'08:00';
   const endVal=document.getElementById('n-end')?.value||'';
+  const weight=+document.getElementById('n-weight')?.value||65;
 
-  // ペース取得
+  // ペース取得（分:秒ダイヤル or 心拍ゾーン）
   let basePace;
   if(runInputMode==='hr'){
     const z=HR_ZONES.find(z=>z.z===selectedRunZone)||HR_ZONES[1];
-    basePace=(z.pace[0]+z.pace[1])/2; // 中間値
+    basePace=(z.pace[0]+z.pace[1])/2;
     const hint=document.getElementById('run-hr-hint');
     if(hint) hint.textContent=`選択中: ${z.name} → 目安ペース ${z.pace[0]}'〜${z.pace[1]}'/km`;
   } else {
     basePace=+document.getElementById('n-pace').value||5.0;
   }
 
-  // コース補正
+  // コース補正・斜度補正
   const courseMult={flat:1.0,hilly:1.2,hard:1.4}[runCourseProfile]||1.0;
-
-  // 斜度補正（獲得標高）
   const gradePct=(elev/(dist*1000))*100;
 
   // 実効ペース
@@ -1755,8 +1836,9 @@ function calcRun(){
   const ratio=(+(ratioEl?.value)||80)/100;
   const netMins=adjPace*dist;
   const totalMins=netMins/ratio;
+  const moveKmh=dist/(netMins/60);
 
-  // 終了時刻逆算
+  // 時刻計算（双方向）
   if(endVal&&endVal.match(/^\d{2}:\d{2}$/)){
     const [eh,em]=endVal.split(':').map(Number);
     const endH=eh+em/60;
@@ -1768,7 +1850,6 @@ function calcRun(){
     runDialState.start={h:sHH,m:sMM};
     updateRunDial('start');
   } else {
-    // 終了時刻を順算してダイヤルに反映
     const [sh,sm]=start.split(':').map(Number);
     const startH=sh+sm/60;
     const endH=startH+totalMins/60;
@@ -1783,17 +1864,151 @@ function calcRun(){
   }
 
   const endTime=addM(start,totalMins);
+
+  // 結果カード
   cards('n-results',[
-    {l:'到着予想時刻',  v:endTime, xl:true, hl:true},
+    {l:'到着予想時刻',  v:endTime,                              xl:true, hl:true},
     {l:'所要時間 TOTAL',v:fmtD(totalMins), s:`Net ${fmtD(netMins)}`},
-    {l:'移動ペース',    v:fmtP(adjPace), s:`基準 ${fmtP(basePace)}`},
-    {l:'移動速度',      v:(dist/(netMins/60)).toFixed(1)+' km/h'},
+    {l:'移動ペース',    v:fmtP(adjPace),   s:`基準 ${fmtP(basePace)}`},
+    {l:'移動速度',      v:moveKmh.toFixed(1)+' km/h'},
     {l:'総平均速度',    v:(dist/(totalMins/60)).toFixed(1)+' km/h', s:'AllTime基準'},
     {l:'Ratio',         v:(ratio*100).toFixed(0)+'%'},
   ]);
 
   // 日照Canvas更新
   renderRunDaylight(start, endTime);
+
+  // ★ ランニングカロリー換算（MET 9.8）
+  renderRunCaloriePanel(netMins, weight);
+}
+
+
+/* ══════════════════════════════════════
+   ランニング ペースダイヤル
+══════════════════════════════════════ */
+let _paceState={min:5, sec:0};       // ランタブのペースダイヤル状態
+let _prefPaceState={min:5, sec:0};   // 設定バナーのペースダイヤル状態
+
+/* ── ランタブ：ペースダイヤル操作 ── */
+function paceAdj(part, delta){
+  if(part==='min'){
+    _paceState.min=Math.max(1,Math.min(30,_paceState.min+delta));
+  } else {
+    _paceState.sec=((Math.round(_paceState.sec/5)*5+delta)%60+60)%60;
+  }
+  _syncPaceDial();
+  calcRun();
+}
+
+function _syncPaceDial(){
+  const el_m=document.getElementById('pace-min-disp');
+  const el_s=document.getElementById('pace-sec-disp');
+  const el_h=document.getElementById('pace-kmh-hint');
+  const el_v=document.getElementById('n-pace');
+  if(el_m) el_m.textContent=String(_paceState.min).padStart(2,'0');
+  if(el_s) el_s.textContent=String(_paceState.sec).padStart(2,'0');
+  const paceDecimal=_paceState.min+_paceState.sec/60;
+  if(el_v) el_v.value=paceDecimal.toFixed(3);
+  const kmh=(60/paceDecimal).toFixed(1);
+  if(el_h) el_h.textContent=`≈ ${kmh} km/h`;
+}
+
+/* ── 設定バナー：ペースダイヤル操作 ── */
+function prefPaceAdj(part, delta){
+  if(part==='min'){
+    _prefPaceState.min=Math.max(1,Math.min(30,_prefPaceState.min+delta));
+  } else {
+    _prefPaceState.sec=((Math.round(_prefPaceState.sec/5)*5+delta)%60+60)%60;
+  }
+  _syncPrefPaceDial();
+  savePrefRun();
+}
+
+function _syncPrefPaceDial(){
+  const el_m=document.getElementById('pref-pace-min-disp');
+  const el_s=document.getElementById('pref-pace-sec-disp');
+  const el_h=document.getElementById('pref-pace-hint');
+  const el_v=document.getElementById('pref-run-pace');
+  if(el_m) el_m.textContent=String(_prefPaceState.min).padStart(2,'0');
+  if(el_s) el_s.textContent=String(_prefPaceState.sec).padStart(2,'0');
+  const paceDecimal=_prefPaceState.min+_prefPaceState.sec/60;
+  if(el_v) el_v.value=paceDecimal.toFixed(3);
+  const kmh=(60/paceDecimal).toFixed(1);
+  if(el_h) el_h.textContent=`≈ ${kmh} km/h`;
+}
+
+/* ── ランニング設定の保存・適用 ── */
+function savePrefRun(){
+  const pace=+document.getElementById('pref-run-pace')?.value||5.0;
+  const dist=+document.getElementById('pref-run-dist')?.value||10;
+  const weight=+document.getElementById('pref-run-weight')?.value||65;
+  const ratio=+document.getElementById('pref-run-ratio')?.value||80;
+  const pref={pace,dist,weight,ratio};
+  localStorage.setItem('rpp_run_pref', JSON.stringify(pref));
+  _syncPrefPaceDial();
+}
+
+function applyPrefRun(){
+  const saved=localStorage.getItem('rpp_run_pref');
+  if(!saved) return;
+  const p=JSON.parse(saved);
+  // ランタブへ反映
+  if(document.getElementById('n-dist'))   document.getElementById('n-dist').value=p.dist||10;
+  if(document.getElementById('n-weight')) document.getElementById('n-weight').value=p.weight||65;
+  if(document.getElementById('n-ratio'))  document.getElementById('n-ratio').value=p.ratio||80;
+  if(document.getElementById('n-roundtrip')) document.getElementById('n-roundtrip').value='0';
+  if(document.getElementById('n-elev'))   document.getElementById('n-elev').value='0';
+  // ペースをダイヤルに反映
+  const paceDecimal=p.pace||5.0;
+  _paceState.min=Math.floor(paceDecimal);
+  _paceState.sec=Math.round((paceDecimal-Math.floor(paceDecimal))*60);
+  _syncPaceDial();
+  // フィードバック
+  const h=document.getElementById('pref-run-saved');
+  if(h){h.textContent='✅ ランに適用しました';setTimeout(()=>h.textContent='',2000);}
+  // ランタブへ切替＆再計算
+  sw('run');
+  calcRun();
+}
+
+function loadPrefRunUI(){
+  const saved=localStorage.getItem('rpp_run_pref');
+  if(!saved) return;
+  const p=JSON.parse(saved);
+  if(document.getElementById('pref-run-dist'))   document.getElementById('pref-run-dist').value=p.dist||10;
+  if(document.getElementById('pref-run-weight')) document.getElementById('pref-run-weight').value=p.weight||65;
+  if(document.getElementById('pref-run-ratio'))  document.getElementById('pref-run-ratio').value=p.ratio||80;
+  const paceDecimal=p.pace||5.0;
+  _prefPaceState.min=Math.floor(paceDecimal);
+  _prefPaceState.sec=Math.round((paceDecimal-Math.floor(paceDecimal))*60);
+  _syncPrefPaceDial();
+}
+
+/* ══════════════════════════════════════
+   ランニング カロリー換算
+   MET = 9.8（ランニング一般）
+══════════════════════════════════════ */
+function renderRunCaloriePanel(netMins, weight){
+  const MET=9.8;
+  const kcal=Math.round(MET*weight*(netMins/60));
+  if(!kcal||kcal<=0){
+    document.getElementById('run-calorie-panel').style.display='none';
+    return;
+  }
+  document.getElementById('run-calorie-panel').style.display='block';
+  document.getElementById('run-cal-total').textContent=kcal.toLocaleString();
+  document.getElementById('run-cal-sub').textContent=
+    `(実走 ${Math.round(netMins)}分 × 体重 ${weight}kg)`;
+  document.getElementById('run-cal-drink-grid').innerHTML=
+    DRINK_DATA.map(d=>{
+      const cnt=kcal/d.kcal;
+      return _calCard(d.icon,d.name,cnt>=10?cnt.toFixed(0):cnt.toFixed(1),d.unit,d.kcal);
+    }).join('');
+  document.getElementById('run-cal-food-grid').innerHTML=
+    FOOD_DATA.map(f=>{
+      const cnt=kcal/f.kcal;
+      return _calCard(f.icon,f.name,cnt>=10?cnt.toFixed(0):cnt.toFixed(1),f.unit,f.kcal);
+    }).join('');
 }
 
 /* ══════════════════════════════════════
@@ -1927,7 +2142,7 @@ function sw(t){
   document.getElementById('sec-'+t).classList.add('on');
   if(t==='log') renderLog();
   if(t==='saved') renderSaved();
-  if(t==='settings') loadUserPrefUI();
+  if(t==='settings'){loadUserPrefUI();loadPrefRunUI();}
   if(t==='ride'){upCompass();calc();}
   if(t==='run') calcRun();
   if(t==='tri') calcTri();
@@ -4585,6 +4800,9 @@ function toggleDrawer(){
 setMode('spd');
 initCompass();
 calcRun();calcTri();
+// ランペースダイヤル初期化
+_syncPaceDial();
+_syncPrefPaceDial();
 setCourseProfile('flat');
 updateRtLabel();
 updateDialDisplay('start');
