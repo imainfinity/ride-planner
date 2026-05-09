@@ -158,10 +158,31 @@ input[type=number],input[type=text],input[type=time],select{
 .ppills{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:8px}
 
 /* ── 設定モーダル ── */
-#settings-modal{animation:fadeIn .15s ease}
-@keyframes fadeIn{from{opacity:0}to{opacity:1}}
-#settings-modal>div{animation:slideUp .18s ease}
-@keyframes slideUp{from{transform:translate(-50%,-48%);opacity:.5}to{transform:translate(-50%,-50%);opacity:1}}
+#settings-modal{
+  animation:settingsBackdropFade .16s ease-out;
+}
+#settings-modal > div{
+  transform-origin:center center;
+  will-change:transform,opacity;
+  animation:settingsModalPop .20s cubic-bezier(.2,.85,.25,1) both;
+}
+@keyframes settingsBackdropFade{
+  from{opacity:0}
+  to{opacity:1}
+}
+@keyframes settingsModalPop{
+  from{
+    opacity:0;
+    transform:translate(-50%,-50%) scale(.96);
+  }
+  to{
+    opacity:1;
+    transform:translate(-50%,-50%) scale(1);
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  #settings-modal,#settings-modal > div{animation:none!important}
+}
 @media(max-width:500px){.g4{grid-template-columns:1fr 1fr}.g3{grid-template-columns:1fr 1fr}.ppills{grid-template-columns:1fr 1fr}}
 
 /* ── MCP: 一元管理パネル ── */
