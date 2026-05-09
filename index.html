@@ -2127,205 +2127,187 @@ function exportCSV(){
 /* ══════════════════════════════════════
    設定モーダル
 ══════════════════════════════════════ */
+function _prefDefaults(){
+  return {dist:'50',elev:'300',spd:'30',weight:'65',ftp:'220',ratio:'85',start:'08:00',pref:'33.61,130.42',goalTime:'07:00'};
+}
+function _getSavedPref(){
+  try{return Object.assign(_prefDefaults(), JSON.parse(localStorage.getItem('rpp_user_pref')||'{}'));}
+  catch(e){return _prefDefaults();}
+}
+function _modalVal(id, fallback){
+  const el=document.getElementById('modal-'+id);
+  return el ? el.value : fallback;
+}
+function _setModalVal(id, value){
+  const el=document.getElementById('modal-'+id);
+  if(el) el.value=value;
+}
+function _prefOptionsHtml(){
+  const live=document.getElementById('dl-pref');
+  if(live) return live.innerHTML;
+  return '<option value="33.61,130.42">福岡</option><option value="35.69,139.69">東京</option><option value="34.69,135.50">大阪</option><option value="35.18,136.91">愛知</option><option value="43.06,141.35">北海道</option><option value="26.21,127.68">沖縄</option>';
+}
+
+/* ══════════════════════════════════════
+   設定モーダル：同じライドカラムへ即時マッピング
+══════════════════════════════════════ */
 function openSettingsModal(){
-  var m=document.getElementById('settings-modal');
+  let m=document.getElementById('settings-modal');
   if(!m){
     m=document.createElement('div');
     m.id='settings-modal';
-    m.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center';
-    var html='<div style="background:var(--bg);border-radius:12px;width:min(520px,94vw);max-height:88vh;overflow-y:auto">';
-    html+='<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:0.5px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:1">';
-    html+='<span style="font-size:15px;font-weight:700">設定</span>';
-    html+='<button onclick="closeSettingsModal()" style="width:30px;height:30px;border:none;border-radius:50%;background:var(--bg3);font-size:16px;cursor:pointer">X</button>';
-    html+='</div>';
-    html+='<div style="padding:16px 18px;display:flex;flex-direction:column;gap:12px">';
-    html+='<div style="display:flex;gap:6px;padding:8px;background:var(--bg2);border-radius:var(--rs)">';
-    html+='<span style="font-size:11px;color:var(--text2);align-self:center;white-space:nowrap">モード:</span>';
-    html+='<button id="mode-btn-start" class="modebt" onclick="setDefaultTimeMode(&apos;start-first&apos;)" style="flex:1;font-size:11px">スタートから計算</button>';
-    html+='<button id="mode-btn-goal" class="modebt" onclick="setDefaultTimeMode(&apos;goal-first&apos;)" style="flex:1;font-size:11px">ゴールから逆算</button>';
-    html+='</div>';
-    html+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">';
-    html+='<div class="field"><label>距離 (km)</label><input type="number" id="pref-dist" value="50" step="1"></div>';
-    html+='<div class="field"><label>標高 (m)</label><input type="number" id="pref-elev" value="300" step="10"></div>';
-    html+='<div class="field"><label>速度 (km/h)</label><input type="number" id="pref-spd" value="30" step="0.5"></div>';
-    html+='</div>';
-    html+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">';
-    html+='<div class="field"><label>体重 (kg)</label><input type="number" id="pref-weight" value="65" step="0.5"></div>';
-    html+='<div class="field"><label>FTP (W)</label><input type="number" id="pref-ftp" value="220" step="1"></div>';
-    html+='<div class="field"><label>Ratio (%)</label><input type="number" id="pref-ratio" value="85" step="1"></div>';
-    html+='</div>';
-    html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
-    html+='<div class="field"><label>スタート時刻</label><input type="time" id="pref-start" value="08:00"></div>';
-    html+='<div class="field"><label>都道府県</label><select id="pref-pref" style="font-size:13px;padding:7px 9px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text);width:100%">';
-    html+='<option value="33.61,130.42">福岡</option><option value="35.69,139.69">東京</option>';
-    html+='<option value="34.69,135.50">大阪</option><option value="35.18,136.91">愛知</option>';
-    html+='<option value="43.06,141.35">北海道</option><option value="26.21,127.68">沖縄</option>';
-    html+='</select></div>';
-    html+='</div>';
-    html+='<div style="display:flex;gap:8px;padding-top:8px;border-top:0.5px solid var(--border)">';
-    html+='<button class="bp" onclick="applyUserPref()" style="flex:1">ライドに適用して閉じる</button>';
-    html+='<button class="bs" onclick="resetUserPref()">リセット</button>';
-    html+='</div>';
-    html+='<div class="hint" id="pref-saved"></div>';
-    html+='</div></div>';
-    m.innerHTML=html;
-    m.addEventListener('click',function(e){if(e.target===m)closeSettingsModal();});
+    m.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.45);display:none;align-items:center;justify-content:center;padding:14px';
+    m.innerHTML=`
+      <div style="background:var(--bg);border-radius:14px;width:min(640px,96vw);max-height:92vh;overflow-y:auto;box-shadow:0 12px 50px rgba(0,0,0,.30);border:0.5px solid var(--border)">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:0.5px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:1">
+          <div style="display:flex;align-items:center;gap:10px;font-size:17px;font-weight:700;color:var(--text)"><span>⚙</span><span>設定</span></div>
+          <button onclick="closeSettingsModal()" aria-label="閉じる" style="width:34px;height:34px;border:0.5px solid var(--border2);border-radius:50%;background:var(--bg);color:var(--text);font-size:24px;line-height:28px;cursor:pointer;font-family:inherit">×</button>
+        </div>
+        <div style="padding:20px 22px 22px">
+          <div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.03em;margin-bottom:12px">ライド設定（デフォルト値）</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:18px;padding:9px;background:var(--bg2);border-radius:10px">
+            <span style="font-size:12px;font-weight:600;color:var(--text2);white-space:nowrap">モード:</span>
+            <button class="modebt" id="modal-mode-start" onclick="setDefaultTimeMode('start-first')" style="flex:1;font-size:13px;font-weight:700;padding:10px 8px">スタートから計算</button>
+            <button class="modebt" id="modal-mode-goal" onclick="setDefaultTimeMode('goal-first')" style="flex:1;font-size:13px;font-weight:700;padding:10px 8px">ゴールから逆算</button>
+          </div>
+
+          <div class="g3" style="gap:10px;margin-bottom:12px">
+            <div class="field"><label>距離 (km)</label><input type="number" id="modal-dist" value="50" step="0.1" oninput="saveUserPref(true)"></div>
+            <div class="field"><label>標高 (m)</label><input type="number" id="modal-elev" value="300" step="10" oninput="saveUserPref(true)"></div>
+            <div class="field"><label>速度 (km/h)</label><input type="number" id="modal-spd" value="30" step="0.5" oninput="saveUserPref(true)"></div>
+          </div>
+          <div class="g3" style="gap:10px;margin-bottom:12px">
+            <div class="field"><label>体重 (kg)</label><input type="number" id="modal-weight" value="65" step="0.5" oninput="saveUserPref(true)"></div>
+            <div class="field"><label>FTP (W)</label><input type="number" id="modal-ftp" value="220" step="1" oninput="saveUserPref(true)"></div>
+            <div class="field"><label>Ratio (%)</label><input type="number" id="modal-ratio" value="85" step="1" oninput="saveUserPref(true)"></div>
+          </div>
+          <div class="g2" style="gap:10px;margin-bottom:14px">
+            <div class="field"><label>スタート時刻</label><input type="time" id="modal-start" value="08:00" oninput="saveUserPref(true)"></div>
+            <div class="field"><label>都道府県（日照）</label><select id="modal-pref" onchange="saveUserPref(true)" style="font-size:13px;padding:7px 9px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text);width:100%"></select></div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;margin-top:8px">
+            <button class="bp" onclick="applyUserPref()" style="padding:10px 20px;font-size:13px;font-weight:700">ライドに適用</button>
+            <button class="bs" onclick="resetUserPref()" style="padding:10px 18px;font-size:13px;background:var(--bg)">リセット</button>
+            <span class="hint" id="modal-pref-saved" style="margin-left:auto"></span>
+          </div>
+        </div>
+      </div>`;
+    m.addEventListener('click',function(e){ if(e.target===m) closeSettingsModal(); });
     document.body.appendChild(m);
   }
-  m.style.display='flex';
+  const sel=document.getElementById('modal-pref');
+  if(sel && !sel.options.length) sel.innerHTML=_prefOptionsHtml();
   loadUserPrefUI();
+  m.style.display='flex';
 }
-function closeSettingsModal(){ var m=document.getElementById('settings-modal'); if(m) m.style.display='none'; }
-// ESCキーで閉じる
-document.addEventListener('keydown',e=>{
-  if(e.key==='Escape') sw('ride');
-});
+function closeSettingsModal(){
+  const m=document.getElementById('settings-modal');
+  if(m) m.style.display='none';
+}
+
+if(!window.__rppSettingsEscBound){
+  window.__rppSettingsEscBound=true;
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeSettingsModal(); });
+}
 
 function sw(t){
+  if(t==='settings'){
+    openSettingsModal();
+    return;
+  }
   const ns=['ride','run','tri','saved','log','settings'];
   document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('on',ns[i]===t));
   document.querySelectorAll('.sec').forEach(el=>el.classList.remove('on'));
   document.getElementById('sec-'+t)?.classList.add('on');
   if(t==='log') renderLog();
-  if(t==='settings') { loadUserPrefUI(); }
   if(t==='saved') renderSaved();
   if(t==='ride'){upCompass();calc();}
   if(t==='run'){
-    // ランタブ: ライドのデータ（routeData・時刻）を引き継がない
     _initRunTab();
     calcRun();
   }
   if(t==='tri') calcTri();
 }
 
-/* ランタブを独立した初期値で初期化（ライドデータを一切参照しない） */
-function _initRunTab(){
-  const saved = localStorage.getItem('rpp_run_pref');
-  const p = saved ? JSON.parse(saved) : {};
-
-  // ── コース設定：ラン専用デフォルトに強制上書き ──
-  document.getElementById('n-dist').value       = p.dist   || 10;
-  document.getElementById('n-elev').value       = 0;
-  document.getElementById('n-roundtrip').value  = '0';
-
-  // ── 走力：ラン設定値で上書き ──
-  const wtEl = document.getElementById('n-weight');
-  if(wtEl) wtEl.value = p.weight || 65;
-  const ratioEl = document.getElementById('n-ratio');
-  if(ratioEl) ratioEl.value = p.ratio || 80;
-  const ratioHrEl = document.getElementById('n-ratio-hr');
-  if(ratioHrEl) ratioHrEl.value = p.ratio || 80;
-
-  // ── ペース：ラン設定のpaceを分:秒ダイヤルに反映 ──
-  const pace = p.pace && p.pace > 0 ? p.pace : 5.0;
-  _paceState.min = Math.floor(pace);
-  _paceState.sec = Math.round((pace - Math.floor(pace)) * 60);
-  _syncPaceDial();
-
-  // ── 時刻：ライドのdialStateを参照しない。runDialStateを使う ──
-  // スタートはrunDialStateの現在値を維持（ユーザーが変えた場合を尊重）
-  // 終了時刻のみクリア（ライドの到着時刻を引き継がないように）
-  document.getElementById('n-end').value = '';
-  runDialState.end = {h:null, m:null};
-  updateRunDial('end');
-  const ew = document.getElementById('run-dial-end-wrap');
-  if(ew) ew.style.opacity = '0.5';
-
-  // ── 天候・体調はデフォルト値に戻す ──
-  const weatherEl = document.getElementById('n-weather');
-  if(weatherEl) weatherEl.value = '1.00';
-  const condEl = document.getElementById('n-cond');
-  if(condEl) condEl.value = '1.00';
-
-  // コース補正もフラットにリセット
-  setRunCourse('flat');
-}
-
-/* ── ユーザー個人設定 ── */
-function saveUserPref(){
+function saveUserPref(liveApply){
+  const current=_getSavedPref();
   const pref={
-    dist:  document.getElementById('pref-dist')?.value||50,
-    elev:  document.getElementById('pref-elev')?.value||300,
-    spd:   document.getElementById('pref-spd')?.value||25,
-    weight:document.getElementById('pref-weight')?.value||65,
-    ftp:   document.getElementById('pref-ftp')?.value||220,
-    ratio: document.getElementById('pref-ratio')?.value||85,
-    start: document.getElementById('pref-start')?.value||'08:00',
-    pref:  document.getElementById('pref-pref')?.value||'33.61,130.42',
-    goalTime: document.getElementById('pref-goal-time')?.value||'07:00',
+    dist:  _modalVal('dist', current.dist),
+    elev:  _modalVal('elev', current.elev),
+    spd:   _modalVal('spd', current.spd),
+    weight:_modalVal('weight', current.weight),
+    ftp:   _modalVal('ftp', current.ftp),
+    ratio: _modalVal('ratio', current.ratio),
+    start: _modalVal('start', current.start),
+    pref:  _modalVal('pref', current.pref),
+    goalTime: current.goalTime || '07:00'
   };
   localStorage.setItem('rpp_user_pref', JSON.stringify(pref));
-  // 即座にライドタブにも反映
-  if(document.getElementById('r-movespd')) document.getElementById('r-movespd').value=pref.spd;
-  baseSpdValue=+pref.spd;
-  smartCalc('speed');
-  const h=document.getElementById('pref-saved');
-  if(h){h.textContent='✅ 保存・適用しました';setTimeout(()=>h.textContent='',2000);}
+  if(liveApply) _mapPrefToRide(pref, true);
+  const h=document.getElementById('modal-pref-saved');
+  if(h){h.textContent='保存中'; clearTimeout(window.__prefMsgTimer); window.__prefMsgTimer=setTimeout(()=>h.textContent='',900);}
 }
 
 function loadUserPrefUI(){
-  const saved=localStorage.getItem('rpp_user_pref');
-  if(!saved) return;
-  const p=JSON.parse(saved);
-  if(document.getElementById('pref-dist')) document.getElementById('pref-dist').value=p.dist||50;
-  if(document.getElementById('pref-elev')) document.getElementById('pref-elev').value=p.elev||300;
-  if(document.getElementById('pref-spd'))  document.getElementById('pref-spd').value=p.spd||25;
-  if(document.getElementById('pref-weight')) document.getElementById('pref-weight').value=p.weight||65;
-  if(document.getElementById('pref-ftp'))  document.getElementById('pref-ftp').value=p.ftp||220;
-  if(document.getElementById('pref-ratio')) document.getElementById('pref-ratio').value=p.ratio||85;
-  if(document.getElementById('pref-start')) document.getElementById('pref-start').value=p.start||'08:00';
-  if(document.getElementById('pref-pref'))  document.getElementById('pref-pref').value=p.pref||'33.61,130.42';
+  const p=_getSavedPref();
+  _setModalVal('dist',p.dist); _setModalVal('elev',p.elev); _setModalVal('spd',p.spd);
+  _setModalVal('weight',p.weight); _setModalVal('ftp',p.ftp); _setModalVal('ratio',p.ratio);
+  _setModalVal('start',p.start); _setModalVal('pref',p.pref);
+  const mode=localStorage.getItem('rpp_time_mode')||'start-first';
+  _updateModeButtons(mode);
 }
 
-function applyUserPref(){
-  const saved=localStorage.getItem('rpp_user_pref');
-  if(!saved) return;
-  const p=JSON.parse(saved);
-
-  // ── MCP を主として速度・距離を設定 ──
+function _mapPrefToRide(p, silent){
   mcp.dist = +p.dist || 50;
   mcp.spd  = +p.spd  || 30;
   baseSpdValue = mcp.spd;
   const [sh=8,sm=0] = (p.start||'08:00').split(':').map(Number);
   mcp.startH = sh; mcp.startM = sm;
-  mcp.endH = null; mcp.endM = null;
 
-  // MCPバー・サイドバーの入力欄に反映
-  document.getElementById('mcp-dist').value = mcp.dist;
-  document.getElementById('mcp-spd').value  = mcp.spd;
+  const set=(id,val)=>{const el=document.getElementById(id); if(el) el.value=val;};
+  set('mcp-dist',mcp.dist); set('mcp-spd',mcp.spd);
+  set('mcp-sb-dist',mcp.dist); set('mcp-sb-spd',mcp.spd);
+  set('r-dist',mcp.dist); set('r-elev',p.elev||300); set('r-movespd',mcp.spd);
+  set('r-weight',p.weight||65); set('r-weight-pwr',p.weight||65); set('r-ftp',p.ftp||220); set('r-ratio',p.ratio||85);
+  set('r-start',p.start||'08:00');
 
-  // サブUI（走力パネル）にも反映（表示の整合性）
-  const spdEl = document.getElementById('r-movespd');
-  if(spdEl) spdEl.value = mcp.spd;
-  if(document.getElementById('r-dist'))   document.getElementById('r-dist').value   = mcp.dist;
-  if(document.getElementById('r-elev'))   document.getElementById('r-elev').value   = p.elev||0;
-  if(document.getElementById('r-weight')) document.getElementById('r-weight').value = p.weight||65;
-  if(document.getElementById('r-ftp'))    document.getElementById('r-ftp').value    = p.ftp||220;
-  if(document.getElementById('r-ratio'))  document.getElementById('r-ratio').value  = p.ratio||85;
-
-  // 都道府県
   const prefEl=document.getElementById('dl-pref');
-  if(prefEl&&p.pref) prefEl.value=p.pref;
+  if(prefEl && p.pref) prefEl.value=p.pref;
 
-  // ライドタブへ切替 & MCP再計算
+  const mode=localStorage.getItem('rpp_time_mode')||'start-first';
+  if(mode==='goal-first'){
+    const [eh=7,em=0]=(p.goalTime||'07:00').split(':').map(Number);
+    mcp.endH=eh; mcp.endM=em;
+  }else{
+    mcp.endH=null; mcp.endM=null;
+    set('r-end','');
+  }
+
+  if(typeof mcpCalc==='function') mcpCalc(mode==='goal-first' ? 'end' : 'start');
+  if(typeof renderDaylight==='function') renderDaylight();
+  if(!silent){
+    const h=document.getElementById('modal-pref-saved');
+    if(h){h.textContent='✅ 適用しました'; setTimeout(()=>h.textContent='',1600);}
+  }
+}
+
+function applyUserPref(){
+  saveUserPref(false);
+  const p=_getSavedPref();
+  _mapPrefToRide(p, false);
   closeSettingsModal();
   sw('ride');
-  mcpCalc('start');
 }
 
 function resetUserPref(){
-  localStorage.removeItem('rpp_user_pref');
-  if(document.getElementById('pref-dist')) document.getElementById('pref-dist').value=50;
-  if(document.getElementById('pref-elev')) document.getElementById('pref-elev').value=300;
-  if(document.getElementById('pref-spd'))  document.getElementById('pref-spd').value=25;
-  if(document.getElementById('pref-weight')) document.getElementById('pref-weight').value=65;
-  if(document.getElementById('pref-ftp'))  document.getElementById('pref-ftp').value=220;
-  if(document.getElementById('pref-ratio')) document.getElementById('pref-ratio').value=85;
-  if(document.getElementById('pref-start')) document.getElementById('pref-start').value='08:00';
-  const h=document.getElementById('pref-saved');
-  if(h){h.textContent='リセットしました';setTimeout(()=>h.textContent='',2000);}
+  const p=_prefDefaults();
+  localStorage.setItem('rpp_user_pref', JSON.stringify(p));
+  localStorage.setItem('rpp_time_mode','start-first');
+  loadUserPrefUI();
+  _mapPrefToRide(p, false);
+  const h=document.getElementById('modal-pref-saved');
+  if(h){h.textContent='リセットしました';setTimeout(()=>h.textContent='',1600);}
 }
-
 /* ══════════════════════════════════════
    天文計算エンジン（NOAA式）
 ══════════════════════════════════════ */
@@ -3028,29 +3010,41 @@ function setGpsAsStart(){
 
 /* ── デフォルトモード（ゴール優先 or スタート優先） ── */
 // 設定タブで選択、localStorageに保存
+function _updateModeButtons(mode){
+  document.getElementById('modal-mode-start')?.classList.toggle('on', mode==='start-first');
+  document.getElementById('modal-mode-goal')?.classList.toggle('on', mode==='goal-first');
+  document.getElementById('mode-btn-start')?.classList.toggle('on', mode==='start-first');
+  document.getElementById('mode-btn-goal')?.classList.toggle('on', mode==='goal-first');
+}
 function setDefaultTimeMode(mode){
   localStorage.setItem('rpp_time_mode', mode);
-  // ボタンのon状態更新
-  document.getElementById('mode-btn-start')?.classList.toggle('on', mode==='start-first');
-  document.getElementById('mode-btn-goal')?.classList.toggle('on', mode==='goal-first');
-  applyDefaultTimeMode(mode);
+  _updateModeButtons(mode);
+  const p=_getSavedPref();
+  if(mode==='goal-first'){
+    const goal=p.goalTime||'07:00';
+    if(typeof setDialFromString==='function') setDialFromString('end',goal);
+    if(typeof syncDialToHidden==='function') syncDialToHidden('end');
+    const [eh=7,em=0]=goal.split(':').map(Number);
+    if(window.mcp){mcp.endH=eh;mcp.endM=em;}
+    if(typeof smartCalc==='function') smartCalc('end');
+  }else{
+    if(typeof clearEndDial==='function') clearEndDial();
+    if(window.mcp){mcp.endH=null;mcp.endM=null;}
+    if(typeof smartCalc==='function') smartCalc('start');
+  }
+  saveUserPref(true);
 }
 function applyDefaultTimeMode(mode){
-  // ボタン状態を反映
-  document.getElementById('mode-btn-start')?.classList.toggle('on', mode==='start-first');
-  document.getElementById('mode-btn-goal')?.classList.toggle('on', mode==='goal-first');
-  if(mode==='goal-first'){
-    // ゴール時刻ダイヤルを設定済みにする（07:00デフォルト）
-    const pref=JSON.parse(localStorage.getItem('rpp_user_pref')||'{}');
+  _updateModeButtons(mode || 'start-first');
+  const selected=mode || localStorage.getItem('rpp_time_mode') || 'start-first';
+  if(selected==='goal-first'){
+    const pref=_getSavedPref();
     const goalTime=pref.goalTime||'07:00';
-    setDialFromString('end',goalTime);
-    syncDialToHidden('end');
-    const w=document.getElementById('dial-end-wrap');
-    if(w) w.style.opacity='1';
-    smartCalc('end');
-  } else {
-    // スタート優先：終了をクリア
-    clearEndDial();
+    if(typeof setDialFromString==='function') setDialFromString('end',goalTime);
+    if(typeof syncDialToHidden==='function') syncDialToHidden('end');
+    if(typeof smartCalc==='function') smartCalc('end');
+  }else{
+    if(typeof clearEndDial==='function') clearEndDial();
   }
 }
 (function(){
