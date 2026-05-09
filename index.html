@@ -213,7 +213,7 @@ body.pc-mode .ride-settings-col{padding-top:0}
 
 <div class="tabs" id="app-tabs">
   <button class="tab on" onclick="sw('ride')">🚴 ライド</button>
-  <button class="tab" onclick="sw('run')">🏃 ラン</button>
+  <a class="tab" href="run.html" style="text-decoration:none">🏃 ラン</a>
   <button class="tab" onclick="sw('tri')">Bike→Run</button>
   <button class="tab" onclick="sw('saved')">📁 保存</button>
   <button class="tab" onclick="sw('log')">ログ</button>
@@ -1135,41 +1135,6 @@ body.pc-mode .ride-settings-col{padding-top:0}
         <div class="hint" id="pref-saved" style="margin-top:6px"></div>
       </div>
 
-      <!-- 区切り -->
-      <div style="border-top:0.5px solid var(--border)"></div>
-
-      <!-- ラン設定 -->
-      <div style="background:var(--greenbg);border-radius:var(--rs);padding:12px 14px;border-left:3px solid var(--green)">
-        <div style="font-size:10px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px;display:flex;align-items:center;gap:6px"><span style="font-size:14px">🏃</span> ランニング設定</div>
-        <div style="margin-bottom:10px">
-          <label style="font-size:10px;font-weight:600;color:var(--text2);display:block;margin-bottom:6px">基準ペース (min:sec / km)</label>
-          <div style="display:flex;align-items:center;gap:6px;background:var(--bg);border:1.5px solid var(--border2);border-radius:var(--rs);padding:7px 12px;width:fit-content">
-            <div style="display:flex;flex-direction:column;align-items:center;gap:1px">
-              <button onclick="prefPaceAdj('min',-1)" class="dial-btn">▲</button>
-              <div id="pref-pace-min-disp" style="font-size:24px;font-weight:600;min-width:34px;text-align:center;color:var(--text)">05</div>
-              <button onclick="prefPaceAdj('min',1)" class="dial-btn">▼</button>
-            </div>
-            <div style="font-size:20px;font-weight:700;color:var(--text2)">:</div>
-            <div style="display:flex;flex-direction:column;align-items:center;gap:1px">
-              <button onclick="prefPaceAdj('sec',-5)" class="dial-btn">▲</button>
-              <div id="pref-pace-sec-disp" style="font-size:24px;font-weight:600;min-width:34px;text-align:center;color:var(--text)">00</div>
-              <button onclick="prefPaceAdj('sec',5)" class="dial-btn">▼</button>
-            </div>
-            <div style="font-size:11px;color:var(--text3)">/km</div>
-            <input type="hidden" id="pref-run-pace" value="5.0">
-          </div>
-          <div style="font-size:10px;color:var(--text3);margin-top:3px" id="pref-pace-hint"></div>
-        </div>
-        <div class="g3">
-          <div class="field"><label>距離 (km)</label><input type="number" id="pref-run-dist" value="10" step="0.5" oninput="savePrefRun()"></div>
-          <div class="field"><label>体重 (kg)</label><input type="number" id="pref-run-weight" value="65" step="0.5" oninput="savePrefRun()"></div>
-          <div class="field"><label>Ratio (%)</label><input type="number" id="pref-run-ratio" value="80" step="1" oninput="savePrefRun()"></div>
-        </div>
-        <div style="margin-top:10px;display:flex;gap:8px">
-          <button class="bp" style="background:var(--green)" onclick="applyPrefRun()">✅ ランに適用</button>
-        </div>
-        <div class="hint" id="pref-run-saved" style="margin-top:6px"></div>
-      </div>
 
     </div><!-- /contents -->
   </div><!-- /modal box -->
