@@ -231,14 +231,14 @@ body.pc-mode .ride-settings-col{padding-top:0}
     <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">距離 (km)</div>
     <input id="mcp-dist" type="number" step="0.1" value="50"
       style="font-size:15px;font-weight:600;padding:4px 6px;border:1.5px solid var(--border2);border-radius:var(--rs);background:var(--bg2);color:var(--text);width:80px"
-      oninput="mcpChange('dist')">
+      onchange="mcpChange('dist')">
   </div>
   <!-- 速度 -->
   <div style="display:flex;flex-direction:column;gap:2px;min-width:80px">
     <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">速度 (km/h)</div>
     <input id="mcp-spd" type="number" step="0.5" value="30"
       style="font-size:15px;font-weight:600;padding:4px 6px;border:1.5px solid var(--border2);border-radius:var(--rs);background:var(--bg2);color:var(--text);width:80px"
-      oninput="mcpChange('spd')">
+      onchange="mcpChange('spd')">
   </div>
   <!-- スタート -->
   <div style="display:flex;flex-direction:column;gap:2px">
@@ -1127,9 +1127,7 @@ body.pc-mode .ride-settings-col{padding-top:0}
   </div>
   <div class="hint" id="pref-saved" style="margin-top:6px"></div>
 </div>
-</div><!-- /sec-settings -->
-
-<div class="sec" id="sec-log">
+</div>
   <div class="lh">
     <span style="font-size:12px;color:var(--text2)" id="log-count">0件</span>
     <div style="display:flex;gap:7px">
@@ -1138,7 +1136,10 @@ body.pc-mode .ride-settings-col{padding-top:0}
     </div>
   </div>
   <div id="log-wrap"><div class="empty">ログはまだありません。<br>各タブから保存してください。</div></div>
-</div><!-- /sec-log -->
+</div>
+
+
+</div>
 
 </div><!-- /app-body -->
 
@@ -2126,10 +2127,55 @@ function exportCSV(){
 /* ══════════════════════════════════════
    設定モーダル
 ══════════════════════════════════════ */
-function openSettingsModal(){ sw('settings'); }
-function closeSettingsModal(){
-  sw('ride');
+function openSettingsModal(){
+  var m=document.getElementById('settings-modal');
+  if(!m){
+    m=document.createElement('div');
+    m.id='settings-modal';
+    m.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center';
+    var html='<div style="background:var(--bg);border-radius:12px;width:min(520px,94vw);max-height:88vh;overflow-y:auto">';
+    html+='<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:0.5px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:1">';
+    html+='<span style="font-size:15px;font-weight:700">設定</span>';
+    html+='<button onclick="closeSettingsModal()" style="width:30px;height:30px;border:none;border-radius:50%;background:var(--bg3);font-size:16px;cursor:pointer">X</button>';
+    html+='</div>';
+    html+='<div style="padding:16px 18px;display:flex;flex-direction:column;gap:12px">';
+    html+='<div style="display:flex;gap:6px;padding:8px;background:var(--bg2);border-radius:var(--rs)">';
+    html+='<span style="font-size:11px;color:var(--text2);align-self:center;white-space:nowrap">モード:</span>';
+    html+='<button id="mode-btn-start" class="modebt" onclick="setDefaultTimeMode(&apos;start-first&apos;)" style="flex:1;font-size:11px">スタートから計算</button>';
+    html+='<button id="mode-btn-goal" class="modebt" onclick="setDefaultTimeMode(&apos;goal-first&apos;)" style="flex:1;font-size:11px">ゴールから逆算</button>';
+    html+='</div>';
+    html+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">';
+    html+='<div class="field"><label>距離 (km)</label><input type="number" id="pref-dist" value="50" step="1"></div>';
+    html+='<div class="field"><label>標高 (m)</label><input type="number" id="pref-elev" value="300" step="10"></div>';
+    html+='<div class="field"><label>速度 (km/h)</label><input type="number" id="pref-spd" value="30" step="0.5"></div>';
+    html+='</div>';
+    html+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">';
+    html+='<div class="field"><label>体重 (kg)</label><input type="number" id="pref-weight" value="65" step="0.5"></div>';
+    html+='<div class="field"><label>FTP (W)</label><input type="number" id="pref-ftp" value="220" step="1"></div>';
+    html+='<div class="field"><label>Ratio (%)</label><input type="number" id="pref-ratio" value="85" step="1"></div>';
+    html+='</div>';
+    html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+    html+='<div class="field"><label>スタート時刻</label><input type="time" id="pref-start" value="08:00"></div>';
+    html+='<div class="field"><label>都道府県</label><select id="pref-pref" style="font-size:13px;padding:7px 9px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text);width:100%">';
+    html+='<option value="33.61,130.42">福岡</option><option value="35.69,139.69">東京</option>';
+    html+='<option value="34.69,135.50">大阪</option><option value="35.18,136.91">愛知</option>';
+    html+='<option value="43.06,141.35">北海道</option><option value="26.21,127.68">沖縄</option>';
+    html+='</select></div>';
+    html+='</div>';
+    html+='<div style="display:flex;gap:8px;padding-top:8px;border-top:0.5px solid var(--border)">';
+    html+='<button class="bp" onclick="applyUserPref()" style="flex:1">ライドに適用して閉じる</button>';
+    html+='<button class="bs" onclick="resetUserPref()">リセット</button>';
+    html+='</div>';
+    html+='<div class="hint" id="pref-saved"></div>';
+    html+='</div></div>';
+    m.innerHTML=html;
+    m.addEventListener('click',function(e){if(e.target===m)closeSettingsModal();});
+    document.body.appendChild(m);
+  }
+  m.style.display='flex';
+  loadUserPrefUI();
 }
+function closeSettingsModal(){ var m=document.getElementById('settings-modal'); if(m) m.style.display='none'; }
 // ESCキーで閉じる
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape') sw('ride');
