@@ -2563,14 +2563,18 @@ function initMap(){
 
   gmap.addListener('click',(e)=>{
     if(_mapDragged) return;
+    if(_poiSelectMode) return; // POIエリア選択中はwaypoint追加をロック
     if(sharedIW&&sharedIW.getMap()){sharedIW.close();return;}
-    if(_routeCalculating) return; // 計算中は無視
+    if(_routeCalculating) return;
     addWaypoint(e.latLng);
   });
 
   // 右クリック → 確認ダイアログ（PC：既存地点間に挿入したい場合）
   // 右クリック → 即時地点追加
-  gmap.addListener('rightclick',(e)=>{ addWaypoint(e.latLng); });
+  gmap.addListener('rightclick',(e)=>{
+    if(_poiSelectMode) return; // POIエリア選択中はwaypoint追加をロック
+    addWaypoint(e.latLng);
+  });
   // 長押し廃止（誤作動の原因）
 
   // 標高プロファイルのホバーイベント
@@ -3059,6 +3063,7 @@ function setupRouteDragOverlay(result){
   window._dragOverlay=overlay;
 
   overlay.addListener('click',(e)=>{
+    if(_poiSelectMode) return; // POIエリア選択中はwaypoint追加をロック
     const clickLl=e.latLng;
 
     // ルートパス上でクリック地点に最近傍のセグメントを特定
