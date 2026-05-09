@@ -794,7 +794,7 @@ body.pc-mode .ride-settings-col{padding-top:0}
 </div><!-- /sec-ride -->
 
 <!-- ══ OTHER SECS（ラン・トライ・保存・ログ・設定）══ -->
-<div class="sec" id="sec-run-wrap" style="display:contents">
+<div class="sec" id="sec-run-wrap">
 <div class="sec" id="sec-run">
   <div style="display:grid;gap:10px" id="run-layout">
 
@@ -2212,42 +2212,47 @@ function sw(t){
   if(t==='tri') calcTri();
 }
 
-/* ランタブを独立した初期値で初期化 */
+/* ランタブを独立した初期値で初期化（ライドデータを一切参照しない） */
 function _initRunTab(){
-  // 保存済みのラン設定を読み込む（なければデフォルト値）
   const saved = localStorage.getItem('rpp_run_pref');
   const p = saved ? JSON.parse(saved) : {};
 
-  // 距離・標高・往復をラン用デフォルトにリセット
-  const distEl = document.getElementById('n-dist');
-  const elevEl = document.getElementById('n-elev');
-  const rtEl   = document.getElementById('n-roundtrip');
-  if(distEl && !distEl.dataset.userEdited) distEl.value = p.dist || 10;
-  if(elevEl) elevEl.value = 0;
-  if(rtEl)   rtEl.value   = '0';
+  // ── コース設定：ラン専用デフォルトに強制上書き ──
+  document.getElementById('n-dist').value       = p.dist   || 10;
+  document.getElementById('n-elev').value       = 0;
+  document.getElementById('n-roundtrip').value  = '0';
 
-  // 体重・Ratio をラン設定から反映
-  const wtEl    = document.getElementById('n-weight');
+  // ── 走力：ラン設定値で上書き ──
+  const wtEl = document.getElementById('n-weight');
+  if(wtEl) wtEl.value = p.weight || 65;
   const ratioEl = document.getElementById('n-ratio');
-  if(wtEl    && !wtEl.dataset.userEdited)    wtEl.value    = p.weight || 65;
-  if(ratioEl && !ratioEl.dataset.userEdited) ratioEl.value = p.ratio  || 80;
+  if(ratioEl) ratioEl.value = p.ratio || 80;
+  const ratioHrEl = document.getElementById('n-ratio-hr');
+  if(ratioHrEl) ratioHrEl.value = p.ratio || 80;
 
-  // ペースをラン設定から反映
-  if(p.pace && p.pace > 0){
-    _paceState.min = Math.floor(p.pace);
-    _paceState.sec = Math.round((p.pace - Math.floor(p.pace)) * 60);
-    _syncPaceDial();
-  }
+  // ── ペース：ラン設定のpaceを分:秒ダイヤルに反映 ──
+  const pace = p.pace && p.pace > 0 ? p.pace : 5.0;
+  _paceState.min = Math.floor(pace);
+  _paceState.sec = Math.round((pace - Math.floor(pace)) * 60);
+  _syncPaceDial();
 
-  // ラン用の時刻をライドから引き継がない（ラン独自のdialStateを使う）
-  // n-start は runDialState で管理されているのでそのまま
+  // ── 時刻：ライドのdialStateを参照しない。runDialStateを使う ──
+  // スタートはrunDialStateの現在値を維持（ユーザーが変えた場合を尊重）
+  // 終了時刻のみクリア（ライドの到着時刻を引き継がないように）
   document.getElementById('n-end').value = '';
   runDialState.end = {h:null, m:null};
   updateRunDial('end');
   const ew = document.getElementById('run-dial-end-wrap');
   if(ew) ew.style.opacity = '0.5';
 
-  // ユーザー編集フラグは付けない（次回タブ切替でもリセット可能に）
+  // ── 天候・体調はデフォルト値に戻す ──
+  const weatherEl = document.getElementById('n-weather');
+  if(weatherEl) weatherEl.value = '1.00';
+  const condEl = document.getElementById('n-cond');
+  if(condEl) condEl.value = '1.00';
+
+  // コース補正もフラットにリセット
+  setRunCourse('flat');
 }
 
 /* ── ユーザー個人設定 ── */
