@@ -120,10 +120,10 @@ input[type=number],input[type=text],input[type=time],select{
 .wp-row{display:grid;grid-template-columns:10px 1fr 44px 40px 44px 16px;gap:3px;padding:3px 4px;border-bottom:0.5px solid var(--border);font-size:10px;align-items:center}
 .sr-card{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--r);padding:12px 14px;margin-bottom:8px;display:grid;grid-template-columns:1fr auto;gap:10px;align-items:start}
 
-/* ── route-info ── */
-.ri-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-.ri-chip{background:var(--bg2);border-radius:var(--rs);padding:4px 10px;font-size:11px}
-.ri-chip span{font-weight:600;color:var(--text)}
+/* ── route-info（マップ内オーバーレイ対応） ── */
+.ri-chip{background:rgba(255,255,255,0.12);border:0.5px solid rgba(255,255,255,0.18);border-radius:var(--rs);padding:3px 8px;font-size:10px;display:inline-flex;gap:4px;align-items:center}
+.ri-cl{color:rgba(255,255,255,0.55);font-weight:500;white-space:nowrap}
+.ri-cv{font-weight:700;color:#fff;white-space:nowrap}
 
 /* ── compass ── */
 .compass-wrap{display:flex;flex-direction:column;align-items:center;gap:4px}
@@ -342,27 +342,28 @@ input[type=number],input[type=text],input[type=time],select{
         <div style="height:0.5px;background:rgba(0,0,0,0.15)"></div>
         <button onclick="gmap&&gmap.setZoom(gmap.getZoom()-1)" style="width:32px;height:32px;border:none;border-radius:0 0 6px 6px;background:rgba(255,255,255,0.92);color:#333;font-size:22px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center">－</button>
       </div>
+      <!-- ══ ルート情報 + 標高プロファイル オーバーレイ（地図下端固定） ══ -->
+      <div id="elev-wrap" style="display:none;position:absolute;bottom:0;left:0;right:0;z-index:15;pointer-events:none">
+        <!-- ルート情報チップ行 -->
+        <div id="route-info" style="display:none;padding:4px 6px 2px;background:rgba(10,10,10,0.72);backdrop-filter:blur(6px);pointer-events:auto">
+          <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
+            <div class="ri-chip"><span class="ri-cl">距離</span><span class="ri-cv" id="ri-dist">—</span></div>
+            <div class="ri-chip"><span class="ri-cl">獲得標高</span><span class="ri-cv" id="ri-elev">—</span></div>
+            <div class="ri-chip"><span class="ri-cl">最高標高</span><span class="ri-cv" id="ri-maxelev">—</span></div>
+            <div class="ri-chip"><span class="ri-cl">特性</span><span class="ri-cv" id="ri-profile">—</span></div>
+            <div class="ri-chip"><span class="ri-cl">最大斜度</span><span class="ri-cv" id="ri-maxgrade">—</span></div>
+            <div class="ri-chip"><span class="ri-cl">方向</span><span class="ri-cv" style="font-size:10px" id="ri-bearing">—</span></div>
+          </div>
+        </div>
+        <!-- 標高プロファイル Canvas -->
+        <div style="position:relative;pointer-events:auto">
+          <canvas id="elev-canvas" height="56"
+            style="width:100%;display:block;cursor:crosshair;background:rgba(10,10,10,0.65);backdrop-filter:blur(4px)"></canvas>
+          <div id="elev-cursor" style="display:none;position:absolute;top:0;bottom:0;width:1px;background:rgba(255,100,80,0.85);pointer-events:none"></div>
+        </div>
+      </div>
+
     </div><!-- /gmap relative div -->
-
-    <!-- 標高プロファイル：地図直下 -->
-    <div id="elev-wrap" style="margin-top:4px;display:none">
-      <div style="position:relative">
-        <canvas id="elev-canvas" height="60" style="width:100%;border-radius:4px;background:var(--bg2);display:block;cursor:crosshair"></canvas>
-        <div id="elev-cursor" style="display:none;position:absolute;top:0;bottom:0;width:1px;background:rgba(255,100,80,0.8);pointer-events:none"></div>
-      </div>
-    </div>
-
-    <!-- ルート情報チップ -->
-    <div id="route-info" style="display:none;margin-top:4px">
-      <div style="display:flex;gap:4px;flex-wrap:wrap">
-        <div class="ri-chip"><span class="ri-cl">距離</span><span class="ri-cv" id="ri-dist">—</span></div>
-        <div class="ri-chip"><span class="ri-cl">獲得標高</span><span class="ri-cv" id="ri-elev">—</span></div>
-        <div class="ri-chip"><span class="ri-cl">最高標高</span><span class="ri-cv" id="ri-maxelev">—</span></div>
-        <div class="ri-chip"><span class="ri-cl">特性</span><span class="ri-cv" id="ri-profile">—</span></div>
-        <div class="ri-chip"><span class="ri-cl">最大斜度</span><span class="ri-cv" id="ri-maxgrade">—</span></div>
-        <div class="ri-chip"><span class="ri-cl">方向</span><span class="ri-cv" style="font-size:11px" id="ri-bearing">—</span></div>
-      </div>
-    </div>
 
   </div><!-- /map-panel -->
 </div><!-- /ride-map-col -->
@@ -4538,12 +4539,7 @@ function setPCHeights(){
   if(gmapEl){
     var sbEl=document.getElementById('map-search-bar');
     var sbH=sbEl?sbEl.offsetHeight+2:40;
-    var ewH=0;
-    var ew=document.getElementById('elev-wrap');
-    var ri=document.getElementById('route-info');
-    if(ew&&ew.style.display!=='none') ewH+=ew.offsetHeight+4;
-    if(ri&&ri.style.display!=='none') ewH+=ri.offsetHeight+4;
-    gmapEl.style.height=Math.max(400,avail-sbH-ewH)+'px';
+    gmapEl.style.height=Math.max(400,avail-sbH)+'px';
   }
 }
 window.addEventListener('load',function(){ setTimeout(setPCHeights,100); });
