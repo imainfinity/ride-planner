@@ -211,6 +211,31 @@ body.pc-mode .ride-settings-col{padding-top:0}
 .ppl{font-size:8px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:2px}
 .ppv{font-size:13px;font-weight:600;color:var(--text)}
 
+
+
+/* ── 2026-05 改修: 操作パネル整理 / 風向コンパス ── */
+.op-note{font-size:10px;color:var(--text2);background:var(--bluebg);border:1px solid var(--blue);border-radius:var(--rs);padding:7px 9px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.op-note button{padding:4px 9px;border:none;border-radius:var(--rs);background:var(--acc);color:#fff;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap}
+.op-locked input,.op-locked select{background:var(--bg2)!important;color:var(--text2)!important;pointer-events:none}
+.op-locked .course-btn,.op-locked .modebt{pointer-events:none;opacity:.72}
+.mcp-readonly{font-size:15px;font-weight:600;padding:4px 6px;border:1.5px solid var(--border2);border-radius:var(--rs);background:var(--bg2);color:var(--text);min-width:74px;text-align:right}
+.wind-compass-card{background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--r);padding:10px;margin:8px 0}
+.wind-compass-grid{display:grid;grid-template-columns:150px 1fr;gap:10px;align-items:center}
+.wind-compass{width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,var(--bg) 0 54%,var(--bg3) 55% 100%);border:1px solid var(--border2);position:relative;touch-action:none;user-select:none;cursor:grab}
+.wind-compass:active{cursor:grabbing}
+.wind-compass .dir{position:absolute;font-size:10px;font-weight:700;color:var(--text3)}
+.wind-compass .n{top:5px;left:50%;transform:translateX(-50%)}.wind-compass .e{right:7px;top:50%;transform:translateY(-50%)}.wind-compass .s{bottom:5px;left:50%;transform:translateX(-50%)}.wind-compass .w{left:7px;top:50%;transform:translateY(-50%)}
+.wind-arrow,.ride-arrow{position:absolute;left:50%;top:50%;width:3px;transform-origin:50% 100%;border-radius:999px}
+.wind-arrow{height:56px;background:var(--red);box-shadow:0 0 0 2px rgba(255,255,255,.45);z-index:3}
+.ride-arrow{height:48px;background:var(--blue);width:4px;z-index:2;opacity:.95}
+.wind-arrow::before,.ride-arrow::before{content:'';position:absolute;top:-7px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent}
+.wind-arrow::before{border-bottom:10px solid var(--red)}.ride-arrow::before{border-bottom:10px solid var(--blue)}
+.wind-center{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:10px;height:10px;border-radius:50%;background:var(--text);z-index:4}
+.wind-legend{display:flex;flex-direction:column;gap:5px;font-size:11px;color:var(--text2)}
+.wind-chip{display:flex;justify-content:space-between;gap:8px;background:var(--bg);border:0.5px solid var(--border);border-radius:var(--rs);padding:5px 8px}
+.wind-chip b{color:var(--text);font-variant-numeric:tabular-nums}
+@media(max-width:500px){.wind-compass-grid{grid-template-columns:1fr}.wind-compass{margin:auto}}
+
 </style>
 
 <script>
@@ -234,7 +259,7 @@ body.pc-mode .ride-settings-col{padding-top:0}
 <!-- GPS再取得ボタン（常時表示） -->
 <button id="gps-retry-btn" onclick="retryGPS()" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">📍</button>
 <header>
-  <h1>Ride Pace Planner <span class="ver">v8</span></h1>
+  <h1>Ride Pace Planner <span class="ver">v8.3</span></h1>
   <span class="sub">ライド計画 / Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
@@ -260,6 +285,13 @@ body.pc-mode .ride-settings-col{padding-top:0}
     <input id="mcp-dist" type="number" step="0.1" value="50"
       style="font-size:15px;font-weight:600;padding:4px 6px;border:1.5px solid var(--border2);border-radius:var(--rs);background:var(--bg2);color:var(--text);width:80px"
       onchange="mcpChange('dist')">
+  </div>
+  <!-- 獲得標高 -->
+  <div style="display:flex;flex-direction:column;gap:2px;min-width:80px">
+    <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">獲得標高 (m)</div>
+    <input id="mcp-elev" type="number" step="10" value="300"
+      style="font-size:15px;font-weight:600;padding:4px 6px;border:1.5px solid var(--border2);border-radius:var(--rs);background:var(--bg2);color:var(--text);width:80px"
+      onchange="mcpChange('elev')">
   </div>
   <!-- 速度 -->
   <div style="display:flex;flex-direction:column;gap:2px;min-width:80px">
@@ -453,12 +485,18 @@ body.pc-mode .ride-settings-col{padding-top:0}
       </div>
     </div>
     <!-- 距離・速度・所要時間 -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;align-items:end">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;align-items:end">
       <div>
         <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:2px">距離 (km)</div>
         <input id="mcp-sb-dist" type="number" step="0.1" value="50"
           style="font-size:14px;font-weight:600;padding:3px 6px;border:1.5px solid var(--border2);border-radius:var(--rs);background:var(--bg2);color:var(--text);width:100%"
           onchange="mcp.dist=+this.value||50;document.getElementById('mcp-dist').value=mcp.dist;mcpChange('dist')">
+      </div>
+      <div>
+        <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:2px">獲得標高 (m)</div>
+        <input id="mcp-sb-elev" type="number" step="10" value="300"
+          style="font-size:14px;font-weight:600;padding:3px 6px;border:1.5px solid var(--border2);border-radius:var(--rs);background:var(--bg2);color:var(--text);width:100%"
+          onchange="mcp.elev=+this.value||0;document.getElementById('mcp-elev').value=mcp.elev;mcpChange('elev')">
       </div>
       <div>
         <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:2px">速度 (km/h)</div>
@@ -515,7 +553,7 @@ body.pc-mode .ride-settings-col{padding-top:0}
     <button class="bs" onclick="hardClearRoute()"  style="font-size:11px;padding:4px 8px">🗑</button>
     <button class="bs" onclick="undoRoute()"        style="font-size:11px;padding:4px 8px">↩</button>
     <button class="bs" onclick="redoRoute()"        style="font-size:11px;padding:4px 8px">↪</button>
-    <button class="bs" onclick="downloadGPX()"      style="font-size:11px;padding:4px 8px">GPX</button>
+    <button class="bp" onclick="downloadGPX()" title="作成したコースをGPXで保存" style="font-size:12px;padding:6px 12px;font-weight:800;background:var(--green);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.18)">💾 GPX保存</button>
     <button class="bs" onclick="showSaveDialog()"   style="font-size:11px;padding:4px 8px">💾</button>
     <button class="bp" onclick="manualSync()"       style="font-size:11px;padding:4px 10px">🔄</button>
     <select id="route-mode" onchange="smartCalc('dist');if(waypoints.length>=2)calcRoute();" style="font-size:10px;padding:3px 5px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text)">
@@ -626,8 +664,9 @@ body.pc-mode .ride-settings-col{padding-top:0}
   <span id="de-m" style="display:none">--</span>
   <div id="dial-end-wrap" style="display:none"></div>
 
-  <div class="panel">
+  <div class="panel op-locked">
     <div class="pt">コース設定</div>
+    <div class="op-note"><span>この項目は固定表示です。詳細条件は設定画面から変更します。</span><button onclick="openSettingsModal()">⚙ 設定へ</button></div>
 
     <!-- コース情報 -->
     <div class="g3" style="margin-bottom:4px">
@@ -662,8 +701,9 @@ body.pc-mode .ride-settings-col{padding-top:0}
   </div>
 
   <!-- ② 速度 / パワー -->
-  <div class="panel">
+  <div class="panel op-locked">
     <div class="pt">走力入力</div>
+    <div class="op-note"><span>速度・体重・Ratioなどは設定画面に統合しました。</span><button onclick="openSettingsModal()">⚙ 設定へ</button></div>
 
     <!-- モード切替 -->
     <div style="display:flex;gap:3px;margin-bottom:12px">
@@ -765,6 +805,22 @@ body.pc-mode .ride-settings-col{padding-top:0}
     <input type="hidden" id="r-rdir" value="0">
     <input type="hidden" id="r-wdir-deg" value="0">
     <input type="hidden" id="r-rdir-deg" value="0">
+    <div class="wind-compass-card">
+      <div class="wind-compass-grid">
+        <div id="wind-compass" class="wind-compass" title="赤い風向矢印をドラッグして回転">
+          <span class="dir n">N</span><span class="dir e">E</span><span class="dir s">S</span><span class="dir w">W</span>
+          <div id="ride-arrow" class="ride-arrow"></div>
+          <div id="wind-arrow" class="wind-arrow"></div>
+          <div class="wind-center"></div>
+        </div>
+        <div class="wind-legend">
+          <div class="wind-chip"><span>🔴 風向き（ドラッグ可）</span><b id="r-wdir-label">北向き</b></div>
+          <div class="wind-chip"><span>🔵 コース進行方向</span><b id="r-rdir-label">北向き</b></div>
+          <div class="wind-chip"><span>負荷判定</span><b id="wind-load-label">横風</b></div>
+          <div class="hint">赤＝風が吹いていく方向 / 青＝作成コース全体の進行方向。ルート作成後は青矢印が自動更新されます。</div>
+        </div>
+      </div>
+    </div>
     <div class="g3">
       <div class="field"><label>天候</label>
         <select id="r-weather" onchange="smartCalc('speed')">
@@ -2156,7 +2212,7 @@ function exportCSV(){
    設定モーダル
 ══════════════════════════════════════ */
 function _prefDefaults(){
-  return {dist:'50',elev:'300',spd:'30',weight:'65',ftp:'220',ratio:'85',start:'08:00',pref:'33.61,130.42',goalTime:'07:00'};
+  return {dist:'50',elev:'300',spd:'30',weight:'65',ftp:'220',ratio:'85',wkg:'2.5',np:'',rideInputMode:'spd',start:'08:00',pref:'33.61,130.42',goalTime:'07:00'};
 }
 function _getSavedPref(){
   try{return Object.assign(_prefDefaults(), JSON.parse(localStorage.getItem('rpp_user_pref')||'{}'));}
@@ -2199,15 +2255,36 @@ function openSettingsModal(){
             <button class="modebt" id="modal-mode-goal" onclick="setDefaultTimeMode('goal-first')" style="flex:1;font-size:13px;font-weight:700;padding:10px 8px">ゴールから逆算</button>
           </div>
 
+          <div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.03em;margin:4px 0 8px">計算入力方式</div>
+          <div style="display:flex;gap:6px;margin-bottom:12px;padding:7px;background:var(--bg2);border-radius:10px">
+            <button class="modebt" id="modal-ride-mode-spd" onclick="setRideInputModeFromSettings('spd')" style="flex:1;font-size:13px;font-weight:800;padding:10px 8px">🚴 NET平均車速から</button>
+            <button class="modebt" id="modal-ride-mode-pwr" onclick="setRideInputModeFromSettings('pwr')" style="flex:1;font-size:13px;font-weight:800;padding:10px 8px">⚡ パワー指定から</button>
+          </div>
+
           <div class="g3" style="gap:10px;margin-bottom:12px">
             <div class="field"><label>距離 (km)</label><input type="number" id="modal-dist" value="50" step="0.1" oninput="saveUserPref(true)"></div>
-            <div class="field"><label>標高 (m)</label><input type="number" id="modal-elev" value="300" step="10" oninput="saveUserPref(true)"></div>
-            <div class="field"><label>速度 (km/h)</label><input type="number" id="modal-spd" value="30" step="0.5" oninput="saveUserPref(true)"></div>
+            <div class="field"><label>獲得標高 (m)</label><input type="number" id="modal-elev" value="300" step="10" oninput="saveUserPref(true)"></div>
+            <div class="field" id="modal-spd-field"><label>NET平均車速 (km/h)</label><input type="number" id="modal-spd" value="30" step="0.5" oninput="saveUserPref(true)"><div class="hint">パワー指定時は参考値として保存</div></div>
           </div>
           <div class="g3" style="gap:10px;margin-bottom:12px">
-            <div class="field"><label>体重 (kg)</label><input type="number" id="modal-weight" value="65" step="0.5" oninput="saveUserPref(true)"></div>
-            <div class="field"><label>FTP (W)</label><input type="number" id="modal-ftp" value="220" step="1" oninput="saveUserPref(true)"></div>
+            <div class="field"><label>体重 (kg)</label><input type="number" id="modal-weight" value="65" step="0.5" oninput="saveUserPref(true);buildModalPowerZones()"></div>
+            <div class="field"><label>FTP (W)</label><input type="number" id="modal-ftp" value="220" step="1" oninput="saveUserPref(true);buildModalPowerZones()"></div>
             <div class="field"><label>Ratio (%)</label><input type="number" id="modal-ratio" value="85" step="1" oninput="saveUserPref(true)"></div>
+          </div>
+
+          <div id="modal-power-section" style="margin:4px 0 14px;padding:12px;border:0.5px solid var(--border);border-radius:12px;background:var(--bg2)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px">
+              <div>
+                <div style="font-size:12px;font-weight:800;color:var(--text)">トレーニング想定パワー</div>
+                <div class="hint">ゾーンを選ぶと、FTP・体重から目標W/kgを自動設定します。</div>
+              </div>
+              <button class="bs" onclick="setRideInputModeFromSettings('pwr')" style="font-size:11px;padding:6px 10px;white-space:nowrap">⚡ この方式を選択</button>
+            </div>
+            <div id="modal-zonebar" style="margin-bottom:10px"></div>
+            <div class="g2" style="gap:10px;margin-bottom:0">
+              <div class="field"><label>目標 W/kg</label><input type="number" id="modal-wkg" value="2.5" step="0.05" oninput="modalSyncZoneFromWkg();saveUserPref(true)"></div>
+              <div class="field"><label>NP直接 (W)</label><input type="number" id="modal-np" step="1" placeholder="空欄=W/kgから" oninput="saveUserPref(true)"></div>
+            </div>
           </div>
           <div class="g2" style="gap:10px;margin-bottom:14px">
             <div class="field"><label>スタート時刻</label><input type="time" id="modal-start" value="08:00" oninput="saveUserPref(true)"></div>
@@ -2266,6 +2343,9 @@ function saveUserPref(liveApply){
     weight:_modalVal('weight', current.weight),
     ftp:   _modalVal('ftp', current.ftp),
     ratio: _modalVal('ratio', current.ratio),
+    wkg:   _modalVal('wkg', current.wkg),
+    np:    _modalVal('np', current.np),
+    rideInputMode: (window.__modalRideInputMode || current.rideInputMode || inputMode || 'spd'),
     start: _modalVal('start', current.start),
     pref:  _modalVal('pref', current.pref),
     goalTime: current.goalTime || '07:00'
@@ -2280,7 +2360,12 @@ function loadUserPrefUI(){
   const p=_getSavedPref();
   _setModalVal('dist',p.dist); _setModalVal('elev',p.elev); _setModalVal('spd',p.spd);
   _setModalVal('weight',p.weight); _setModalVal('ftp',p.ftp); _setModalVal('ratio',p.ratio);
+  _setModalVal('wkg',p.wkg); _setModalVal('np',p.np);
   _setModalVal('start',p.start); _setModalVal('pref',p.pref);
+  window.__modalRideInputMode = p.rideInputMode || inputMode || 'spd';
+  if(typeof updateModalRideInputModeButtons==='function') updateModalRideInputModeButtons();
+  if(typeof modalSyncZoneFromWkg==='function') modalSyncZoneFromWkg();
+  if(typeof buildModalPowerZones==='function') buildModalPowerZones();
   const mode=localStorage.getItem('rpp_time_mode')||'start-first';
   _updateModeButtons(mode);
 }
@@ -2288,15 +2373,16 @@ function loadUserPrefUI(){
 function _mapPrefToRide(p, silent){
   mcp.dist = +p.dist || 50;
   mcp.spd  = +p.spd  || 30;
+  mcp.elev = +p.elev || 300;
   baseSpdValue = mcp.spd;
   const [sh=8,sm=0] = (p.start||'08:00').split(':').map(Number);
   mcp.startH = sh; mcp.startM = sm;
 
   const set=(id,val)=>{const el=document.getElementById(id); if(el) el.value=val;};
-  set('mcp-dist',mcp.dist); set('mcp-spd',mcp.spd);
-  set('mcp-sb-dist',mcp.dist); set('mcp-sb-spd',mcp.spd);
+  set('mcp-dist',mcp.dist); set('mcp-spd',mcp.spd); set('mcp-elev',mcp.elev);
+  set('mcp-sb-dist',mcp.dist); set('mcp-sb-spd',mcp.spd); set('mcp-sb-elev',mcp.elev);
   set('r-dist',mcp.dist); set('r-elev',p.elev||300); set('r-movespd',mcp.spd);
-  set('r-weight',p.weight||65); set('r-weight-pwr',p.weight||65); set('r-ftp',p.ftp||220); set('r-ratio',p.ratio||85);
+  set('r-weight',p.weight||65); set('r-weight-pwr',p.weight||65); set('r-ftp',p.ftp||220); set('r-ratio',p.ratio||85); set('r-wkg',p.wkg||2.5); set('r-np',p.np||'');
   set('r-start',p.start||'08:00');
 
   const prefEl=document.getElementById('dl-pref');
@@ -2311,12 +2397,72 @@ function _mapPrefToRide(p, silent){
     set('r-end','');
   }
 
+  if(p.rideInputMode && typeof setMode==='function') setMode(p.rideInputMode);
   if(typeof mcpCalc==='function') mcpCalc(mode==='goal-first' ? 'end' : 'start');
   if(typeof renderDaylight==='function') renderDaylight();
   if(!silent){
     const h=document.getElementById('modal-pref-saved');
     if(h){h.textContent='✅ 適用しました'; setTimeout(()=>h.textContent='',1600);}
   }
+}
+
+
+function setRideInputModeFromSettings(mode){
+  window.__modalRideInputMode = mode === 'pwr' ? 'pwr' : 'spd';
+  updateModalRideInputModeButtons();
+  if(typeof setMode === 'function') setMode(window.__modalRideInputMode);
+  saveUserPref(true);
+}
+function updateModalRideInputModeButtons(){
+  const mode = window.__modalRideInputMode || inputMode || 'spd';
+  const spd=document.getElementById('modal-ride-mode-spd');
+  const pwr=document.getElementById('modal-ride-mode-pwr');
+  if(spd) spd.classList.toggle('on', mode==='spd');
+  if(pwr) pwr.classList.toggle('on', mode==='pwr');
+  const sf=document.getElementById('modal-spd-field');
+  const z=document.getElementById('modal-power-section');
+  // 速度モードでもパワー条件は見えるが、選択状態を明確化
+  if(sf) sf.style.opacity = mode==='spd' ? '1' : '.55';
+}
+
+function buildModalPowerZones(){
+  const box=document.getElementById('modal-zonebar');
+  if(!box || typeof ZONES==='undefined') return;
+  const ftp=+_modalVal('ftp',220)||220;
+  const wt=+_modalVal('weight',65)||65;
+  const wkg=+_modalVal('wkg',2.5)||2.5;
+  let active=0;
+  const pct=wkg*wt/ftp*100;
+  for(let i=0;i<ZONES.length;i++){ if(pct<=ZONES[i].hi){active=i;break;} active=ZONES.length-1; }
+  box.innerHTML=`<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:5px">`+
+    ZONES.map((z,i)=>{
+      const wLo=(ftp*z.lo/100).toFixed(0);
+      const wHi=(ftp*z.hi/100).toFixed(0);
+      return `<button type="button" onclick="modalSelZone(${i})" style="padding:8px 4px;border-radius:8px;text-align:center;cursor:pointer;background:${z.bg};color:${z.tc};border:${active===i?'2.5px solid var(--acc)':'1px solid transparent'};box-shadow:${active===i?'0 3px 8px rgba(0,0,0,.18)':'none'};font-family:inherit">
+        <div style="font-size:12px;font-weight:800">${z.z}</div>
+        <div style="font-size:8px;font-weight:700;opacity:.7;white-space:nowrap">${z.n}</div>
+        <div style="font-size:9px;font-weight:800">${wLo}–${wHi}W</div>
+      </button>`;
+    }).join('')+`</div>`;
+}
+function modalSelZone(i){
+  if(typeof ZONES==='undefined') return;
+  const ftp=+_modalVal('ftp',220)||220;
+  const wt=+_modalVal('weight',65)||65;
+  const mid=(ZONES[i].lo+ZONES[i].hi)/2/100;
+  _setModalVal('wkg',(ftp*mid/wt).toFixed(2));
+  if(typeof selZone==='function'){
+    selZ=i;
+    const rw=document.getElementById('r-wkg'); if(rw) rw.value=_modalVal('wkg',2.5);
+    if(typeof buildZone==='function') buildZone();
+  }
+  saveUserPref(true);
+  buildModalPowerZones();
+}
+function modalSyncZoneFromWkg(){
+  const rw=document.getElementById('r-wkg'); if(rw) rw.value=_modalVal('wkg',2.5);
+  if(typeof syncZoneFromWkg==='function') syncZoneFromWkg();
+  buildModalPowerZones();
 }
 
 function applyUserPref(){
@@ -4578,6 +4724,7 @@ function onTimeCanvasScroll(el){
 const mcp = {
   dist: 50,         // km （ルート確定時は_routeDataで上書き）
   spd:  30,         // km/h（入力速度・補正前）
+  elev: 300,         // m（手動入力時の獲得標高）
   startH: 8, startM: 0,
   endH: null, endM: null,  // null = 未設定
   source: 'manual', // 'manual' | 'route'
@@ -4588,6 +4735,7 @@ function mcpFlushAll(totalMins, moveSpdEff){
   // ① MCP バー（SP）+ サイドバー（PC）の両方を更新
   document.getElementById('mcp-dist').value = mcp.dist;
   document.getElementById('mcp-spd').value  = mcp.spd;
+  const _mcpElevEl=document.getElementById('mcp-elev'); if(_mcpElevEl) _mcpElevEl.value = Math.round(mcp.elev||0);
   _mcpShowDial('start', mcp.startH, mcp.startM);
   const endIsSet = mcp.endH !== null;
   if(endIsSet){
@@ -4608,6 +4756,7 @@ function mcpFlushAll(totalMins, moveSpdEff){
   const _sbsrc= document.getElementById('mcp-sb-source');
   const _sbdist=document.getElementById('mcp-sb-dist');
   const _sbspd= document.getElementById('mcp-sb-spd');
+  const _sbelev=document.getElementById('mcp-sb-elev');
   if(_sbsh) _sbsh.textContent = String(mcp.startH).padStart(2,'0');
   if(_sbsm) _sbsm.textContent = String(mcp.startM).padStart(2,'0');
   if(_sbeh) _sbeh.textContent = endIsSet ? String(mcp.endH).padStart(2,'0') : '--';
@@ -4616,12 +4765,15 @@ function mcpFlushAll(totalMins, moveSpdEff){
   if(_sbsrc) _sbsrc.textContent = srcLabel;
   if(_sbdist && document.activeElement!==_sbdist) _sbdist.value = mcp.dist;
   if(_sbspd  && document.activeElement!==_sbspd)  _sbspd.value  = mcp.spd;
+  if(_sbelev && document.activeElement!==_sbelev) _sbelev.value = Math.round(mcp.elev||0);
 
   // ② サブUI（走力入力パネル）
   const spdEl = document.getElementById('r-movespd');
   if(spdEl && document.activeElement !== spdEl) spdEl.value = mcp.spd;
   const distEl = document.getElementById('r-dist');
   if(distEl && document.activeElement !== distEl) distEl.value = mcp.dist;
+  const elevEl = document.getElementById('r-elev');
+  if(elevEl && document.activeElement !== elevEl) elevEl.value = Math.round(mcp.elev||0);
 
   // ③ ダイヤル（既存UI）
   const startStr = `${String(mcp.startH).padStart(2,'0')}:${String(mcp.startM).padStart(2,'0')}`;
@@ -4665,6 +4817,7 @@ function mcpCalc(trigger){
   const rd = window._routeData;
   if(rd && rd.distKm > 0){
     mcp.dist   = rd.distKm;
+    mcp.elev   = rd.gainM || 0;
     mcp.source = 'route';
     // ルート確定後はMCPのdist入力を更新
     document.getElementById('mcp-dist').value = mcp.dist;
@@ -4690,7 +4843,7 @@ function mcpCalc(trigger){
 
   // 所要時間を算出（物理モデル経由）
   const effDist = mcp.dist;
-  const effElev = rd && rd.gainM > 0 ? rd.gainM : (+document.getElementById('r-elev').value || 0);
+  const effElev = rd && rd.gainM > 0 ? rd.gainM : (mcp.elev || +document.getElementById('r-elev').value || 0);
   const ratio   = (+document.getElementById('r-ratio').value || 85) / 100;
   const weather = +document.getElementById('r-weather').value || 1;
   const cond    = +document.getElementById('r-cond').value   || 1;
@@ -4755,6 +4908,8 @@ function mcpCalc(trigger){
 
   // 全サブUIに一斉書き込み
   mcpFlushAll(totalMins, moveSpd);
+  if(typeof refreshLockedPanelValues==='function') refreshLockedPanelValues();
+  if(typeof updateWindCompass==='function') updateWindCompass();
 
   // calc() を呼んで結果カード・分解バーも更新
   calc();
@@ -4768,6 +4923,9 @@ function mcpChange(field){
   } else if(field === 'spd'){
     const v = +document.getElementById('mcp-spd').value;
     if(v > 0){ mcp.spd = v; baseSpdValue = v; }
+  } else if(field === 'elev'){
+    const v = +document.getElementById('mcp-elev')?.value;
+    if(v >= 0) mcp.elev = v;
   }
   mcpCalc(field);
 }
@@ -4808,8 +4966,10 @@ function mcpSyncFromRoute(){
   const rd = window._routeData;
   if(!rd || !rd.distKm) return;
   mcp.dist   = rd.distKm;
+  mcp.elev   = rd.gainM || 0;
   mcp.source = 'route';
   document.getElementById('mcp-dist').value = mcp.dist;
+  const me=document.getElementById('mcp-elev'); if(me) me.value=Math.round(mcp.elev||0);
   mcpCalc('route');
 }
 
@@ -4821,7 +4981,10 @@ function mcpForceRecalc(){
   document.getElementById('mcp-spd').value = mcp.spd;
   const d = +document.getElementById('r-dist').value;
   if(d > 0 && mcp.source !== 'route') mcp.dist = d;
+  const ev = +document.getElementById('r-elev')?.value;
+  if(ev >= 0 && mcp.source !== 'route') mcp.elev = ev;
   document.getElementById('mcp-dist').value = mcp.dist;
+  const me=document.getElementById('mcp-elev'); if(me) me.value=Math.round(mcp.elev||0);
   mcpCalc('force');
 }
 
@@ -4929,6 +5092,60 @@ function toggleDrawer(){
   if(arrow) arrow.textContent=collapsed?'▲':'▼';
 }
 
+
+/* ── 2026-05 改修: 操作パネル固定化 + 風向コンパス復活 ── */
+function refreshLockedPanelValues(){
+  const rd=window._routeData;
+  if(rd && rd.gainM!=null){ mcp.elev = rd.gainM||0; }
+  const set=(id,val)=>{const el=document.getElementById(id); if(el && document.activeElement!==el) el.value=val;};
+  set('r-dist', Number(mcp.dist||50).toFixed(1).replace(/\.0$/,''));
+  set('r-elev', Math.round(mcp.elev||0));
+  set('r-movespd', Number(mcp.spd||30).toFixed(1).replace(/\.0$/,''));
+}
+function openPlannerSettings(){ openSettingsModal(); }
+function _normDeg(d){ return ((Math.round(d)%360)+360)%360; }
+function _bearingText(d){ return typeof bearingToLabel==='function' ? bearingToLabel(d) : degToLabel(d); }
+function updateWindCompass(){
+  windDeg=_normDeg(windDeg); rideDeg=_normDeg(rideDeg);
+  const wa=document.getElementById('wind-arrow');
+  const ra=document.getElementById('ride-arrow');
+  if(wa) wa.style.transform=`translate(-50%,-100%) rotate(${windDeg}deg)`;
+  if(ra) ra.style.transform=`translate(-50%,-100%) rotate(${rideDeg}deg)`;
+  const wl=document.getElementById('r-wdir-label'); if(wl) wl.textContent=_bearingText(windDeg);
+  const rl=document.getElementById('r-rdir-label'); if(rl) rl.textContent=_bearingText(rideDeg);
+  const selW=document.getElementById('r-wdir-sel'); if(selW) selW.value=String(Math.round(windDeg/45)*45%360);
+  const selR=document.getElementById('r-rdir-sel'); if(selR) selR.value=String(Math.round(rideDeg/45)*45%360);
+  const wd=document.getElementById('r-wdir'); if(wd) wd.value=windDeg;
+  const rd=document.getElementById('r-rdir'); if(rd) rd.value=rideDeg;
+  const wdd=document.getElementById('r-wdir-deg'); if(wdd) wdd.value=windDeg;
+  const rdd=document.getElementById('r-rdir-deg'); if(rdd) rdd.value=rideDeg;
+  const h=hw(+document.getElementById('r-wsp')?.value||0, windDeg, rideDeg);
+  const lbl=h>0.5?`向かい風 ${h.toFixed(1)} m/s`:h<-0.5?`追い風 ${Math.abs(h).toFixed(1)} m/s`:`横風 ${Math.abs(h).toFixed(1)} m/s`;
+  const hint=document.getElementById('r-wind-hint'); if(hint) hint.textContent=lbl;
+  const load=document.getElementById('wind-load-label'); if(load) load.textContent=lbl;
+}
+function renderCompass(){ updateWindCompass(); }
+function initCompass(){ updateWindCompass(); initWindCompassDrag(); }
+function windDegFromSel(){ const el=document.getElementById('r-wdir-sel'); if(el) windDeg=+el.value||0; updateWindCompass(); }
+function rideDegFromSel(){ const el=document.getElementById('r-rdir-sel'); if(el) rideDeg=+el.value||0; updateWindCompass(); }
+function initWindCompassDrag(){
+  const c=document.getElementById('wind-compass');
+  if(!c || c.dataset.bound) return;
+  c.dataset.bound='1';
+  const setFromEvent=(ev)=>{
+    const r=c.getBoundingClientRect();
+    const x=(ev.clientX||ev.touches?.[0]?.clientX)-r.left-r.width/2;
+    const y=(ev.clientY||ev.touches?.[0]?.clientY)-r.top-r.height/2;
+    windDeg=_normDeg(Math.atan2(x,-y)*180/Math.PI);
+    updateWindCompass();
+    if(typeof mcpCalc==='function') mcpCalc('detail'); else if(typeof calc==='function') calc();
+  };
+  c.addEventListener('pointerdown',e=>{dragging='wind';c.setPointerCapture(e.pointerId);setFromEvent(e);});
+  c.addEventListener('pointermove',e=>{if(dragging==='wind') setFromEvent(e);});
+  c.addEventListener('pointerup',()=>{dragging=null;});
+  c.addEventListener('pointercancel',()=>{dragging=null;});
+}
+
 setMode('spd');
 initCompass();
 calcRun();calcTri();
@@ -4945,10 +5162,12 @@ updateDialDisplay('start');
     const p=JSON.parse(saved);
     mcp.spd   = +p.spd   || 30;
     mcp.dist  = +p.dist  || 50;
+    mcp.elev  = +p.elev  || 300;
     const [sh=8, sm=0] = (p.start||'08:00').split(':').map(Number);
     mcp.startH = sh; mcp.startM = sm;
     document.getElementById('mcp-dist').value = mcp.dist;
     document.getElementById('mcp-spd').value  = mcp.spd;
+    const me=document.getElementById('mcp-elev'); if(me) me.value=mcp.elev;
   }
   _mcpShowDial('start', mcp.startH, mcp.startM);
   mcpCalc('start');
