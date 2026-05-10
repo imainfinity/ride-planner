@@ -59,7 +59,7 @@ body.sp-mode #mcp-sidebar{display:none !important}
 body.sp-mode .app-body{display:block}
 body.sp-mode .ride-map-col{padding:4px}
 body.sp-mode .ride-settings-col{border-top:2px solid var(--border2);padding:8px;background:var(--bg)}
-body.sp-mode #gmap{height:60vh !important;min-height:240px}
+body.sp-mode #gmap{height:72svh !important;min-height:360px}
 body.sp-mode #drawer-toggle{display:flex;align-items:center;justify-content:center;gap:6px;
   width:100%;padding:8px;background:var(--bg2);border:none;border-radius:var(--rs);
   font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;margin-bottom:6px;font-family:inherit}
@@ -246,8 +246,29 @@ body.pc-mode .ride-settings-col{padding-top:0}
 .time-read{font-size:19px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--text);min-width:54px;text-align:center}
 .time-read.goal{color:var(--amber)}
 .time-mini-btn{width:22px;height:28px;border:0.5px solid var(--border2);border-radius:4px;background:var(--bg);color:var(--text2);font-size:12px;cursor:pointer;font-family:inherit}
-.setting-link-btn{padding:7px 12px;border:none;border-radius:var(--rs);background:var(--acc);color:#fff;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap}
 @media(max-width:520px){.locked-metric{min-width:64px;padding:5px 7px}.locked-value{font-size:15px}.time-read{font-size:17px;min-width:48px}}
+
+/* ── v8.7 スマホ地図優先・コース設定導線 ── */
+.course-setting-tile{min-width:118px;justify-content:center;align-items:center;cursor:pointer;border:1.5px solid var(--acc);background:var(--bg);transition:all .14s}
+.course-setting-tile:hover{transform:translateY(-1px);box-shadow:0 3px 10px rgba(0,0,0,.12)}
+.course-setting-tile .locked-value{font-size:14px;color:var(--acc)}
+.course-setting-tile .locked-label{color:var(--acc)}
+@media(max-width:520px){
+  #mcp-bar{padding:5px 7px!important;gap:4px!important}
+  #time-selector-bar{gap:4px!important}
+  #time-selector-bar .modebt{flex:1 1 118px!important;padding:5px 6px!important}
+  .time-chip{padding:4px 5px}
+  .time-mini-btn{width:20px;height:25px;font-size:10px}
+  #locked-course-panel{gap:4px!important}
+  .course-setting-tile{min-width:106px}
+  #map-search-bar{padding:3px!important}
+}
+.fs-command-row{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px}
+.fs-command-row button,.fs-command-row select{padding:5px 8px;border:none;border-radius:5px;background:rgba(255,255,255,.15);color:#fff;font-size:11px;cursor:pointer;font-family:inherit}
+.fs-command-row .fs-gpx{background:#4ade80;color:#18180f;font-weight:800}
+.fs-command-row .fs-course{background:#fb923c;color:#18180f;font-weight:800}
+.fs-command-row select option{color:#111}
+
 
 </style>
 
@@ -272,7 +293,7 @@ body.pc-mode .ride-settings-col{padding-top:0}
 <!-- GPS再取得ボタン（常時表示） -->
 <button id="gps-retry-btn" onclick="retryGPS()" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">📍</button>
 <header>
-  <h1>Ride Pace Planner <span class="ver">v8.5</span></h1>
+  <h1>Ride Pace Planner <span class="ver">v8.7</span></h1>
   <span class="sub">ライド計画 / Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
@@ -324,18 +345,17 @@ body.pc-mode .ride-settings-col{padding-top:0}
     </div>
 
     <div style="margin-left:auto;display:flex;gap:5px;align-items:center">
-      <button class="setting-link-btn" onclick="openSettingsModal()">⚙ コース設定はこちら</button>
       <button onclick="mcpForceRecalc()" style="padding:7px 12px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg2);color:var(--text);font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap">🔄 再計算</button>
     </div>
   </div>
 
   <!-- 固定操作パネル：表示専用 -->
   <div id="locked-course-panel" style="display:flex;flex-wrap:wrap;gap:6px;align-items:stretch">
-    <div class="locked-metric"><div class="locked-label">距離</div><div class="locked-value" id="mcp-dist-display">50.0 km</div><div class="locked-sub" id="mcp-source">手動入力</div></div>
+    <div class="locked-metric"><div class="locked-label">距離</div><div class="locked-value" id="mcp-dist-display">50.0 km</div><div class="locked-sub" id="mcp-source">🔒 設定値反映</div></div>
     <div class="locked-metric"><div class="locked-label">獲得標高</div><div class="locked-value" id="mcp-elev-display">300 m</div><div class="locked-sub">設定/ルート反映</div></div>
     <div class="locked-metric"><div class="locked-label">NET平均速度</div><div class="locked-value" id="mcp-spd-display">30.0 km/h</div><div class="locked-sub">入力方式で自動反映</div></div>
     <div class="locked-metric"><div class="locked-label">所要時間</div><div class="locked-value" id="mcp-total">—</div><div class="locked-sub" id="mcp-time-note">Ratio込み</div></div>
-    <div class="locked-metric"><div class="locked-label">入力ロック</div><div class="locked-value" style="font-size:13px">表示専用</div><div class="locked-sub">数値変更は設定画面へ</div></div>
+    <button type="button" class="locked-metric course-setting-tile" onclick="openSettingsModal()"><div class="locked-label">🚩 コース</div><div class="locked-value">コース設定</div><div class="locked-sub">数値変更はこちら</div></button>
   </div>
 </div>
 
@@ -395,6 +415,18 @@ body.pc-mode .ride-settings-col{padding-top:0}
           <button onclick="togglePOI('史跡')" style="padding:3px 6px;border:none;border-radius:4px;background:rgba(255,255,255,.15);color:#fff;font-size:12px;cursor:pointer">🏯</button>
           <button onclick="togglePOI('名所・観光')" style="padding:3px 6px;border:none;border-radius:4px;background:rgba(255,255,255,.15);color:#fff;font-size:12px;cursor:pointer">⛩️</button>
           <button onclick="togglePOI('温泉')" style="padding:3px 6px;border:none;border-radius:4px;background:rgba(255,255,255,.15);color:#fff;font-size:12px;cursor:pointer">♨️</button>
+        </div>
+        <div class="fs-command-row">
+          <button onclick="undoRoute()">↩ 戻す</button>
+          <button onclick="redoRoute()">↪ 進む</button>
+          <button onclick="manualSync()">🔄 再計算</button>
+          <button class="fs-gpx" onclick="downloadGPX()">GPX保存</button>
+          <button onclick="showSaveDialog()">💾 保存</button>
+          <button class="fs-course" onclick="openSettingsModal()">🚩 コース設定</button>
+          <select onchange="document.getElementById('route-mode').value=this.value;smartCalc('dist');if(waypoints.length>=2)calcRoute();this.blur()">
+            <option value="road">幹線優先</option>
+            <option value="avoid_hw">裏道優先</option>
+          </select>
         </div>
       </div>
       <div id="map-hover" style="display:none;position:absolute;bottom:60px;right:52px;background:rgba(0,0,0,0.82);color:#fff;border-radius:6px;padding:7px 10px;font-size:11px;line-height:1.6;pointer-events:none;z-index:20;text-align:right">
@@ -500,7 +532,7 @@ body.pc-mode .ride-settings-col{padding-top:0}
       </div>
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
-      <div id="mcp-sb-source" style="font-size:9px;color:var(--text3)">手動入力</div>
+      <div id="mcp-sb-source" style="font-size:9px;color:var(--text3)">🔒 設定値反映</div>
       <button onclick="mcpForceRecalc()" style="padding:4px 10px;border:none;border-radius:var(--rs);background:var(--acc);color:#fff;font-size:10px;font-weight:700;cursor:pointer">🔄 再計算</button>
     </div>
   </div>
@@ -855,7 +887,7 @@ body.pc-mode .ride-settings-col{padding-top:0}
     <!-- 食べ物タブ -->
     <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">🍙 食事で換算</div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px" id="cal-food-grid"></div>
-    <div style="margin-top:8px;font-size:10px;color:var(--text3)">※ MET法（自転車 8.0 METs）× 体重 × 実走時間で算出</div>
+    <div style="margin-top:8px;font-size:10px;color:var(--text3)">※ MET法（自転車 8.0 METs）× 体重 × 実走時間で算出。RMR/REE相当の安静時消費も含む「総消費カロリー」です。</div>
   </div>
 
   <div class="field" style="margin-top:10px">
@@ -1068,7 +1100,7 @@ body.pc-mode .ride-settings-col{padding-top:0}
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:12px" id="run-cal-drink-grid"></div>
     <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">🍙 食事で換算</div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px" id="run-cal-food-grid"></div>
-    <div style="margin-top:8px;font-size:10px;color:var(--text3)">※ MET法（ランニング 9.8 METs）× 体重 × 実走時間で算出</div>
+    <div style="margin-top:8px;font-size:10px;color:var(--text3)">※ MET法（ランニング 9.8 METs）× 体重 × 実走時間で算出。RMR/REE相当の安静時消費も含む「総消費カロリー」です。</div>
   </div>
 
   <div class="brow">
@@ -1780,7 +1812,7 @@ function renderCaloriePanel(netMins, weight){
   document.getElementById('calorie-panel').style.display = 'block';
   document.getElementById('cal-total').textContent = kcal.toLocaleString();
   document.getElementById('cal-sub').textContent =
-    `(実走 ${Math.round(netMins)}分 × 体重 ${weight}kg)`;
+    `(総消費・RMR/REE含む / 実走 ${Math.round(netMins)}分 × 体重 ${weight}kg)`;
 
   // お酒グリッド
   document.getElementById('cal-drink-grid').innerHTML = DRINK_DATA.map(d=>{
@@ -2122,7 +2154,7 @@ function renderRunCaloriePanel(netMins, weight){
   document.getElementById('run-calorie-panel').style.display='block';
   document.getElementById('run-cal-total').textContent=kcal.toLocaleString();
   document.getElementById('run-cal-sub').textContent=
-    `(実走 ${Math.round(netMins)}分 × 体重 ${weight}kg)`;
+    `(総消費・RMR/REE含む / 実走 ${Math.round(netMins)}分 × 体重 ${weight}kg)`;
   document.getElementById('run-cal-drink-grid').innerHTML=
     DRINK_DATA.map(d=>{
       const cnt=kcal/d.kcal;
@@ -4805,7 +4837,7 @@ function mcpFlushAll(totalMins, moveSpdEff){
     document.getElementById('mcp-end-m').textContent = '--';
   }
   document.getElementById('mcp-total').textContent = totalMins ? fmtD(totalMins) : '—';
-  const srcLabel = mcp.source === 'route' ? '📍 マップルート' : '手動入力';
+  const srcLabel = mcp.source === 'route' ? '📍 ルート反映' : '🔒 設定値反映';
   const _srcEl=document.getElementById('mcp-source'); if(_srcEl) _srcEl.textContent = srcLabel;
   // PC サイドバー同期
   const _sbsh = document.getElementById('mcp-sb-start-h');
