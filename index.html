@@ -270,6 +270,48 @@ body.pc-mode .ride-settings-col{padding-top:0}
 .fs-command-row select option{color:#111}
 
 
+
+/* ── v8.10: 再計算ボタン撤去・スマホ表示圧縮 ── */
+#mcp-bar{padding:6px 10px!important;gap:5px!important}
+#time-selector-bar{gap:5px!important}
+#locked-course-panel{gap:5px!important}
+.locked-metric{min-width:86px;padding:5px 7px!important}
+.locked-label{font-size:8px!important;letter-spacing:.05em!important}
+.locked-value{font-size:15px!important;line-height:1.08!important}
+.locked-sub{font-size:8px!important;line-height:1.05!important}
+.course-setting-tile{min-width:112px!important;padding:5px 8px!important}
+.course-setting-tile .locked-value{font-size:13px!important}
+.time-chip{padding:4px 6px!important}
+.time-read{font-size:17px!important;min-width:48px!important}
+.time-mini-btn{height:25px!important;width:21px!important;font-size:10px!important}
+@media(max-width:520px){
+  header{padding:6px 10px!important}
+  header h1{font-size:13px!important}
+  header .sub{display:none!important}
+  .tabs{padding:3px 6px!important;overflow-x:auto!important}
+  .tab{padding:5px 8px!important;font-size:10px!important}
+  #mcp-bar{padding:4px 6px!important;gap:4px!important}
+  #time-selector-bar{display:grid!important;grid-template-columns:1fr 1fr!important;gap:4px!important}
+  #time-selector-bar .modebt{flex:none!important;width:100%!important;font-size:10px!important;padding:5px 4px!important}
+  #time-selector-bar .time-chip{grid-column:span 1;justify-content:center;gap:2px!important;padding:3px 4px!important}
+  .time-chip .locked-label{display:none!important}
+  .time-read{font-size:15px!important;min-width:42px!important}
+  .time-mini-btn{width:19px!important;height:23px!important;font-size:9px!important;padding:0!important}
+  #locked-course-panel{display:grid!important;grid-template-columns:repeat(3,1fr)!important;gap:4px!important}
+  .locked-metric{min-width:0!important;padding:5px 4px!important;border-radius:6px!important}
+  .locked-value{font-size:14px!important}
+  .locked-sub{display:none!important}
+  .course-setting-tile{grid-column:span 1;min-width:0!important}
+  .course-setting-tile .locked-value{font-size:12px!important}
+  body.sp-mode #gmap{height:72vh!important;min-height:430px!important}
+  #map-search-bar input{font-size:12px!important;padding:6px 8px!important}
+  #map-search-bar button{font-size:11px!important;padding:6px 9px!important}
+}
+@media(max-width:380px){
+  #locked-course-panel{grid-template-columns:repeat(2,1fr)!important}
+  .course-setting-tile{grid-column:span 2!important}
+}
+
 </style>
 
 <script>
@@ -293,7 +335,7 @@ body.pc-mode .ride-settings-col{padding-top:0}
 <!-- GPS再取得ボタン（常時表示） -->
 <button id="gps-retry-btn" onclick="retryGPS()" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">📍</button>
 <header>
-  <h1>Ride Pace Planner <span class="ver">v8.7</span></h1>
+  <h1>Ride Pace Planner <span class="ver">v8.10</span></h1>
   <span class="sub">ライド計画 / Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
@@ -344,9 +386,6 @@ body.pc-mode .ride-settings-col{padding-top:0}
       <button class="time-mini-btn" onclick="mcpClearEnd()" title="ゴール固定解除">✕</button>
     </div>
 
-    <div style="margin-left:auto;display:flex;gap:5px;align-items:center">
-      <button onclick="mcpForceRecalc()" style="padding:7px 12px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg2);color:var(--text);font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap">🔄 再計算</button>
-    </div>
   </div>
 
   <!-- 固定操作パネル：表示専用 -->
@@ -630,9 +669,9 @@ body.pc-mode .ride-settings-col{padding-top:0}
   <div class="panel" style="margin-bottom:9px">
     <!-- 行1：日付・地域（独立した行） -->
     <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px">
-      <input type="date" id="dl-date" oninput="renderDaylight()"
+      <input type="date" id="dl-date" oninput="renderDaylight();updateAutoTempFromDate()"
              style="font-size:12px;padding:4px 8px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text);flex:1">
-      <select id="dl-pref" onchange="setPrefLocation()"
+      <select id="dl-pref" onchange="setPrefLocation();updateAutoTempFromDate()"
               style="font-size:12px;padding:4px 8px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text);flex:1;max-width:130px">
           <option value="">📍 現在地</option>
           <option value="43.06,141.35">北海道</option><option value="39.70,141.13">岩手</option>
@@ -786,46 +825,28 @@ body.pc-mode .ride-settings-col{padding-top:0}
   <!-- ③ 風・コンディション -->
   <div class="panel">
     <div class="pt">風・コンディション</div>
-    <div class="g2" style="margin-bottom:8px">
+    <div style="margin-bottom:8px">
       <div class="field">
-        <label>風速 (m/s)</label>
-        <input type="number" id="r-wsp" value="3" step="0.5" min="0" onchange="smartCalc('speed')">
-      </div>
-      <div class="field">
-        <label>風向き</label>
-        <select id="r-wdir-sel" onchange="windDegFromSel();calc()" style="font-size:13px;padding:7px 9px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text);width:100%">
-          <option value="0">↑ 北へ流れる風</option>
-          <option value="45">↗ 北東へ流れる風</option>
-          <option value="90">→ 東へ流れる風</option>
-          <option value="135">↘ 南東へ流れる風</option>
-          <option value="180">↓ 南へ流れる風</option>
-          <option value="225">↙ 南西へ流れる風</option>
-          <option value="270">← 西へ流れる風</option>
-          <option value="315">↖ 北西へ流れる風</option>
+        <label>風速レンジ</label>
+        <select id="r-wsp-range" onchange="updateWindSpeedRange();smartCalc('speed')" style="font-size:13px;padding:7px 9px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text);width:100%">
+          <option value="0.5" data-label="0〜1 m/s｜ほぼ無風" data-desc="快適。風の影響はほぼなし">0〜1 m/s　ほぼ無風</option>
+          <option value="2" data-label="1〜3 m/s｜そよ風" data-desc="涼しく感じる。ライドには快適" selected>1〜3 m/s　そよ風</option>
+          <option value="4" data-label="3〜5 m/s｜風を感じる" data-desc="向かい風だと少し重い。横風も少し気になる">3〜5 m/s　風を感じる</option>
+          <option value="6.5" data-label="5〜8 m/s｜はっきり強い風" data-desc="巡航速度が落ちる。橋・海沿い・田んぼ道は注意">5〜8 m/s　はっきり強い風</option>
+          <option value="9" data-label="8〜10 m/s｜かなり強い" data-desc="ロードバイクでは疲労大。横風で車体が振られる">8〜10 m/s　かなり強い</option>
+          <option value="12.5" data-label="10〜15 m/s｜危険寄り" data-desc="ライド非推奨。突風でふらつく。歩行でも不快">10〜15 m/s　危険寄り</option>
+          <option value="17.5" data-label="15〜20 m/s｜危険" data-desc="屋外活動は避けたい。看板・枝・飛来物リスク">15〜20 m/s　危険</option>
+          <option value="22" data-label="20 m/s〜｜非常に危険" data-desc="外出自体を控えるレベル">20 m/s〜　非常に危険</option>
         </select>
+        <input type="hidden" id="r-wsp" value="2">
+        <div class="hint" id="r-wsp-desc">1〜3 m/s｜そよ風：涼しく感じる。ライドには快適</div>
         <div class="hint" id="r-wind-hint"></div>
       </div>
     </div>
-    <div class="g2" style="margin-bottom:8px">
-      <div class="field">
-        <label>走行方向</label>
-        <select id="r-rdir-sel" onchange="rideDegFromSel();calc()" style="font-size:13px;padding:7px 9px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text);width:100%">
-          <option value="0">↑ 北向き</option>
-          <option value="45">↗ 北東</option>
-          <option value="90">→ 東向き</option>
-          <option value="135">↘ 南東</option>
-          <option value="180">↓ 南向き</option>
-          <option value="225">↙ 南西</option>
-          <option value="270">← 西向き</option>
-          <option value="315">↖ 北西</option>
-        </select>
-      </div>
-      <div class="field"></div>
-    </div>
     <!-- 隠しinput（計算用・後方互換） -->
-    <input type="hidden" id="r-wdir" value="0">
+    <input type="hidden" id="r-wdir" value="180">
     <input type="hidden" id="r-rdir" value="0">
-    <input type="hidden" id="r-wdir-deg" value="0">
+    <input type="hidden" id="r-wdir-deg" value="180">
     <input type="hidden" id="r-rdir-deg" value="0">
     <div class="wind-compass-card">
       <div class="wind-compass-grid">
@@ -839,21 +860,26 @@ body.pc-mode .ride-settings-col{padding-top:0}
           <div class="wind-chip"><span>🔴 風が流れる方向（ドラッグ可）</span><b id="r-wdir-label">北向き</b></div>
           <div class="wind-chip"><span>🔵 コース進行方向</span><b id="r-rdir-label">北向き</b></div>
           <div class="wind-chip"><span>負荷判定</span><b id="wind-load-label">横風</b></div>
-          <div class="hint">赤＝風が流れていく方向 / 青＝作成コース全体の進行方向。赤矢印をドラッグして向きを調整できます。</div>
+          <div class="wind-chip"><span>風速レンジ</span><b id="wind-speed-label">1〜3 m/s｜そよ風</b></div>
+          <div class="hint">赤＝風が流れていく方向 / 青＝作成コース全体の進行方向。風向きは赤矢印をドラッグ、風速は上のプルダウンで選択します。</div>
         </div>
       </div>
     </div>
     <div class="g3">
       <div class="field"><label>天候</label>
-        <select id="r-weather" onchange="smartCalc('speed')">
+        <select id="r-weather" onchange="syncWeatherCondToModal();smartCalc('speed')">
           <option value="1.00">☀️ 晴れ</option>
           <option value="0.97">⛅ 曇り</option>
           <option value="0.93">🌧 雨</option>
         </select>
       </div>
-      <div class="field"><label>気温 (°C)</label><input type="number" id="r-temp" value="22" step="1" onchange="smartCalc('speed')"></div>
+      <div class="field"><label>平均気温（自動）</label>
+        <div id="r-temp-display" style="font-size:18px;font-weight:800;padding:8px 10px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg2);color:var(--text)">22°C</div>
+        <input type="hidden" id="r-temp" value="22">
+        <div class="hint" id="r-temp-hint">日付・地域から自動反映</div>
+      </div>
       <div class="field"><label>体調</label>
-        <select id="r-cond" onchange="smartCalc('speed')">
+        <select id="r-cond" onchange="syncWeatherCondToModal();smartCalc('speed')">
           <option value="1.00">良好</option>
           <option value="0.97">普通</option>
           <option value="0.93">やや不調</option>
@@ -1414,6 +1440,20 @@ function syncCompassSelects(){
   if(ws) ws.value=String(Math.round(normDeg(windDeg)/45)*45%360);
   if(rs) rs.value=String(Math.round(normDeg(rideDeg)/45)*45%360);
 }
+function updateWindSpeedRange(){
+  const sel=document.getElementById('r-wsp-range');
+  const hidden=document.getElementById('r-wsp');
+  if(!sel) return;
+  const opt=sel.options[sel.selectedIndex];
+  const v=+sel.value||0;
+  if(hidden) hidden.value=String(v);
+  const label=opt?.dataset?.label || (sel.options[sel.selectedIndex]?.textContent || '');
+  const desc=opt?.dataset?.desc || '';
+  const wl=document.getElementById('wind-speed-label');
+  const hd=document.getElementById('r-wsp-desc');
+  if(wl) wl.textContent=label;
+  if(hd) hd.textContent=label + (desc ? '：' + desc : '');
+}
 function syncToHidden(){
   windDeg=normDeg(windDeg); rideDeg=normDeg(rideDeg);
   const wd=document.getElementById('r-wdir');
@@ -1428,6 +1468,7 @@ function syncToHidden(){
   setArrow(document.getElementById('wind-arrow'), windDeg);
   setArrow(document.getElementById('ride-arrow'), rideDeg);
 
+  updateWindSpeedRange();
   const head=hw(+document.getElementById('r-wsp')?.value||0, windDeg, rideDeg);
   const wl=document.getElementById('r-wdir-label');
   const rl=document.getElementById('r-rdir-label');
@@ -1441,6 +1482,7 @@ function syncToHidden(){
 function windDegFromSel(){
   const sel=document.getElementById('r-wdir-sel');
   if(sel) windDeg=+sel.value||0;
+  updateWindSpeedRange();
   syncToHidden();
 }
 function rideDegFromSel(){
@@ -2316,6 +2358,49 @@ function _prefOptionsHtml(){
   return '<option value="33.61,130.42">福岡</option><option value="35.69,139.69">東京</option><option value="34.69,135.50">大阪</option><option value="35.18,136.91">愛知</option><option value="43.06,141.35">北海道</option><option value="26.21,127.68">沖縄</option>';
 }
 
+
+/* v8.10: 気温は日付・地域から自動推定。手入力は廃止 */
+function _avgTempByMonthAndLat(month, lat){
+  // 日本向けの簡易推定。実測APIではなく、日付と地域から季節感を反映するための内部テーブル。
+  const baseFukuoka=[6,7,10,15,20,23,27,28,24,19,13,8];
+  const idx=Math.max(0,Math.min(11,(month||1)-1));
+  const latAdj=(33.6-(+lat||33.6))*0.75;
+  return Math.round(baseFukuoka[idx]+latAdj);
+}
+function _currentRideDate(){
+  const el=document.getElementById('dl-date');
+  if(el && el.value) return new Date(el.value+'T12:00:00');
+  return new Date();
+}
+function _currentPrefLatLon(){
+  const modal=document.getElementById('modal-pref');
+  const live=document.getElementById('dl-pref');
+  const v=(modal&&modal.value) || (live&&live.value) || '33.61,130.42';
+  const a=String(v||'33.61,130.42').split(',').map(Number);
+  return {lat:a[0]||33.61, lon:a[1]||130.42};
+}
+function updateAutoTempFromDate(){
+  const d=_currentRideDate();
+  const ll=_currentPrefLatLon();
+  const temp=_avgTempByMonthAndLat(d.getMonth()+1,ll.lat);
+  const hidden=document.getElementById('r-temp'); if(hidden) hidden.value=temp;
+  const disp=document.getElementById('r-temp-display'); if(disp) disp.textContent=temp+'°C';
+  const hint=document.getElementById('r-temp-hint'); if(hint) hint.textContent=(d.getMonth()+1)+'月・選択地域の平均気温を自動反映';
+  const mdisp=document.getElementById('modal-temp-display'); if(mdisp) mdisp.textContent=temp+'°C（'+(d.getMonth()+1)+'月平均）';
+  try{ smartCalc('speed'); }catch(e){}
+}
+function syncModalWeatherToRide(){
+  const set=(from,to)=>{const a=document.getElementById(from),b=document.getElementById(to); if(a&&b){b.value=a.value;}};
+  set('modal-wsp-range','r-wsp-range'); set('modal-weather','r-weather'); set('modal-cond','r-cond');
+  if(typeof updateWindSpeedRange==='function') updateWindSpeedRange();
+  updateAutoTempFromDate();
+  try{ smartCalc('speed'); }catch(e){}
+}
+function syncWeatherCondToModal(){
+  const set=(from,to)=>{const a=document.getElementById(from),b=document.getElementById(to); if(a&&b){b.value=a.value;}};
+  set('r-wsp-range','modal-wsp-range'); set('r-weather','modal-weather'); set('r-cond','modal-cond');
+}
+
 /* ══════════════════════════════════════
    設定モーダル：同じライドカラムへ即時マッピング
 ══════════════════════════════════════ */
@@ -2373,7 +2458,21 @@ function openSettingsModal(){
           <div class="g3" style="gap:10px;margin-bottom:14px">
             <div class="field"><label>スタート時刻</label><input type="time" id="modal-start" value="08:00" oninput="saveUserPref(true)"><div class="hint">スタートから計算時の基準</div></div>
             <div class="field"><label>ゴール時刻</label><input type="time" id="modal-goal" value="07:00" oninput="saveUserPref(true)"><div class="hint">ゴール時間で逆算時の基準</div></div>
-            <div class="field"><label>都道府県（日照）</label><select id="modal-pref" onchange="saveUserPref(true)" style="font-size:13px;padding:7px 9px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text);width:100%"></select></div>
+            <div class="field"><label>都道府県（日照・平均気温）</label><select id="modal-pref" onchange="saveUserPref(true);updateAutoTempFromDate()" style="font-size:13px;padding:7px 9px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text);width:100%"></select></div>
+          </div>
+
+          <div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.03em;margin:8px 0 8px">天候・風・体調</div>
+          <div class="g3" style="gap:10px;margin-bottom:12px">
+            <div class="field"><label>風速レンジ</label><select id="modal-wsp-range" onchange="syncModalWeatherToRide();saveUserPref(true)" style="font-size:13px;padding:7px 9px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text);width:100%">
+              <option value="0.5">0〜1 m/s　ほぼ無風</option><option value="2">1〜3 m/s　そよ風</option><option value="4">3〜5 m/s　風を感じる</option><option value="6.5">5〜8 m/s　はっきり強い風</option><option value="9">8〜10 m/s　かなり強い</option><option value="12.5">10〜15 m/s　危険寄り</option><option value="17.5">15〜20 m/s　危険</option><option value="22">20 m/s〜　非常に危険</option>
+            </select></div>
+            <div class="field"><label>天候</label><select id="modal-weather" onchange="syncModalWeatherToRide();saveUserPref(true)" style="font-size:13px;padding:7px 9px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text);width:100%"><option value="1.00">☀️ 晴れ</option><option value="0.97">⛅ 曇り</option><option value="0.93">🌧 雨</option></select></div>
+            <div class="field"><label>体調</label><select id="modal-cond" onchange="syncModalWeatherToRide();saveUserPref(true)" style="font-size:13px;padding:7px 9px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text);width:100%"><option value="1.00">良好</option><option value="0.97">普通</option><option value="0.93">やや不調</option><option value="0.88">不調</option></select></div>
+          </div>
+          <div class="field" style="margin:-4px 0 14px">
+            <label>平均気温（自動反映）</label>
+            <div id="modal-temp-display" style="font-size:18px;font-weight:800;padding:8px 10px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg2);color:var(--text)">22°C</div>
+            <div class="hint">セレクト中の日付・地域から自動推定。手入力は不要。</div>
           </div>
           <div style="display:flex;gap:10px;align-items:center;margin-top:8px">
             <button class="bp" onclick="applyUserPref()" style="padding:10px 20px;font-size:13px;font-weight:700">ライドに適用</button>
@@ -2433,7 +2532,10 @@ function saveUserPref(liveApply){
     rideInputMode: (window.__modalRideInputMode || current.rideInputMode || inputMode || 'spd'),
     start: _modalVal('start', current.start),
     pref:  _modalVal('pref', current.pref),
-    goalTime: _modalVal('goal', current.goalTime || '07:00')
+    goalTime: _modalVal('goal', current.goalTime || '07:00'),
+    wspRange: _modalVal('wsp-range', current.wspRange || document.getElementById('r-wsp-range')?.value || '2'),
+    weather: _modalVal('weather', current.weather || document.getElementById('r-weather')?.value || '1.00'),
+    cond: _modalVal('cond', current.cond || document.getElementById('r-cond')?.value || '1.00')
   };
   localStorage.setItem('rpp_user_pref', JSON.stringify(pref));
   if(liveApply) _mapPrefToRide(pref, true);
@@ -2447,10 +2549,12 @@ function loadUserPrefUI(){
   _setModalVal('weight',p.weight); _setModalVal('ftp',p.ftp); _setModalVal('ratio',p.ratio);
   _setModalVal('wkg',p.wkg); _setModalVal('np',p.np);
   _setModalVal('start',p.start); _setModalVal('goal',p.goalTime||'07:00'); _setModalVal('pref',p.pref);
+  _setModalVal('wsp-range',p.wspRange||'2'); _setModalVal('weather',p.weather||'1.00'); _setModalVal('cond',p.cond||'1.00');
   window.__modalRideInputMode = p.rideInputMode || inputMode || 'spd';
   if(typeof updateModalRideInputModeButtons==='function') updateModalRideInputModeButtons();
   if(typeof modalSyncZoneFromWkg==='function') modalSyncZoneFromWkg();
   if(typeof buildModalPowerZones==='function') buildModalPowerZones();
+  if(typeof updateAutoTempFromDate==='function') updateAutoTempFromDate();
   const mode=localStorage.getItem('rpp_time_mode')||'start-first';
   _updateModeButtons(mode);
 }
@@ -2469,6 +2573,10 @@ function _mapPrefToRide(p, silent){
   set('r-dist',mcp.dist); set('r-elev',p.elev||300); set('r-movespd',mcp.spd);
   set('r-weight',p.weight||65); set('r-weight-pwr',p.weight||65); set('r-ftp',p.ftp||220); set('r-ratio',p.ratio||85); set('r-wkg',p.wkg||2.5); set('r-np',p.np||'');
   set('r-start',p.start||'08:00');
+  if(p.wspRange){ set('r-wsp-range',p.wspRange); if(typeof updateWindSpeedRange==='function') updateWindSpeedRange(); }
+  if(p.weather) set('r-weather',p.weather);
+  if(p.cond) set('r-cond',p.cond);
+  if(typeof updateAutoTempFromDate==='function') updateAutoTempFromDate();
 
   const prefEl=document.getElementById('dl-pref');
   if(prefEl && p.pref) prefEl.value=p.pref;
@@ -5338,6 +5446,8 @@ function toggleLayout(){
    → 各サブUIに同期 → 計算実行
 ══════════════════════════════════════ */
 
+
+try{setTimeout(updateAutoTempFromDate,300);}catch(e){}
 
 /* v8.5: 固定パネル表示専用の同期補助 */
 function refreshLockedPanelValues(){
