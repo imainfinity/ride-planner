@@ -312,6 +312,48 @@ body.pc-mode .ride-settings-col{padding-top:0}
   .course-setting-tile{grid-column:span 2!important}
 }
 
+/* ── v8.11: スマホ地図上固定POIバー ── */
+#map-poi-floating{display:none}
+body.sp-mode #map-poi-floating{
+  display:flex;
+  position:absolute;
+  top:10px;
+  left:10px;
+  z-index:25;
+  flex-direction:column;
+  gap:4px;
+  pointer-events:auto;
+}
+.poi-float-btn{
+  width:42px;
+  min-height:38px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:1px;
+  border:none;
+  border-radius:9px;
+  background:rgba(255,255,255,.92);
+  color:#222;
+  box-shadow:0 2px 9px rgba(0,0,0,.24);
+  backdrop-filter:blur(6px);
+  font-size:17px;
+  line-height:1;
+  cursor:pointer;
+  font-family:inherit;
+}
+.poi-float-btn div{font-size:8px;font-weight:800;color:#333;line-height:1;white-space:nowrap}
+.poi-float-btn.active{background:var(--acc);color:#fff}
+.poi-float-btn.active div{color:rgba(255,255,255,.82)}
+body.pc-mode #map-poi-floating{display:none!important}
+@media(max-width:380px){
+  body.sp-mode #map-poi-floating{top:8px;left:8px;gap:3px}
+  .poi-float-btn{width:38px;min-height:34px;font-size:15px;border-radius:8px}
+  .poi-float-btn div{font-size:7px}
+}
+
+
 </style>
 
 <script>
@@ -335,7 +377,7 @@ body.pc-mode .ride-settings-col{padding-top:0}
 <!-- GPS再取得ボタン（常時表示） -->
 <button id="gps-retry-btn" onclick="retryGPS()" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">📍</button>
 <header>
-  <h1>Ride Pace Planner <span class="ver">v8.10</span></h1>
+  <h1>Ride Pace Planner <span class="ver">v8.11</span></h1>
   <span class="sub">ライド計画 / Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
@@ -416,6 +458,18 @@ body.pc-mode .ride-settings-col{padding-top:0}
     <!-- 地図 -->
     <div style="position:relative">
       <div id="gmap" style="width:100%;height:400px;border-radius:var(--rs);border:0.5px solid var(--border);background:var(--bg2)"></div>
+
+      <!-- スマホ専用：地図上固定POIショートカットバー -->
+      <div id="map-poi-floating" aria-label="POI shortcut buttons">
+        <button class="poi-float-btn" data-poi-label="コンビニ" onclick="selectPOICategory('コンビニ')" title="コンビニ">🏪<div>CVS</div></button>
+        <button class="poi-float-btn" data-poi-label="カフェ" onclick="selectPOICategory('カフェ')" title="カフェ">☕<div>Café</div></button>
+        <button class="poi-float-btn" data-poi-label="レストラン" onclick="selectPOICategory('レストラン')" title="食事">🍽️<div>食事</div></button>
+        <button class="poi-float-btn" data-poi-label="公園" onclick="selectPOICategory('公園')" title="公園">🌳<div>公園</div></button>
+        <button class="poi-float-btn" data-poi-label="絶景" onclick="selectPOICategory('絶景')" title="絶景">🏔️<div>絶景</div></button>
+        <button class="poi-float-btn" data-poi-label="史跡" onclick="selectPOICategory('史跡')" title="史跡">🏯<div>史跡</div></button>
+        <button class="poi-float-btn" data-poi-label="名所・観光" onclick="selectPOICategory('名所・観光')" title="名所・観光">⛩️<div>名所</div></button>
+        <button class="poi-float-btn" data-poi-label="温泉" onclick="selectPOICategory('温泉')" title="温泉">♨️<div>温泉</div></button>
+      </div>
 
       <!-- ルート統計バー：画面上部に常時固定 -->
       <div id="map-stats-bar" style="display:none;position:fixed;top:0;left:0;right:0;z-index:300;pointer-events:none">
@@ -627,14 +681,14 @@ body.pc-mode .ride-settings-col{padding-top:0}
   <div style="margin-bottom:6px">
     <!-- カテゴリ選択行 -->
     <div style="display:grid;grid-template-columns:repeat(8,1fr);gap:2px;margin-bottom:4px">
-      <button class="poi-icon-btn" id="poi-btn-コンビニ"   onclick="selectPOICategory('コンビニ')"   title="コンビニ">🏪<div>CVS</div></button>
-      <button class="poi-icon-btn" id="poi-btn-カフェ"     onclick="selectPOICategory('カフェ')"     title="カフェ">☕<div>Café</div></button>
-      <button class="poi-icon-btn" id="poi-btn-レストラン" onclick="selectPOICategory('レストラン')" title="食事">🍽️<div>食事</div></button>
-      <button class="poi-icon-btn" id="poi-btn-公園"       onclick="selectPOICategory('公園')"       title="公園">🌳<div>公園</div></button>
-      <button class="poi-icon-btn" id="poi-btn-絶景"       onclick="selectPOICategory('絶景')"       title="絶景">🏔️<div>絶景</div></button>
-      <button class="poi-icon-btn" id="poi-btn-史跡"       onclick="selectPOICategory('史跡')"       title="史跡">🏯<div>史跡</div></button>
-      <button class="poi-icon-btn" id="poi-btn-名所・観光" onclick="selectPOICategory('名所・観光')" title="名所">⛩️<div>名所</div></button>
-      <button class="poi-icon-btn" id="poi-btn-温泉"       onclick="selectPOICategory('温泉')"       title="温泉">♨️<div>温泉</div></button>
+      <button class="poi-icon-btn" id="poi-btn-コンビニ"   data-poi-label="コンビニ" onclick="selectPOICategory('コンビニ')"   title="コンビニ">🏪<div>CVS</div></button>
+      <button class="poi-icon-btn" id="poi-btn-カフェ"     data-poi-label="カフェ" onclick="selectPOICategory('カフェ')"     title="カフェ">☕<div>Café</div></button>
+      <button class="poi-icon-btn" id="poi-btn-レストラン" data-poi-label="レストラン" onclick="selectPOICategory('レストラン')" title="食事">🍽️<div>食事</div></button>
+      <button class="poi-icon-btn" id="poi-btn-公園"       data-poi-label="公園" onclick="selectPOICategory('公園')"       title="公園">🌳<div>公園</div></button>
+      <button class="poi-icon-btn" id="poi-btn-絶景"       data-poi-label="絶景" onclick="selectPOICategory('絶景')"       title="絶景">🏔️<div>絶景</div></button>
+      <button class="poi-icon-btn" id="poi-btn-史跡"       data-poi-label="史跡" onclick="selectPOICategory('史跡')"       title="史跡">🏯<div>史跡</div></button>
+      <button class="poi-icon-btn" id="poi-btn-名所・観光" data-poi-label="名所・観光" onclick="selectPOICategory('名所・観光')" title="名所">⛩️<div>名所</div></button>
+      <button class="poi-icon-btn" id="poi-btn-温泉"       data-poi-label="温泉" onclick="selectPOICategory('温泉')"       title="温泉">♨️<div>温泉</div></button>
     </div>
     <!-- エリア指定プロンプト（カテゴリ選択後に表示） -->
     <div id="poi-area-prompt" style="display:none;background:var(--bluebg);border:1px solid var(--blue);border-radius:var(--rs);padding:7px 10px;margin-bottom:4px;font-size:11px;color:var(--blue);display:none">
@@ -4339,8 +4393,8 @@ function selectPOICategory(label){
   if(_poiSelectMode&&_poiSelectedLabel===label){ cancelPOISelect(); return; }
   if(_poiSelectMode) cancelPOISelect(true);
   _poiSelectMode=true; _poiSelectedLabel=label;
-  document.querySelectorAll('.poi-icon-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('poi-btn-'+label)?.classList.add('active');
+  document.querySelectorAll('.poi-icon-btn,.poi-float-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll(`[data-poi-label="${label}"],#poi-btn-${label}`).forEach(b=>b.classList.add('active'));
   const prompt=document.getElementById('poi-area-prompt');
   document.getElementById('poi-prompt-label').textContent=`${cfg.icon} ${label}を探したいエリアを地図でタップ`;
   prompt.style.display='block';
@@ -4355,8 +4409,8 @@ function cancelPOISelect(silent=false){
   gmap?.setOptions({draggableCursor:null});
   document.getElementById('poi-area-prompt').style.display='none';
   if(!silent){
-    document.querySelectorAll('.poi-icon-btn').forEach(b=>{
-      const lbl=b.id.replace('poi-btn-','');
+    document.querySelectorAll('.poi-icon-btn,.poi-float-btn').forEach(b=>{
+      const lbl=b.dataset.poiLabel || b.id.replace('poi-btn-','');
       if(!activePOIs.has(lbl))b.classList.remove('active');
     });
   }
@@ -4442,14 +4496,14 @@ function renderPOI(places,cfg,label,fromCache=false){
   // 既存結果の「検索中」表示を置換、それ以外は累積追記
   if(box.innerHTML.includes('検索中')||!box.innerHTML.trim()){box.innerHTML=newContent;}
   else{box.innerHTML+=newContent;}
-  document.getElementById('poi-btn-'+label)?.classList.add('active');
+  document.querySelectorAll(`[data-poi-label="${label}"],#poi-btn-${label}`).forEach(b=>b.classList.add('active'));
 }
 
 /* ── POIクリア系 ── */
 function clearPOI(){poiMarkers.forEach(m=>m.setMap(null));poiMarkers=[];}
 function clearAllPOI(){
   activePOIs.clear(); cancelPOISelect(true); clearPOI();
-  document.querySelectorAll('.poi-icon-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.poi-icon-btn,.poi-float-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('poi-results').innerHTML='';
   document.getElementById('poi-cache-badge').style.display='none';
 }
