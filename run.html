@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Run Pace Planner</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#fff;--bg2:#f5f4f1;--bg3:#eceae6;--text:#18180f;--text2:#68685f;--text3:#9c9c90;--border:rgba(0,0,0,.10);--border2:rgba(0,0,0,.18);--r:10px;--rs:6px;--acc:#18180f;--blue:#185fa5;--bluebg:#e6f1fb;--green:#3b6d11;--greenbg:#eaf3de;--amber:#854f0b;--amberbg:#faeeda;--red:#a32d2d;--redbg:#fcebeb;--purple:#3c3489;--purplebg:#eeedfe;--teal:#0f6e56;--tealbg:#e1f5ee}
+@media(prefers-color-scheme:dark){:root{--bg:#1a1a17;--bg2:#222220;--bg3:#2b2b27;--text:#eeeee6;--text2:#98988e;--text3:#68685f;--border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.16);--bluebg:#0c447c;--blue:#b5d4f4;--greenbg:#27500a;--green:#c0dd97;--amberbg:#633806;--amber:#fac775;--redbg:#791f1f;--red:#f7c1c1;--purplebg:#3c3489;--purple:#cecbf6;--tealbg:#085041;--teal:#9fe1cb}}
+body{font-family:'Helvetica Neue',Arial,'Hiragino Kaku Gothic ProN',sans-serif;background:var(--bg3);color:var(--text);min-height:100vh}
+header{background:var(--bg);border-bottom:.5px solid var(--border);padding:8px 16px;display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:200}
+header h1{font-size:14px;font-weight:500}.sub{font-size:11px;color:var(--text2)}.ver{font-size:9px;font-weight:700;padding:2px 6px;border-radius:20px;background:var(--greenbg);color:var(--green)}
+.tabs{background:var(--bg);border-bottom:.5px solid var(--border);padding:4px 12px;display:flex;gap:2px;position:sticky;top:37px;z-index:199;overflow-x:auto}.tab{padding:6px 10px;font-size:11px;font-weight:500;cursor:pointer;border:none;background:none;color:var(--text2);border-radius:var(--rs);transition:all .14s;white-space:nowrap;text-decoration:none}.tab.on{background:var(--acc);color:#fff}
+.app{display:grid;grid-template-columns:7fr 3fr;min-height:calc(100vh - 76px)}.main{padding:8px}.side{padding:8px;background:var(--bg);border-left:1px solid var(--border);overflow:auto}.panel{background:var(--bg);border:.5px solid var(--border);border-radius:var(--r);padding:12px 14px;margin-bottom:8px}.pt{font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.09em;margin-bottom:10px}.field{display:flex;flex-direction:column;gap:4px}label{font-size:10px;font-weight:600;color:var(--text2)}input[type=number],input[type=text],input[type=time],select{font-size:13px;padding:7px 9px;border:.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text);font-family:inherit;width:100%}.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px}.hint{font-size:10px;color:var(--text3)}.bs{padding:5px 10px;border:.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text);font-size:11px;cursor:pointer;font-family:inherit}.bp{padding:7px 14px;border:none;border-radius:var(--rs);background:var(--acc);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}.modebt{flex:1;padding:8px 6px;font-size:12px;font-weight:500;border:.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text2);cursor:pointer;font-family:inherit;transition:all .14s}.modebt.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.mcp{background:var(--bg);border-bottom:1.5px solid var(--border2);padding:8px 12px;display:flex;flex-direction:column;gap:7px;position:sticky;top:73px;z-index:180}.timebar{display:flex;flex-wrap:wrap;gap:7px;align-items:center}.time-chip{display:flex;align-items:center;gap:3px;background:var(--bg2);border:.5px solid var(--border);border-radius:var(--rs);padding:5px 7px}.locked-label{font-size:9px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;white-space:nowrap}.time-read{font-size:19px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--text);min-width:54px;text-align:center}.time-read.goal{color:var(--amber)}.time-mini-btn{width:22px;height:28px;border:.5px solid var(--border2);border-radius:4px;background:var(--bg);color:var(--text2);font-size:12px;cursor:pointer;font-family:inherit}.metricbar{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.locked-metric{display:flex;flex-direction:column;gap:2px;min-width:72px;background:var(--bg2);border:.5px solid var(--border);border-radius:var(--rs);padding:6px 9px}.locked-value{font-size:17px;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums;line-height:1.2}.locked-sub{font-size:9px;color:var(--text3);line-height:1.2}
+.hero{background:linear-gradient(135deg,var(--acc),#333);color:#fff;border-radius:var(--r);padding:14px;margin-bottom:8px}.hero-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.hero-card{background:rgba(255,255,255,.1);border:.5px solid rgba(255,255,255,.16);border-radius:var(--rs);padding:10px}.hero-l{font-size:9px;opacity:.6;text-transform:uppercase;letter-spacing:.07em}.hero-v{font-size:23px;font-weight:700;margin-top:3px}.hero-s{font-size:10px;opacity:.7;margin-top:2px}.dial-wrap{display:flex;align-items:center;gap:6px;background:var(--bg2);border:1.5px solid var(--border2);border-radius:var(--rs);padding:8px 12px;justify-content:center}.dial-col{display:flex;flex-direction:column;align-items:center;gap:3px}.dial-btn{background:none;border:none;color:var(--text2);font-size:16px;cursor:pointer;padding:3px 10px;border-radius:4px;line-height:1;font-family:inherit;user-select:none}.dial-btn:hover{background:var(--bg3);color:var(--text)}.dial-val{font-size:34px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--text);min-width:48px;text-align:center;line-height:1.1}.dial-sep{font-size:28px;font-weight:700;color:var(--text2);padding:0 2px;margin-top:2px}.zone-grid{display:grid;gap:6px}.zone-card{cursor:pointer;padding:9px 10px;border-radius:var(--rs);border:1.5px solid var(--border);background:var(--bg2);display:grid;grid-template-columns:auto 1fr auto;gap:9px;align-items:center;transition:all .14s}.zone-card.on{transform:translateY(-1px);box-shadow:0 3px 10px rgba(0,0,0,.12)}.z-dot{width:10px;height:10px;border-radius:50%}.z-name{font-size:12px;font-weight:700}.z-desc{font-size:10px;color:var(--text3);margin-top:1px}.z-range{text-align:right;font-size:11px;color:var(--text2);font-variant-numeric:tabular-nums}.bk-row{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center;margin-bottom:7px}.bk-label{font-size:10px;color:var(--text2)}.bk-bar-bg{height:6px;border-radius:3px;background:var(--bg3);overflow:hidden}.bk-bar{height:100%;border-radius:3px;background:var(--acc);transition:width .25s}.bk-val{font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}.split-table{width:100%;border-collapse:collapse;font-size:11px;background:var(--bg);border-radius:var(--r);overflow:hidden}.split-table th,.split-table td{padding:7px 8px;border-bottom:.5px solid var(--border);text-align:right}.split-table th{font-size:9px;color:var(--text3);text-transform:uppercase;background:var(--bg2);font-weight:800}.split-table td:first-child,.split-table th:first-child{text-align:left}.note{font-size:10px;line-height:1.6;color:var(--text2);background:var(--bluebg);border:1px solid var(--blue);border-radius:var(--rs);padding:8px 10px;margin-bottom:8px}.toast{font-size:11px;color:var(--green);margin-left:8px}
+@media(max-width:768px){.app{display:block}.side{border-left:none;border-top:2px solid var(--border2)}.main{padding:4px}.mcp{top:70px;padding:5px 7px;gap:5px}.timebar{display:grid;grid-template-columns:1fr 1fr;gap:4px}.timebar .modebt{font-size:10px;padding:5px 4px}.time-chip{justify-content:center;padding:3px 4px}.time-chip .locked-label{display:none}.time-read{font-size:15px;min-width:42px}.time-mini-btn{width:19px;height:23px;font-size:9px;padding:0}.metricbar{grid-template-columns:repeat(2,1fr);gap:4px}.locked-metric{padding:5px 6px}.locked-value{font-size:15px}.locked-sub{display:none}.hero-grid{grid-template-columns:repeat(2,1fr);gap:5px}.hero-v{font-size:20px}.g3,.g2{grid-template-columns:1fr}.tabs{top:35px;padding:3px 6px}.tab{font-size:10px;padding:5px 8px}header{padding:6px 10px}header .sub{display:none}.dial-val{font-size:30px}.split-table{font-size:10px}.split-table th,.split-table td{padding:6px 5px}}
+</style>
+</head>
+<body>
+<header><h1>Run Pace Planner <span class="ver">v1.0</span></h1><span class="sub">ラン計画 / 心拍Zone / min:sec per km</span></header>
+<div class="tabs" id="app-tabs">
+  <a class="tab" href="./index.html">🚴 ライド</a>
+  <a class="tab on" href="./run.html">🏃 ラン</a>
+  <a class="tab" href="./index.html">Bike→Run</a>
+  <a class="tab" href="./index.html">📁 保存</a>
+  <a class="tab" href="./index.html">ログ</a>
+  <a class="tab" href="./index.html">⚙️ 設定</a>
+</div>
+
+<div class="mcp">
+  <div class="timebar">
+    <button class="modebt on" id="mode-start" onclick="setTimeMode('start')">🟢 スタートから計算</button>
+    <button class="modebt" id="mode-goal" onclick="setTimeMode('goal')">🔴 ゴール時間で逆算</button>
+    <div class="time-chip"><div class="locked-label">Start</div><button class="time-mini-btn" onclick="timeAdj('start','h',-1)">▲</button><div class="time-read"><span id="start-h">08</span>:<span id="start-m">00</span></div><button class="time-mini-btn" onclick="timeAdj('start','h',1)">▼</button><button class="time-mini-btn" onclick="timeAdj('start','m',-5)">−5</button><button class="time-mini-btn" onclick="timeAdj('start','m',5)">+5</button></div>
+    <div class="time-chip"><div class="locked-label">Goal</div><button class="time-mini-btn" onclick="timeAdj('goal','h',-1)">▲</button><div class="time-read goal"><span id="goal-h">--</span>:<span id="goal-m">--</span></div><button class="time-mini-btn" onclick="timeAdj('goal','h',1)">▼</button><button class="time-mini-btn" onclick="timeAdj('goal','m',-5)">−5</button><button class="time-mini-btn" onclick="timeAdj('goal','m',5)">+5</button><button class="time-mini-btn" onclick="clearGoal()">✕</button></div>
+  </div>
+  <div class="metricbar">
+    <div class="locked-metric"><div class="locked-label">距離</div><div class="locked-value" id="m-dist">10.0 km</div><div class="locked-sub">設定値反映</div></div>
+    <div class="locked-metric"><div class="locked-label">ペース</div><div class="locked-value" id="m-pace">5:00/km</div><div class="locked-sub">min:sec / km</div></div>
+    <div class="locked-metric"><div class="locked-label">心拍Zone</div><div class="locked-value" id="m-zone">Z2</div><div class="locked-sub" id="m-zone-sub">有酸素</div></div>
+    <div class="locked-metric"><div class="locked-label">到着予定</div><div class="locked-value" id="m-arrive">08:53</div><div class="locked-sub">Ratio込み</div></div>
+  </div>
+</div>
+
+<div class="app">
+  <main class="main">
+    <div class="hero">
+      <div class="hero-grid">
+        <div class="hero-card"><div class="hero-l">Net Time</div><div class="hero-v" id="hero-net">50m</div><div class="hero-s">実走時間</div></div>
+        <div class="hero-card"><div class="hero-l">All Time</div><div class="hero-v" id="hero-all">1h02m</div><div class="hero-s">休憩込み</div></div>
+        <div class="hero-card"><div class="hero-l">Speed</div><div class="hero-v" id="hero-speed">12.0</div><div class="hero-s">km/h</div></div>
+        <div class="hero-card"><div class="hero-l">Kcal</div><div class="hero-v" id="hero-kcal">637</div><div class="hero-s">概算</div></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="pt">Running pace command</div>
+      <div style="display:flex;gap:3px;margin-bottom:12px"><button id="input-pace" class="modebt on" onclick="setInputMode('pace')">👟 ペースで入力</button><button id="input-hr" class="modebt" onclick="setInputMode('hr')">❤️ 心拍Zoneで入力</button></div>
+      <div id="pace-block">
+        <label style="display:block;margin-bottom:6px">🏃 目標ペース (min:sec / km)</label>
+        <div class="dial-wrap"><div class="dial-col"><button class="dial-btn" onclick="paceAdj('min',-1)">▲</button><div class="dial-val" id="pace-min">05</div><button class="dial-btn" onclick="paceAdj('min',1)">▼</button></div><div class="dial-sep">:</div><div class="dial-col"><button class="dial-btn" onclick="paceAdj('sec',-5)">▲</button><div class="dial-val" id="pace-sec">00</div><button class="dial-btn" onclick="paceAdj('sec',5)">▼</button></div><div style="font-size:11px;color:var(--text3);margin-left:4px">/km</div></div>
+        <div class="hint" id="pace-hint" style="text-align:center;margin-top:5px">≈ 12.0 km/h</div>
+      </div>
+      <div id="hr-block" style="display:none">
+        <div class="note">パワーではなく、一般的なランニング練習向けに心拍Zoneを中心にしています。Zoneを選ぶと目安ペースを自動反映します。</div>
+        <div class="zone-grid" id="zone-grid"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="pt">1km split plan</div>
+      <table class="split-table"><thead><tr><th>区間</th><th>Lap</th><th>通過</th><th>HR Zone</th><th>メモ</th></tr></thead><tbody id="split-body"></tbody></table>
+    </div>
+  </main>
+
+  <aside class="side">
+    <div class="panel">
+      <div class="pt">Run settings</div>
+      <div class="g2"><div class="field"><label>距離 (km)</label><input type="number" id="dist" value="10" step="0.1" oninput="calc()"><div class="hint">5K / 10K / Half / Full など</div></div><div class="field"><label>獲得標高 (m)</label><input type="number" id="elev" value="0" step="10" oninput="calc()"><div class="hint">坂の補正に使用</div></div></div>
+      <div class="g2"><div class="field"><label>体重 (kg)</label><input type="number" id="weight" value="65" step="0.5" oninput="calc()"><div class="hint">カロリー概算</div></div><div class="field"><label>Workout Ratio (%)</label><input type="number" id="ratio" value="80" step="1" oninput="calc()"><div class="hint">Net ÷ AllTime</div></div></div>
+      <div class="g2"><button class="bs" onclick="preset(5)">5K</button><button class="bs" onclick="preset(10)">10K</button><button class="bs" onclick="preset(21.0975)">Half</button><button class="bs" onclick="preset(42.195)">Full</button></div>
+      <div style="display:flex;gap:6px;align-items:center"><button class="bp" onclick="savePlan()">💾 保存</button><button class="bs" onclick="loadPlan()">読込</button><button class="bs" onclick="resetPlan()">初期化</button><span class="toast" id="toast"></span></div>
+    </div>
+    <div class="panel">
+      <div class="pt">Heart rate zones</div>
+      <div class="g2"><div class="field"><label>最大心拍数 (bpm)</label><input type="number" id="hrmax" value="180" step="1" oninput="renderZones();calc()"></div><div class="field"><label>安静時心拍 (bpm)</label><input type="number" id="hrrest" value="55" step="1" oninput="renderZones();calc()"></div></div>
+      <div id="zone-bars"></div>
+    </div>
+    <div class="panel">
+      <div class="pt">Training guide</div>
+      <div class="bk-row"><div><div class="bk-label">Z1 回復走</div><div class="bk-bar-bg"><div class="bk-bar" style="width:55%"></div></div></div><div class="bk-val">50-60%</div></div>
+      <div class="bk-row"><div><div class="bk-label">Z2 有酸素</div><div class="bk-bar-bg"><div class="bk-bar" style="width:70%"></div></div></div><div class="bk-val">60-70%</div></div>
+      <div class="bk-row"><div><div class="bk-label">Z3 テンポ</div><div class="bk-bar-bg"><div class="bk-bar" style="width:80%"></div></div></div><div class="bk-val">70-80%</div></div>
+      <div class="bk-row"><div><div class="bk-label">Z4 閾値</div><div class="bk-bar-bg"><div class="bk-bar" style="width:90%"></div></div></div><div class="bk-val">80-90%</div></div>
+      <div class="bk-row"><div><div class="bk-label">Z5 インターバル</div><div class="bk-bar-bg"><div class="bk-bar" style="width:100%"></div></div></div><div class="bk-val">90-100%</div></div>
+    </div>
+  </aside>
+</div>
+
+<script>
+const ZONES=[
+ {z:1,name:'Z1 回復',pct:[50,60],pace:[8,10],desc:'軽いジョグ・回復走'},
+ {z:2,name:'Z2 有酸素',pct:[60,70],pace:[6.5,8],desc:'長距離・脂肪燃焼'},
+ {z:3,name:'Z3 テンポ',pct:[70,80],pace:[5.5,6.5],desc:'テンポ走・LT手前'},
+ {z:4,name:'Z4 閾値',pct:[80,90],pace:[4.5,5.5],desc:'レースペース近辺'},
+ {z:5,name:'Z5 最大',pct:[90,100],pace:[3.5,4.5],desc:'インターバル・全力'}
+];
+const zColors=['','#60a5fa','#4ade80','#facc15','#fb923c','#f87171'];
+let pace={min:5,sec:0}, start=8*60, goal=null, timeMode='start', inputMode='pace', selectedZone=2;
+function $(id){return document.getElementById(id)}
+function pad(n){return String(n).padStart(2,'0')}
+function fmtClock(m){m=((Math.round(m)%1440)+1440)%1440;return pad(Math.floor(m/60))+':'+pad(m%60)}
+function fmtDur(mins){mins=Math.round(mins);const h=Math.floor(mins/60), m=mins%60;return h?`${h}h${pad(m)}m`:`${m}m`}
+function paceDecimal(){return pace.min+pace.sec/60}
+function setInputMode(m){inputMode=m;$('input-pace').classList.toggle('on',m==='pace');$('input-hr').classList.toggle('on',m==='hr');$('pace-block').style.display=m==='pace'?'':'none';$('hr-block').style.display=m==='hr'?'':'none';if(m==='hr')applyZonePace();calc()}
+function setTimeMode(m){timeMode=m;$('mode-start').classList.toggle('on',m==='start');$('mode-goal').classList.toggle('on',m==='goal');if(m==='goal'&&!goal)goal=start+totalAllMinutes();calc()}
+function paceAdj(part,delta){if(part==='min')pace.min=Math.max(2,Math.min(15,pace.min+delta));else pace.sec=((Math.round(pace.sec/5)*5+delta)%60+60)%60;syncPace();calc()}
+function syncPace(){ $('pace-min').textContent=pad(pace.min);$('pace-sec').textContent=pad(pace.sec);$('pace-hint').textContent='≈ '+(60/paceDecimal()).toFixed(1)+' km/h'}
+function timeAdj(which,part,delta){if(which==='start'){start+=part==='h'?delta*60:delta}else{if(goal==null)goal=start+totalAllMinutes();goal+=part==='h'?delta*60:delta;timeMode='goal';setTimeMode('goal')}calc()}
+function clearGoal(){goal=null;timeMode='start';setTimeMode('start');calc()}
+function totalAllMinutes(){const dist=+$('dist').value||0, elev=+$('elev').value||0, ratio=(+$('ratio').value||80)/100;const hill=(elev/100)*0.45;const net=(dist*paceDecimal())+hill;return net/Math.max(.1,ratio)}
+function applyZonePace(){const z=ZONES.find(v=>v.z===selectedZone)||ZONES[1];const p=(z.pace[0]+z.pace[1])/2;pace.min=Math.floor(p);pace.sec=Math.round((p-pace.min)*60/5)*5;if(pace.sec>=60){pace.min++;pace.sec=0}syncPace()}
+function selectZone(z){selectedZone=z;if(inputMode==='hr')applyZonePace();renderZones();calc()}
+function renderZones(){const max=+$('hrmax').value||180, rest=+$('hrrest').value||55;const grid=$('zone-grid'), bars=$('zone-bars');grid.innerHTML=ZONES.map(z=>{const low=Math.round(max*z.pct[0]/100), high=Math.round(max*z.pct[1]/100), on=z.z===selectedZone;return `<div class="zone-card ${on?'on':''}" onclick="selectZone(${z.z})" style="border-color:${on?zColors[z.z]:'var(--border)'};background:${on?zColors[z.z]+'22':'var(--bg2)'}"><div class="z-dot" style="background:${zColors[z.z]}"></div><div><div class="z-name">${z.name}</div><div class="z-desc">${z.desc} | ${low}〜${high} bpm</div></div><div class="z-range">${z.pace[0].toFixed(1)}〜${z.pace[1].toFixed(1)}<br>/km</div></div>`}).join('');bars.innerHTML=ZONES.map(z=>{const low=Math.round(rest+(max-rest)*z.pct[0]/100), high=Math.round(rest+(max-rest)*z.pct[1]/100);return `<div class="bk-row"><div><div class="bk-label">${z.name} / Karvonen目安</div><div class="bk-bar-bg"><div class="bk-bar" style="width:${z.pct[1]}%;background:${zColors[z.z]}"></div></div></div><div class="bk-val">${low}-${high}</div></div>`}).join('')}
+function preset(km){$('dist').value=km;calc()}
+function calc(){const dist=+$('dist').value||0, elev=+$('elev').value||0, wt=+$('weight').value||65, ratio=(+$('ratio').value||80)/100;const hill=(elev/100)*0.45;const net=dist*paceDecimal()+hill;const all=net/Math.max(.1,ratio);if(timeMode==='goal'&&goal!=null)start=goal-all;else goal=start+all;$('start-h').textContent=pad(Math.floor(((start%1440)+1440)%1440/60));$('start-m').textContent=pad(Math.round(start)%60);$('goal-h').textContent=pad(Math.floor(((goal%1440)+1440)%1440/60));$('goal-m').textContent=pad(Math.round(goal)%60);$('m-dist').textContent=dist.toFixed(1)+' km';$('m-pace').textContent=`${pace.min}:${pad(pace.sec)}/km`;$('m-zone').textContent='Z'+selectedZone;$('m-zone-sub').textContent=(ZONES.find(z=>z.z===selectedZone)||{}).name?.replace(/^Z\d\s/,'')||'';$('m-arrive').textContent=fmtClock(goal);$('hero-net').textContent=fmtDur(net);$('hero-all').textContent=fmtDur(all);$('hero-speed').textContent=(60/paceDecimal()).toFixed(1);$('hero-kcal').textContent=Math.round(9.8*wt*(net/60)).toLocaleString();renderSplits(dist,elev,net)}
+function renderSplits(dist,elev,net){const rows=[];const full=Math.floor(dist), frac=dist-full;let elapsed=0;const z=ZONES.find(v=>v.z===selectedZone);for(let i=1;i<=full+(frac>.01?1:0);i++){const km=i<=full?1:frac;const elevPenalty=(elev/Math.max(dist,.1)/100)*0.45*km;const lap=km*paceDecimal()+elevPenalty;elapsed+=lap;const memo=i===1?'入りは抑える':(i===full?'ラスト確認':z.desc);rows.push(`<tr><td>${i<=full?i+' km':'Last'}</td><td>${fmtDur(lap)}</td><td>${fmtDur(elapsed)}</td><td>Z${selectedZone}</td><td style="text-align:left">${memo}</td></tr>`)}$('split-body').innerHTML=rows.join('')}
+function savePlan(){const p={pace,start,goal,timeMode,inputMode,selectedZone,dist:$('dist').value,elev:$('elev').value,weight:$('weight').value,ratio:$('ratio').value,hrmax:$('hrmax').value,hrrest:$('hrrest').value};localStorage.setItem('run_pace_planner_v1',JSON.stringify(p));toast('保存しました')}
+function loadPlan(){const raw=localStorage.getItem('run_pace_planner_v1');if(!raw){toast('保存データなし');return}const p=JSON.parse(raw);pace=p.pace||pace;start=p.start??start;goal=p.goal??goal;timeMode=p.timeMode||'start';inputMode=p.inputMode||'pace';selectedZone=p.selectedZone||2;['dist','elev','weight','ratio','hrmax','hrrest'].forEach(id=>{if(p[id]!=null)$(id).value=p[id]});syncPace();renderZones();setInputMode(inputMode);setTimeMode(timeMode);calc();toast('読み込みました')}
+function resetPlan(){pace={min:5,sec:0};start=8*60;goal=null;timeMode='start';inputMode='pace';selectedZone=2;$('dist').value=10;$('elev').value=0;$('weight').value=65;$('ratio').value=80;$('hrmax').value=180;$('hrrest').value=55;syncPace();renderZones();setInputMode('pace');setTimeMode('start');calc();toast('初期化しました')}
+function toast(t){$('toast').textContent='✅ '+t;setTimeout(()=>$('toast').textContent='',1800)}
+syncPace();renderZones();calc();
+</script>
+</body>
+</html>
