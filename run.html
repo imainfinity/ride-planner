@@ -355,20 +355,16 @@ body.pc-mode #map-poi-floating{display:none!important}
 
 
 
-
-/* ── v8.20 RUN: 地図ルート共通 / ペース・心拍Zone仕様 ── */
-body.run-mode #modal-power-section,
-body.run-mode #modal-ride-mode-pwr{display:none!important}
-body.run-mode #modal-ride-mode-spd{pointer-events:none;opacity:.9}
-.run-pace-control{display:flex;align-items:center;gap:5px;background:var(--greenbg);border:1px solid var(--green);border-radius:var(--rs);padding:5px 7px;min-width:210px}
-.run-pace-label{font-size:9px;font-weight:800;color:var(--green);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
-.run-pace-value{font-size:18px;font-weight:900;color:var(--green);font-variant-numeric:tabular-nums;min-width:74px;text-align:center;line-height:1}
-.run-pace-btn{height:25px;min-width:30px;border:0.5px solid var(--border2);border-radius:5px;background:var(--bg);color:var(--text);font-size:10px;font-weight:800;cursor:pointer;font-family:inherit;padding:0 6px}
-.run-zone-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;width:100%;margin-top:4px}
-.run-zone-btn{border:0.5px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text2);padding:5px 3px;font-size:9px;font-weight:800;cursor:pointer;font-family:inherit;text-align:center}
-.run-zone-btn.on{background:var(--acc);color:#fff;border-color:var(--acc)}
-@media(max-width:520px){.run-pace-control{grid-column:span 3;min-width:0;justify-content:center}.run-zone-strip{grid-column:span 3}.run-pace-value{font-size:16px}.run-pace-btn{min-width:28px}}
-@media(max-width:380px){.run-pace-control,.run-zone-strip{grid-column:span 2}}
+/* ── v8.30 RUN: Ride地図エンジン流用・ペース入力UI ── */
+body.run-mode #run-pace-chip{border:1.5px solid var(--green);background:var(--greenbg)}
+body.run-mode #run-pace-read{color:var(--green);min-width:50px}
+body.run-mode #mcp-spd-display{color:var(--green)}
+body.run-mode #run-zone-display{color:var(--blue)}
+@media(max-width:520px){
+  body.run-mode #time-selector-bar{grid-template-columns:1fr 1fr!important}
+  body.run-mode #run-pace-chip{grid-column:1 / -1;justify-content:center}
+  body.run-mode #run-pace-chip .time-mini-btn{width:auto!important;min-width:34px;padding:0 5px!important}
+}
 
 </style>
 
@@ -393,7 +389,7 @@ body.run-mode #modal-ride-mode-spd{pointer-events:none;opacity:.9}
 <!-- GPS再取得ボタン（常時表示） -->
 <button id="gps-retry-btn" onclick="retryGPS()" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">📍</button>
 <header>
-  <h1>Run Pace Planner <span class="ver">v8.20</span></h1>
+  <h1>Ride Pace Planner <span class="ver">v8.12</span></h1>
   <span class="sub">ラン計画 / Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
@@ -444,21 +440,31 @@ body.run-mode #modal-ride-mode-spd{pointer-events:none;opacity:.9}
       <button class="time-mini-btn" onclick="mcpClearEnd()" title="ゴール固定解除">✕</button>
     </div>
 
+    <div class="time-chip" id="run-pace-chip" title="ラン用：1kmあたりのペースを調整">
+      <div class="locked-label">Pace</div>
+      <button class="time-mini-btn" onclick="adjustRunPace(-10)">速+10</button>
+      <button class="time-mini-btn" onclick="adjustRunPace(-5)">+5</button>
+      <div class="time-read" id="run-pace-read">6:00</div>
+      <button class="time-mini-btn" onclick="adjustRunPace(5)">-5</button>
+      <button class="time-mini-btn" onclick="adjustRunPace(10)">遅+10</button>
+    </div>
+
   </div>
 
   <!-- 固定操作パネル：表示専用 -->
   <div id="locked-course-panel" style="display:flex;flex-wrap:wrap;gap:6px;align-items:stretch">
     <div class="locked-metric"><div class="locked-label">距離</div><div class="locked-value" id="mcp-dist-display">50.0 km</div><div class="locked-sub" id="mcp-source">🔒 設定値反映</div></div>
     <div class="locked-metric"><div class="locked-label">獲得標高</div><div class="locked-value" id="mcp-elev-display">300 m</div><div class="locked-sub">設定/ルート反映</div></div>
-    <div class="locked-metric"><div class="locked-label">NETペース</div><div class="locked-value" id="mcp-spd-display">6:00 /km</div><div class="locked-sub">1km何分で設定</div></div>
+    <div class="locked-metric"><div class="locked-label">ランペース</div><div class="locked-value" id="mcp-spd-display">6:00 /km</div><div class="locked-sub">速度値へ内部変換</div></div>
     <div class="locked-metric"><div class="locked-label">所要時間</div><div class="locked-value" id="mcp-total">—</div><div class="locked-sub" id="mcp-time-note">Ratio込み</div></div>
+    <div class="locked-metric"><div class="locked-label">心拍Zone</div><div class="locked-value" id="run-zone-display">Z2</div><div class="locked-sub">一般トレーニング</div></div>
     <button type="button" class="locked-metric course-setting-tile" onclick="openSettingsModal()"><div class="locked-label">🚩 コース</div><div class="locked-value">コース設定</div><div class="locked-sub">数値変更はこちら</div></button>
   </div>
 </div>
 
 <div class="app-body" id="app-body">
 
-<!-- ══ RIDE ══ -->
+<!-- ══ RUN MAP MODE（Ride map engine reused） ══ -->
 <div class="sec on" id="sec-ride" style="display:contents">
 
 <div class="ride-map-col">
@@ -615,7 +621,7 @@ body.run-mode #modal-ride-mode-spd{pointer-events:none;opacity:.9}
         </div>
       </div>
     </div>
-    <!-- 距離・ペース・所要時間 -->
+    <!-- 距離・速度・所要時間 -->
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;align-items:end">
       <div>
         <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:2px">距離 (km)</div>
@@ -630,7 +636,7 @@ body.run-mode #modal-ride-mode-spd{pointer-events:none;opacity:.9}
           onchange="mcp.elev=+this.value||0;document.getElementById('mcp-elev').value=mcp.elev;mcpChange('elev')">
       </div>
       <div>
-        <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:2px">ペース換算速度 (km/h)</div>
+        <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:2px">ランペース用 速度(km/h)</div>
         <input id="mcp-sb-spd" type="number" step="0.1" value="10"
           style="font-size:14px;font-weight:600;padding:3px 6px;border:1.5px solid var(--border2);border-radius:var(--rs);background:var(--bg2);color:var(--text);width:100%"
           onchange="mcp.spd=+this.value||30;document.getElementById('mcp-spd').value=mcp.spd;mcpChange('spd')">
@@ -846,9 +852,9 @@ body.run-mode #modal-ride-mode-spd{pointer-events:none;opacity:.9}
     <div id="block-spd">
       <div class="g2">
         <div class="field">
-          <label>予想ランニング速度 (km/h)</label>
-          <input type="number" id="r-movespd" value="10" step="0.1" onchange="mcp.spd=+this.value||30;document.getElementById('mcp-spd').value=mcp.spd;baseSpdValue=mcp.spd;smartCalc('speed')">
-          <div class="hint">ペース指定から換算される速度</div>
+          <label>予想 移動速度 (km/h)</label>
+          <input type="number" id="r-movespd" value="30" step="0.5" onchange="mcp.spd=+this.value||30;document.getElementById('mcp-spd').value=mcp.spd;baseSpdValue=mcp.spd;smartCalc('speed')">
+          <div class="hint">信号・停止を除く移動速度</div>
         </div>
         <div class="field">
           <label>体重 (kg) — 任意</label>
@@ -5528,103 +5534,93 @@ function refreshLockedPanelValues(){
   _updateModeButtons(mode);
 }
 
-
-/* ══════════════════════════════════════
-   v8.20 RUN MODE PATCH
-   - Map / route drawing is inherited from Ride.
-   - Only command layer changes: pace per km + HR zones.
-   - Calorie conversion intentionally keeps the same existing engine.
-══════════════════════════════════════ */
-(function(){
-  const DEFAULT_PACE_SEC = 360; // 6:00/km
-  let runZone = localStorage.getItem('run_hr_zone') || 'Z2';
-  function pad2(n){ return String(n).padStart(2,'0'); }
-  function kmhToPaceSec(kmh){ kmh=+kmh||0; return kmh>0 ? Math.round(3600/kmh) : DEFAULT_PACE_SEC; }
-  function paceSecToKmh(sec){ sec=+sec||DEFAULT_PACE_SEC; return +(3600/sec).toFixed(2); }
-  function fmtPace(sec){ sec=+sec||DEFAULT_PACE_SEC; return Math.floor(sec/60)+':'+pad2(sec%60)+' /km'; }
-  function currentPaceSec(){ return kmhToPaceSec((window.mcp&&mcp.spd)||(+document.getElementById('mcp-spd')?.value)||10); }
-  window.runSetPaceSec = function(sec){
-    sec = Math.max(180, Math.min(720, Math.round(sec||DEFAULT_PACE_SEC))); // 3:00〜12:00/km
-    const kmh = paceSecToKmh(sec);
-    try{ if(window.mcp) mcp.spd = kmh; }catch(e){}
-    const ids = ['mcp-spd','r-movespd','mcp-sb-spd','modal-spd'];
-    ids.forEach(id=>{ const el=document.getElementById(id); if(el) el.value=kmh; });
-    try{ if(typeof baseSpdValue!=='undefined') baseSpdValue=kmh; }catch(e){}
-    try{ if(typeof smartCalc==='function') smartCalc('speed'); }catch(e){}
-    try{ if(typeof mcpChange==='function') mcpChange('spd'); }catch(e){}
-    try{ if(typeof calcRoute==='function' && window.waypoints && waypoints.length>=2) calcRoute(); }catch(e){}
-    renderRunPaceDisplay();
-  };
-  window.runAdjPace = function(deltaSec){ runSetPaceSec(currentPaceSec()+deltaSec); };
-  window.runApplyZone = function(z){
-    runZone=z; localStorage.setItem('run_hr_zone',z);
-    const paceByZone = {Z1:420,Z2:390,Z3:360,Z4:330,Z5:300};
-    if(paceByZone[z]) runSetPaceSec(paceByZone[z]);
-    renderRunZones();
-  };
-  function renderRunZones(){
-    const wrap=document.getElementById('run-zone-strip'); if(!wrap) return;
-    const data=[['Z1','回復'],['Z2','有酸素'],['Z3','テンポ'],['Z4','閾値'],['Z5','高強度']];
-    wrap.innerHTML=data.map(([z,l])=>`<button class="run-zone-btn ${runZone===z?'on':''}" onclick="runApplyZone('${z}')">${z}<br>${l}</button>`).join('');
-  }
-  function ensureRunPaceUI(){
-    const panel=document.getElementById('locked-course-panel');
-    if(panel && !document.getElementById('run-pace-control')){
-      const box=document.createElement('div');
-      box.id='run-pace-control';
-      box.className='run-pace-control';
-      box.innerHTML=`
-        <span class="run-pace-label">Pace</span>
-        <button class="run-pace-btn" onclick="runAdjPace(-10)">速+10</button>
-        <button class="run-pace-btn" onclick="runAdjPace(-5)">+5</button>
-        <div class="run-pace-value" id="run-pace-value">6:00 /km</div>
-        <button class="run-pace-btn" onclick="runAdjPace(5)">-5</button>
-        <button class="run-pace-btn" onclick="runAdjPace(10)">遅+10</button>`;
-      const spdCard=document.getElementById('mcp-spd-display')?.closest('.locked-metric');
-      panel.insertBefore(box, spdCard ? spdCard.nextSibling : panel.firstChild);
-      const zones=document.createElement('div');
-      zones.id='run-zone-strip';
-      zones.className='run-zone-strip';
-      panel.appendChild(zones);
-      renderRunZones();
-    }
-  }
-  window.renderRunPaceDisplay = function(){
-    ensureRunPaceUI();
-    const sec=currentPaceSec();
-    const pace=fmtPace(sec);
-    const spd=((3600/sec)||0).toFixed(1)+' km/h';
-    const s=document.getElementById('mcp-spd-display');
-    if(s) s.textContent=pace;
-    const rp=document.getElementById('run-pace-value'); if(rp) rp.textContent=pace;
-    const sub=document.querySelector('#mcp-spd-display')?.parentElement?.querySelector('.locked-sub');
-    if(sub) sub.textContent=spd+' 換算';
-    const sb=document.getElementById('mcp-sb-total');
-    // leave total as original engine output
-    try{
-      const mTitle=[...document.querySelectorAll('#settings-modal div')].find(el=>el.textContent==='ライド設定（デフォルト値）');
-      if(mTitle) mTitle.textContent='ラン設定（デフォルト値）';
-      const modalSpdLabel=document.querySelector('#modal-spd-field label');
-      if(modalSpdLabel) modalSpdLabel.textContent='ランニング速度換算 (km/h)';
-      const applyBtn=[...document.querySelectorAll('#settings-modal button')].find(el=>el.textContent==='ライドに適用');
-      if(applyBtn) applyBtn.textContent='ランに適用';
-      const modeBtn=document.getElementById('modal-ride-mode-spd');
-      if(modeBtn) modeBtn.textContent='🏃 ペース指定から';
-    }catch(e){}
-  };
-  const oldRefresh=window.refreshLockedPanelValues;
-  window.refreshLockedPanelValues=function(){ try{ oldRefresh&&oldRefresh(); }catch(e){} renderRunPaceDisplay(); };
-  const oldOpen=window.openSettingsModal;
-  window.openSettingsModal=function(){ oldOpen&&oldOpen(); setTimeout(renderRunPaceDisplay,50); };
-  document.addEventListener('DOMContentLoaded',function(){
-    document.body.classList.add('run-mode');
-    runSetPaceSec(currentPaceSec()||DEFAULT_PACE_SEC);
-    renderRunPaceDisplay();
-    setInterval(renderRunPaceDisplay,900);
-  });
-  window.addEventListener('load',function(){ setTimeout(renderRunPaceDisplay,300); });
-})();
-
 </script>
+
+<script>
+/* ── v8.30 RUN shim: 地図/POI/カロリーはRide版のまま、速度入力だけペース化 ── */
+(function(){
+  function paceSecFromSpeed(kmh){
+    kmh = Number(kmh)||10;
+    return Math.max(180, Math.min(900, Math.round(3600/kmh)));
+  }
+  function speedFromPaceSec(sec){
+    sec = Math.max(180, Math.min(900, Number(sec)||360));
+    return 3600/sec;
+  }
+  function fmtPace(sec){
+    sec = Math.max(0, Math.round(Number(sec)||0));
+    var m = Math.floor(sec/60), s = sec%60;
+    return m + ':' + String(s).padStart(2,'0');
+  }
+  window.adjustRunPace = function(deltaSec){
+    try{
+      if(!window.mcp) window.mcp={};
+      var cur = paceSecFromSpeed(window.mcp.spd || (document.getElementById('mcp-spd')||{}).value || 10);
+      var next = Math.max(180, Math.min(900, cur + Number(deltaSec||0)));
+      window.mcp.spd = speedFromPaceSec(next);
+      var h=document.getElementById('mcp-spd'); if(h) h.value = window.mcp.spd.toFixed(2);
+      var sb=document.getElementById('mcp-sb-spd'); if(sb) sb.value = window.mcp.spd.toFixed(2);
+      if(typeof window.mcpChange==='function') window.mcpChange('spd');
+      renderRunPaceUI();
+    }catch(e){console.warn('adjustRunPace failed',e)}
+  };
+  window.renderRunPaceUI = function(){
+    try{
+      var spd = (window.mcp&&window.mcp.spd) || Number((document.getElementById('mcp-spd')||{}).value) || 10;
+      var pace = fmtPace(paceSecFromSpeed(spd));
+      var read=document.getElementById('run-pace-read'); if(read) read.textContent=pace;
+      var disp=document.getElementById('mcp-spd-display'); if(disp) disp.textContent=pace+' /km';
+      var sb=document.getElementById('mcp-sb-spd'); if(sb && document.activeElement!==sb) sb.value=Number(spd).toFixed(2);
+      var source=document.getElementById('mcp-source'); if(source) source.textContent='🏃 Run pace mode';
+      document.title='Run Pace Planner';
+    }catch(e){console.warn('renderRunPaceUI failed',e)}
+  };
+  var oldRefresh = window.refreshLockedPanelValues;
+  window.refreshLockedPanelValues = function(){
+    if(typeof oldRefresh==='function') oldRefresh.apply(this,arguments);
+    renderRunPaceUI();
+  };
+  var oldMcpChange = window.mcpChange;
+  window.mcpChange = function(src){
+    if(typeof oldMcpChange==='function') oldMcpChange.apply(this,arguments);
+    renderRunPaceUI();
+  };
+  var oldOpen = window.openSettingsModal;
+  window.openSettingsModal = function(){
+    if(typeof oldOpen==='function') oldOpen.apply(this,arguments);
+    setTimeout(function(){
+      renderRunPaceUI();
+      try{
+        var modal=document.getElementById('settings-modal');
+        if(modal){
+          modal.querySelectorAll('label,div,button').forEach(function(el){
+            if(el.childNodes.length===1 && el.textContent){
+              el.textContent = el.textContent
+                .replace('NET平均速度','ランペース用 速度')
+                .replace('パワー','心拍Zone')
+                .replace('ライド','ラン');
+            }
+          });
+        }
+      }catch(e){}
+    },60);
+  };
+  function initRunDefaults(){
+    try{
+      if(window.mcp){ window.mcp.spd = window.mcp.spd || 10; }
+      var h=document.getElementById('mcp-spd'); if(h && (!h.value || Number(h.value)>20)) h.value='10';
+      var sb=document.getElementById('mcp-sb-spd'); if(sb && (!sb.value || Number(sb.value)>20)) sb.value='10.00';
+      var tabs=document.querySelectorAll('#app-tabs .tab');
+      if(tabs[0]) tabs[0].classList.remove('on');
+      if(tabs[1]) tabs[1].classList.add('on');
+      renderRunPaceUI();
+      setTimeout(renderRunPaceUI,300);
+      setTimeout(renderRunPaceUI,1200);
+    }catch(e){console.warn('initRunDefaults failed',e)}
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',initRunDefaults); else initRunDefaults();
+})();
+</script>
+
 </body>
 </html>
