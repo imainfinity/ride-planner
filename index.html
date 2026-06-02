@@ -377,7 +377,7 @@ body.pc-mode #map-poi-floating{display:none!important}
 <!-- GPS再取得ボタン（常時表示） -->
 <button id="gps-retry-btn" onclick="retryGPS()" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">📍</button>
 <header>
-  <h1>Ride Pace Planner <span class="ver">v8.50</span></h1>
+  <h1>Ride Pace Planner <span class="ver">v8.52</span></h1>
   <span class="sub">ライド計画 / Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
@@ -2727,7 +2727,13 @@ function _mapPrefToRide(p, silent){
     set('r-end','');
   }
 
-  if(p.rideInputMode && typeof setMode==='function') setMode(p.rideInputMode);
+  // v8.52: ペース入力は内部的には速度モードとして即時反映する。
+  // 以前は setMode('pace') になり、既存計算側でパワーモード扱いになって
+  // 設定値がリロード後まで反映されない原因になっていた。
+  if(p.rideInputMode && typeof setMode==='function'){
+    const effectiveMode = p.rideInputMode === 'pwr' ? 'pwr' : 'spd';
+    if(inputMode !== effectiveMode) setMode(effectiveMode);
+  }
   if(typeof mcpCalc==='function') mcpCalc(mode==='goal-first' ? 'end' : 'start');
   if(typeof updateRidePaceDisplay==='function') updateRidePaceDisplay();
   if(typeof renderDaylight==='function') renderDaylight();
