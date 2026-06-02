@@ -312,13 +312,13 @@ body.pc-mode .ride-settings-col{padding-top:0}
   .course-setting-tile{grid-column:span 2!important}
 }
 
-/* ── v8.11: スマホ地図上固定POIバー ── */
+/* ── v8.12: スマホ地図上固定POIバー（右上配置） ── */
 #map-poi-floating{display:none}
 body.sp-mode #map-poi-floating{
   display:flex;
   position:absolute;
   top:10px;
-  left:10px;
+  right:10px;
   z-index:25;
   flex-direction:column;
   gap:4px;
@@ -348,7 +348,7 @@ body.sp-mode #map-poi-floating{
 .poi-float-btn.active div{color:rgba(255,255,255,.82)}
 body.pc-mode #map-poi-floating{display:none!important}
 @media(max-width:380px){
-  body.sp-mode #map-poi-floating{top:8px;left:8px;gap:3px}
+  body.sp-mode #map-poi-floating{top:8px;right:8px;gap:3px}
   .poi-float-btn{width:38px;min-height:34px;font-size:15px;border-radius:8px}
   .poi-float-btn div{font-size:7px}
 }
@@ -377,7 +377,7 @@ body.pc-mode #map-poi-floating{display:none!important}
 <!-- GPS再取得ボタン（常時表示） -->
 <button id="gps-retry-btn" onclick="retryGPS()" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">📍</button>
 <header>
-  <h1>Ride Pace Planner <span class="ver">v8.11</span></h1>
+  <h1>Ride Pace Planner <span class="ver">v8.12</span></h1>
   <span class="sub">ライド計画 / Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
