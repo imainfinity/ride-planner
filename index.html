@@ -354,6 +354,22 @@ body.pc-mode #map-poi-floating{display:none!important}
 }
 
 
+
+/* ── v8.54: POIバーにコース削除/GPX入出力、設定モーダル Ride/Run タブ ── */
+.poi-float-btn.poi-danger{background:rgba(220,38,38,.94);color:#fff}
+.poi-float-btn.poi-danger div{color:rgba(255,255,255,.9)}
+.poi-float-btn.poi-gpx{background:rgba(24,24,15,.94);color:#fff}
+.poi-float-btn.poi-gpx div{color:rgba(255,255,255,.86)}
+.settings-tab-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 0 14px;padding:6px;background:var(--bg2);border-radius:10px}
+.settings-tab-btn{padding:10px 8px;border:0.5px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text2);font-size:13px;font-weight:800;cursor:pointer;font-family:inherit}
+.settings-tab-btn.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.settings-tab-panel{display:none}.settings-tab-panel.on{display:block}
+.run-zone-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin:8px 0 10px}
+.run-zone-card{padding:8px 4px;border-radius:8px;text-align:center;border:1px solid transparent;background:var(--bg2);cursor:pointer;font-family:inherit}
+.run-zone-card.on{border:2.5px solid var(--acc);box-shadow:0 3px 8px rgba(0,0,0,.18)}
+.run-zone-card .rz-z{font-size:12px;font-weight:900}.run-zone-card .rz-n{font-size:8px;font-weight:800;opacity:.72;white-space:nowrap}.run-zone-card .rz-bpm{font-size:9px;font-weight:900}
+@media(max-width:520px){.run-zone-grid{grid-template-columns:repeat(5,1fr);gap:4px}.run-zone-card{padding:7px 2px}.run-zone-card .rz-n{font-size:7px}.run-zone-card .rz-bpm{font-size:8px}}
+
 </style>
 
 <script>
@@ -377,14 +393,14 @@ body.pc-mode #map-poi-floating{display:none!important}
 <!-- GPS再取得ボタン（常時表示） -->
 <button id="gps-retry-btn" onclick="retryGPS()" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">📍</button>
 <header>
-  <h1>Ride Pace Planner <span class="ver">v8.52</span></h1>
+  <h1>Ride Pace Planner <span class="ver">v8.12</span></h1>
   <span class="sub">ライド計画 / Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
 
 <div class="tabs" id="app-tabs">
   <button class="tab on" onclick="sw('ride')">🚴 ライド</button>
-  <button class="tab" onclick="openRidePaceSettings()">🏃 ペース設定</button>
+  <a class="tab" href="./run.html" style="text-decoration:none">🏃 ラン</a>
   <button class="tab" onclick="sw('tri')">Bike→Run</button>
   <button class="tab" onclick="sw('saved')">📁 保存</button>
   <button class="tab" onclick="sw('log')">ログ</button>
@@ -435,7 +451,6 @@ body.pc-mode #map-poi-floating{display:none!important}
     <div class="locked-metric"><div class="locked-label">距離</div><div class="locked-value" id="mcp-dist-display">50.0 km</div><div class="locked-sub" id="mcp-source">🔒 設定値反映</div></div>
     <div class="locked-metric"><div class="locked-label">獲得標高</div><div class="locked-value" id="mcp-elev-display">300 m</div><div class="locked-sub">設定/ルート反映</div></div>
     <div class="locked-metric"><div class="locked-label">NET平均速度</div><div class="locked-value" id="mcp-spd-display">30.0 km/h</div><div class="locked-sub">入力方式で自動反映</div></div>
-    <div class="locked-metric"><div class="locked-label">1kmペース</div><div class="locked-value" id="mcp-pace-display">2:00/km</div><div class="locked-sub">速度から自動換算</div></div>
     <div class="locked-metric"><div class="locked-label">所要時間</div><div class="locked-value" id="mcp-total">—</div><div class="locked-sub" id="mcp-time-note">Ratio込み</div></div>
     <button type="button" class="locked-metric course-setting-tile" onclick="openSettingsModal()"><div class="locked-label">🚩 コース</div><div class="locked-value">コース設定</div><div class="locked-sub">数値変更はこちら</div></button>
   </div>
@@ -462,6 +477,10 @@ body.pc-mode #map-poi-floating{display:none!important}
 
       <!-- スマホ専用：地図上固定POIショートカットバー -->
       <div id="map-poi-floating" aria-label="POI shortcut buttons">
+        <button class="poi-float-btn poi-danger" onclick="hardClearRoute()" title="コース削除">🗑️<div>削除</div></button>
+        <button class="poi-float-btn poi-gpx" onclick="downloadGPX()" title="GPX保存">💾<div>GPX</div></button>
+        <button class="poi-float-btn poi-gpx" onclick="openGPXImport()" title="GPX読込">📂<div>読込</div></button>
+        <input id="gpx-import-input" type="file" accept=".gpx,application/gpx+xml,text/xml" style="display:none" onchange="handleGPXImportFile(event)">
         <button class="poi-float-btn" data-poi-label="コンビニ" onclick="selectPOICategory('コンビニ')" title="コンビニ">🏪<div>CVS</div></button>
         <button class="poi-float-btn" data-poi-label="カフェ" onclick="selectPOICategory('カフェ')" title="カフェ">☕<div>Café</div></button>
         <button class="poi-float-btn" data-poi-label="レストラン" onclick="selectPOICategory('レストラン')" title="食事">🍽️<div>食事</div></button>
@@ -670,6 +689,7 @@ body.pc-mode #map-poi-floating{display:none!important}
     <button class="bs" onclick="undoRoute()"        style="font-size:11px;padding:4px 8px">↩</button>
     <button class="bs" onclick="redoRoute()"        style="font-size:11px;padding:4px 8px">↪</button>
     <button class="bp" onclick="downloadGPX()" title="作成したコースをGPXで保存" style="font-size:12px;padding:6px 12px;font-weight:800;background:var(--green);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.18)">💾 GPX保存</button>
+    <button class="bp" onclick="openGPXImport()" title="GPXファイルを読み込んで編集" style="font-size:12px;padding:6px 12px;font-weight:800;background:var(--blue);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.18)">📂 GPX読込</button>
     <button class="bs" onclick="showSaveDialog()"   style="font-size:11px;padding:4px 8px">💾</button>
     <button class="bp" onclick="manualSync()"       style="font-size:11px;padding:4px 10px">🔄</button>
     <select id="route-mode" onchange="smartCalc('dist');if(waypoints.length>=2)calcRoute();" style="font-size:10px;padding:3px 5px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text)">
@@ -2456,65 +2476,6 @@ function syncWeatherCondToModal(){
   set('r-wsp-range','modal-wsp-range'); set('r-weather','modal-weather'); set('r-cond','modal-cond');
 }
 
-/* v8.50: Ride画面内でRun向け「1km何分」指定を扱う補助関数。地図/APIは切り替えない。 */
-function rideSpeedToPaceParts(kmh){
-  const v=+kmh||0;
-  if(v<=0) return {min:0,sec:0,text:'—'};
-  let total=Math.round(3600/v);
-  const min=Math.floor(total/60);
-  let sec=total%60;
-  sec=Math.round(sec/5)*5;
-  if(sec>=60){sec=0; total+=60;}
-  return {min,sec,text:`${min}:${String(sec).padStart(2,'0')}/km`};
-}
-function ridePaceToSpeed(min,sec){
-  const total=(+min||0)*60+(+sec||0);
-  return total>0 ? 3600/total : 0;
-}
-function syncModalPaceFromSpeed(){
-  const spd=+document.getElementById('modal-spd')?.value||0;
-  const p=rideSpeedToPaceParts(spd);
-  const mi=document.getElementById('modal-pace-min');
-  const se=document.getElementById('modal-pace-sec');
-  const pr=document.getElementById('modal-pace-preview');
-  if(mi && p.min) mi.value=p.min;
-  if(se || p.sec===0) { if(se) se.value=p.sec; }
-  if(pr) pr.textContent=p.text;
-}
-function modalPaceToSpeed(live){
-  const mi=document.getElementById('modal-pace-min');
-  const se=document.getElementById('modal-pace-sec');
-  if(!mi || !se) return;
-  let min=Math.max(2,Math.min(20,parseInt(mi.value||'6',10)));
-  let sec=Math.max(0,Math.min(55,Math.round((parseInt(se.value||'0',10))/5)*5));
-  mi.value=min; se.value=sec;
-  const spd=ridePaceToSpeed(min,sec);
-  const spdEl=document.getElementById('modal-spd');
-  if(spdEl) spdEl.value=spd.toFixed(1);
-  const pr=document.getElementById('modal-pace-preview');
-  if(pr) pr.textContent=`${min}:${String(sec).padStart(2,'0')}/km`;
-  if(live) saveUserPref(true);
-}
-function modalAdjustPace(deltaSec){
-  const mi=document.getElementById('modal-pace-min');
-  const se=document.getElementById('modal-pace-sec');
-  if(!mi || !se) return;
-  let total=(+mi.value||6)*60+(+se.value||0)+deltaSec;
-  total=Math.max(120,Math.min(1200,total));
-  mi.value=Math.floor(total/60);
-  se.value=Math.round((total%60)/5)*5;
-  if(+se.value>=60){mi.value=+mi.value+1;se.value=0;}
-  modalPaceToSpeed(true);
-}
-function updateRidePaceDisplay(){
-  const el=document.getElementById('mcp-pace-display');
-  if(el) el.textContent=rideSpeedToPaceParts(mcp?.spd||document.getElementById('r-movespd')?.value||30).text;
-}
-function openRidePaceSettings(){
-  openSettingsModal();
-  setRideInputModeFromSettings('pace');
-}
-
 /* ══════════════════════════════════════
    設定モーダル：同じライドカラムへ即時マッピング
 ══════════════════════════════════════ */
@@ -2531,6 +2492,11 @@ function openSettingsModal(){
           <button onclick="closeSettingsModal()" aria-label="閉じる" style="width:34px;height:34px;border:0.5px solid var(--border2);border-radius:50%;background:var(--bg);color:var(--text);font-size:24px;line-height:28px;cursor:pointer;font-family:inherit">×</button>
         </div>
         <div style="padding:20px 22px 22px">
+          <div class="settings-tab-row">
+            <button type="button" id="settings-tab-btn-ride" class="settings-tab-btn on" onclick="setSettingsModalTab('ride')">🚴 ライド設定</button>
+            <button type="button" id="settings-tab-btn-run" class="settings-tab-btn" onclick="setSettingsModalTab('run')">🏃 ラン設定</button>
+          </div>
+          <div id="settings-tab-ride" class="settings-tab-panel on">
           <div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.03em;margin-bottom:12px">ライド設定（デフォルト値）</div>
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:18px;padding:9px;background:var(--bg2);border-radius:10px">
             <span style="font-size:12px;font-weight:600;color:var(--text2);white-space:nowrap">モード:</span>
@@ -2539,36 +2505,15 @@ function openSettingsModal(){
           </div>
 
           <div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.03em;margin:4px 0 8px">計算入力方式</div>
-          <div style="display:flex;gap:6px;margin-bottom:12px;padding:7px;background:var(--bg2);border-radius:10px;flex-wrap:wrap">
-            <button class="modebt" id="modal-ride-mode-spd" onclick="setRideInputModeFromSettings('spd')" style="flex:1 1 150px;font-size:13px;font-weight:800;padding:10px 8px">🚴 NET平均車速から</button>
-            <button class="modebt" id="modal-ride-mode-pace" onclick="setRideInputModeFromSettings('pace')" style="flex:1 1 150px;font-size:13px;font-weight:800;padding:10px 8px">🏃 1kmペースから</button>
-            <button class="modebt" id="modal-ride-mode-pwr" onclick="setRideInputModeFromSettings('pwr')" style="flex:1 1 150px;font-size:13px;font-weight:800;padding:10px 8px">⚡ パワー指定から</button>
+          <div style="display:flex;gap:6px;margin-bottom:12px;padding:7px;background:var(--bg2);border-radius:10px">
+            <button class="modebt" id="modal-ride-mode-spd" onclick="setRideInputModeFromSettings('spd')" style="flex:1;font-size:13px;font-weight:800;padding:10px 8px">🚴 NET平均車速から</button>
+            <button class="modebt" id="modal-ride-mode-pwr" onclick="setRideInputModeFromSettings('pwr')" style="flex:1;font-size:13px;font-weight:800;padding:10px 8px">⚡ パワー指定から</button>
           </div>
 
           <div class="g3" style="gap:10px;margin-bottom:12px">
             <div class="field"><label>距離 (km)</label><input type="number" id="modal-dist" value="50" step="0.1" oninput="saveUserPref(true)"></div>
             <div class="field"><label>獲得標高 (m)</label><input type="number" id="modal-elev" value="300" step="10" oninput="saveUserPref(true)"></div>
-            <div class="field" id="modal-spd-field"><label>NET平均車速 (km/h)</label><input type="number" id="modal-spd" value="30" step="0.5" oninput="syncModalPaceFromSpeed();saveUserPref(true)"><div class="hint">パワー指定時は参考値として保存</div></div>
-          </div>
-          <div id="modal-pace-field" style="margin:-2px 0 12px;padding:12px;border:0.5px solid var(--border);border-radius:12px;background:var(--bg2);display:none">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px">
-              <div>
-                <div style="font-size:12px;font-weight:800;color:var(--text)">ラン換算：1kmあたりのペース</div>
-                <div class="hint">地図・POI・カロリー計算はRide側のまま、速度指定だけ分/kmで入力します。</div>
-              </div>
-              <button class="bs" onclick="setRideInputModeFromSettings('pace')" style="font-size:11px;padding:6px 10px;white-space:nowrap">🏃 この方式を選択</button>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end">
-              <div class="field"><label>分 / km</label><input type="number" id="modal-pace-min" value="6" min="2" max="20" step="1" oninput="modalPaceToSpeed(true)"></div>
-              <div class="field"><label>秒</label><input type="number" id="modal-pace-sec" value="0" min="0" max="55" step="5" oninput="modalPaceToSpeed(true)"></div>
-              <div style="font-size:18px;font-weight:900;color:var(--text);padding:7px 10px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);white-space:nowrap" id="modal-pace-preview">6:00/km</div>
-            </div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
-              <button class="bsm" onclick="modalAdjustPace(-10)">速く -10秒</button>
-              <button class="bsm" onclick="modalAdjustPace(-5)">速く -5秒</button>
-              <button class="bsm" onclick="modalAdjustPace(5)">遅く +5秒</button>
-              <button class="bsm" onclick="modalAdjustPace(10)">遅く +10秒</button>
-            </div>
+            <div class="field" id="modal-spd-field"><label>NET平均車速 (km/h)</label><input type="number" id="modal-spd" value="30" step="0.5" oninput="saveUserPref(true)"><div class="hint">パワー指定時は参考値として保存</div></div>
           </div>
           <div class="g3" style="gap:10px;margin-bottom:12px">
             <div class="field"><label>体重 (kg)</label><input type="number" id="modal-weight" value="65" step="0.5" oninput="saveUserPref(true);buildModalPowerZones()"></div>
@@ -2609,8 +2554,39 @@ function openSettingsModal(){
             <div id="modal-temp-display" style="font-size:18px;font-weight:800;padding:8px 10px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg2);color:var(--text)">22°C</div>
             <div class="hint">セレクト中の日付・地域から自動推定。手入力は不要。</div>
           </div>
+
+          </div>
+          <div id="settings-tab-run" class="settings-tab-panel">
+            <div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.03em;margin-bottom:12px">ラン設定（Rideマップ共通）</div>
+            <div style="padding:12px;border:0.5px solid var(--border);border-radius:12px;background:var(--bg2);margin-bottom:12px">
+              <div class="g3" style="gap:10px;margin-bottom:12px">
+                <div class="field"><label>ラン距離 (km)</label><input type="number" id="modal-run-dist" value="5" step="0.1" oninput="saveModalRunPref(true)"><div class="hint">初期値 5km</div></div>
+                <div class="field"><label>体重 (kg)</label><input type="number" id="modal-run-weight" value="65" step="0.5" oninput="saveModalRunPref(true)"></div>
+                <div class="field"><label>Ratio (%)</label><input type="number" id="modal-run-ratio" value="85" step="1" oninput="saveModalRunPref(true)"><div class="hint">信号・休憩込み</div></div>
+              </div>
+              <div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:8px">1kmペース</div>
+              <div style="display:flex;gap:8px;align-items:center;justify-content:center;background:var(--bg);border:0.5px solid var(--border);border-radius:10px;padding:10px;margin-bottom:8px">
+                <button class="time-mini-btn" onclick="modalRunPaceAdj('sec',-10)">-10</button>
+                <button class="time-mini-btn" onclick="modalRunPaceAdj('sec',-5)">-5</button>
+                <div style="font-size:26px;font-weight:900;font-variant-numeric:tabular-nums;color:var(--text);min-width:96px;text-align:center"><span id="modal-run-pace-min">06</span>:<span id="modal-run-pace-sec">00</span><span style="font-size:12px;color:var(--text2)">/km</span></div>
+                <button class="time-mini-btn" onclick="modalRunPaceAdj('sec',5)">+5</button>
+                <button class="time-mini-btn" onclick="modalRunPaceAdj('sec',10)">+10</button>
+                <input type="hidden" id="modal-run-pace" value="6.000">
+              </div>
+              <div class="hint" id="modal-run-pace-hint" style="text-align:center;margin-bottom:10px">6:00/km ≒ 10.0km/h</div>
+            </div>
+            <div style="padding:12px;border:0.5px solid var(--border);border-radius:12px;background:var(--bg2);margin-bottom:14px">
+              <div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:4px">心拍Zone</div>
+              <div class="hint">最大心拍・安静時心拍から一般的なトレーニングZone目安を表示します。</div>
+              <div class="g2" style="gap:10px;margin:10px 0">
+                <div class="field"><label>最大心拍</label><input type="number" id="modal-run-maxhr" value="180" step="1" oninput="saveModalRunPref(false);buildModalRunZones()"></div>
+                <div class="field"><label>安静時心拍</label><input type="number" id="modal-run-resthr" value="60" step="1" oninput="saveModalRunPref(false);buildModalRunZones()"></div>
+              </div>
+              <div id="modal-run-zonebar" class="run-zone-grid"></div>
+            </div>
+          </div>
           <div style="display:flex;gap:10px;align-items:center;margin-top:8px">
-            <button class="bp" onclick="applyUserPref()" style="padding:10px 20px;font-size:13px;font-weight:700">ライドに適用</button>
+            <button class="bp" onclick="applyUserPref()" style="padding:10px 20px;font-size:13px;font-weight:700">設定を適用</button>
             <button class="bs" onclick="resetUserPref()" style="padding:10px 18px;font-size:13px;background:var(--bg)">リセット</button>
             <span class="hint" id="modal-pref-saved" style="margin-left:auto"></span>
           </div>
@@ -2622,6 +2598,9 @@ function openSettingsModal(){
   const sel=document.getElementById('modal-pref');
   if(sel && !sel.options.length) sel.innerHTML=_prefOptionsHtml();
   loadUserPrefUI();
+  loadModalRunPrefUI();
+  buildModalRunZones();
+  setSettingsModalTab(__settingsModalTab||'ride');
   m.style.display='flex';
 }
 function closeSettingsModal(){
@@ -2655,7 +2634,6 @@ function sw(t){
 
 function saveUserPref(liveApply){
   const current=_getSavedPref();
-  if((window.__modalRideInputMode || current.rideInputMode)==='pace') modalPaceToSpeed(false);
   const pref={
     dist:  _modalVal('dist', current.dist),
     elev:  _modalVal('elev', current.elev),
@@ -2686,7 +2664,6 @@ function loadUserPrefUI(){
   _setModalVal('wkg',p.wkg); _setModalVal('np',p.np);
   _setModalVal('start',p.start); _setModalVal('goal',p.goalTime||'07:00'); _setModalVal('pref',p.pref);
   _setModalVal('wsp-range',p.wspRange||'2'); _setModalVal('weather',p.weather||'1.00'); _setModalVal('cond',p.cond||'1.00');
-  syncModalPaceFromSpeed();
   window.__modalRideInputMode = p.rideInputMode || inputMode || 'spd';
   if(typeof updateModalRideInputModeButtons==='function') updateModalRideInputModeButtons();
   if(typeof modalSyncZoneFromWkg==='function') modalSyncZoneFromWkg();
@@ -2727,15 +2704,8 @@ function _mapPrefToRide(p, silent){
     set('r-end','');
   }
 
-  // v8.52: ペース入力は内部的には速度モードとして即時反映する。
-  // 以前は setMode('pace') になり、既存計算側でパワーモード扱いになって
-  // 設定値がリロード後まで反映されない原因になっていた。
-  if(p.rideInputMode && typeof setMode==='function'){
-    const effectiveMode = p.rideInputMode === 'pwr' ? 'pwr' : 'spd';
-    if(inputMode !== effectiveMode) setMode(effectiveMode);
-  }
+  if(p.rideInputMode && typeof setMode==='function') setMode(p.rideInputMode);
   if(typeof mcpCalc==='function') mcpCalc(mode==='goal-first' ? 'end' : 'start');
-  if(typeof updateRidePaceDisplay==='function') updateRidePaceDisplay();
   if(typeof renderDaylight==='function') renderDaylight();
   if(!silent){
     const h=document.getElementById('modal-pref-saved');
@@ -2745,27 +2715,21 @@ function _mapPrefToRide(p, silent){
 
 
 function setRideInputModeFromSettings(mode){
-  window.__modalRideInputMode = mode === 'pwr' ? 'pwr' : (mode === 'pace' ? 'pace' : 'spd');
-  if(window.__modalRideInputMode === 'pace') modalPaceToSpeed(false);
+  window.__modalRideInputMode = mode === 'pwr' ? 'pwr' : 'spd';
   updateModalRideInputModeButtons();
-  // pace は既存の速度計算ロジックを使う。API/地図/カロリーには触らない。
-  if(typeof setMode === 'function') setMode(window.__modalRideInputMode === 'pwr' ? 'pwr' : 'spd');
+  if(typeof setMode === 'function') setMode(window.__modalRideInputMode);
   saveUserPref(true);
 }
 function updateModalRideInputModeButtons(){
   const mode = window.__modalRideInputMode || inputMode || 'spd';
   const spd=document.getElementById('modal-ride-mode-spd');
-  const pace=document.getElementById('modal-ride-mode-pace');
   const pwr=document.getElementById('modal-ride-mode-pwr');
   if(spd) spd.classList.toggle('on', mode==='spd');
-  if(pace) pace.classList.toggle('on', mode==='pace');
   if(pwr) pwr.classList.toggle('on', mode==='pwr');
   const sf=document.getElementById('modal-spd-field');
-  const pf=document.getElementById('modal-pace-field');
   const z=document.getElementById('modal-power-section');
-  if(sf) sf.style.opacity = (mode==='spd' || mode==='pace') ? '1' : '.55';
-  if(pf) pf.style.display = mode==='pace' ? 'block' : 'none';
-  if(mode==='pace') syncModalPaceFromSpeed();
+  // 速度モードでもパワー条件は見えるが、選択状態を明確化
+  if(sf) sf.style.opacity = mode==='spd' ? '1' : '.55';
 }
 
 function buildModalPowerZones(){
@@ -2808,7 +2772,95 @@ function modalSyncZoneFromWkg(){
   buildModalPowerZones();
 }
 
+
+/* ── v8.54 設定モーダル内 Ride / Run タブ ── */
+let __settingsModalTab='ride';
+let _modalRunPaceState={min:6,sec:0};
+function setSettingsModalTab(tab){
+  __settingsModalTab=(tab==='run')?'run':'ride';
+  document.getElementById('settings-tab-btn-ride')?.classList.toggle('on',__settingsModalTab==='ride');
+  document.getElementById('settings-tab-btn-run')?.classList.toggle('on',__settingsModalTab==='run');
+  document.getElementById('settings-tab-ride')?.classList.toggle('on',__settingsModalTab==='ride');
+  document.getElementById('settings-tab-run')?.classList.toggle('on',__settingsModalTab==='run');
+  if(__settingsModalTab==='run'){loadModalRunPrefUI();buildModalRunZones();}
+}
+function _getRunPref(){
+  try{return Object.assign({dist:5,pace:6,weight:65,ratio:85,maxhr:180,resthr:60}, JSON.parse(localStorage.getItem('rpp_run_map_pref')||'{}'));}
+  catch(e){return {dist:5,pace:6,weight:65,ratio:85,maxhr:180,resthr:60};}
+}
+function loadModalRunPrefUI(){
+  const p=_getRunPref();
+  const set=(id,v)=>{const el=document.getElementById(id); if(el) el.value=v;};
+  set('modal-run-dist',p.dist); set('modal-run-weight',p.weight); set('modal-run-ratio',p.ratio); set('modal-run-maxhr',p.maxhr); set('modal-run-resthr',p.resthr);
+  const pace=+p.pace||6;
+  _modalRunPaceState.min=Math.floor(pace);
+  _modalRunPaceState.sec=Math.round((pace-Math.floor(pace))*60/5)*5;
+  if(_modalRunPaceState.sec>=60){_modalRunPaceState.min++;_modalRunPaceState.sec=0;}
+  _syncModalRunPace();
+}
+function _syncModalRunPace(){
+  const min=Math.max(1,Math.min(30,_modalRunPaceState.min));
+  const sec=((Math.round(_modalRunPaceState.sec/5)*5)%60+60)%60;
+  _modalRunPaceState={min,sec};
+  const pace=min+sec/60;
+  const kmh=60/pace;
+  const setText=(id,t)=>{const el=document.getElementById(id); if(el) el.textContent=t;};
+  setText('modal-run-pace-min',String(min).padStart(2,'0'));
+  setText('modal-run-pace-sec',String(sec).padStart(2,'0'));
+  const hidden=document.getElementById('modal-run-pace'); if(hidden) hidden.value=pace.toFixed(3);
+  const hint=document.getElementById('modal-run-pace-hint'); if(hint) hint.textContent=`${min}:${String(sec).padStart(2,'0')}/km ≒ ${kmh.toFixed(1)}km/h`;
+}
+function modalRunPaceAdj(part,delta){
+  if(part==='min') _modalRunPaceState.min=Math.max(1,Math.min(30,_modalRunPaceState.min+delta));
+  else{
+    let total=_modalRunPaceState.min*60+_modalRunPaceState.sec+delta;
+    total=Math.max(60,Math.min(30*60,total));
+    _modalRunPaceState.min=Math.floor(total/60); _modalRunPaceState.sec=total%60;
+  }
+  _syncModalRunPace();
+  saveModalRunPref(true);
+}
+function saveModalRunPref(liveApply){
+  const val=(id,fb)=>{const el=document.getElementById(id); return el?el.value:fb;};
+  const pref={
+    dist:+val('modal-run-dist',5)||5,
+    pace:+val('modal-run-pace',6)||6,
+    weight:+val('modal-run-weight',65)||65,
+    ratio:+val('modal-run-ratio',85)||85,
+    maxhr:+val('modal-run-maxhr',180)||180,
+    resthr:+val('modal-run-resthr',60)||60
+  };
+  localStorage.setItem('rpp_run_map_pref',JSON.stringify(pref));
+  if(liveApply) applyModalRunToRide(false);
+}
+function applyModalRunToRide(closeAfter){
+  saveModalRunPref(false);
+  const p=_getRunPref();
+  const spd=60/(+p.pace||6);
+  const ridePref=_getSavedPref();
+  const merged=Object.assign({},ridePref,{dist:String(p.dist),elev:'0',spd:String(spd.toFixed(2)),weight:String(p.weight),ratio:String(p.ratio),rideInputMode:'spd'});
+  localStorage.setItem('rpp_user_pref',JSON.stringify(merged));
+  _mapPrefToRide(merged,true);
+  const h=document.getElementById('modal-pref-saved');
+  if(h){h.textContent='🏃 ラン設定をRideマップへ適用'; clearTimeout(window.__prefMsgTimer); window.__prefMsgTimer=setTimeout(()=>h.textContent='',1200);}
+  if(closeAfter){ closeSettingsModal(); sw('ride'); }
+}
+function buildModalRunZones(){
+  const box=document.getElementById('modal-run-zonebar'); if(!box) return;
+  const max=+document.getElementById('modal-run-maxhr')?.value||180;
+  const rest=+document.getElementById('modal-run-resthr')?.value||60;
+  const reserve=Math.max(1,max-rest);
+  const zones=[
+    ['Z1','Recovery',0.50,0.60,'#dbeafe','#1d4ed8'],['Z2','Endurance',0.60,0.70,'#dcfce7','#166534'],['Z3','Tempo',0.70,0.80,'#fef3c7','#b45309'],['Z4','Threshold',0.80,0.90,'#ffedd5','#c2410c'],['Z5','VO2max+',0.90,1.00,'#fce7f3','#be185d']
+  ];
+  box.innerHTML=zones.map((z,i)=>{const lo=Math.round(rest+reserve*z[2]); const hi=Math.round(rest+reserve*z[3]); return `<button type="button" class="run-zone-card ${i===2?'on':''}" style="background:${z[4]};color:${z[5]}" onclick="document.querySelectorAll('.run-zone-card').forEach(x=>x.classList.remove('on'));this.classList.add('on')"><div class="rz-z">${z[0]}</div><div class="rz-n">${z[1]}</div><div class="rz-bpm">${lo}–${hi} bpm</div></button>`;}).join('');
+}
+
 function applyUserPref(){
+  if(__settingsModalTab==='run'){
+    applyModalRunToRide(true);
+    return;
+  }
   saveUserPref(false);
   const p=_getSavedPref();
   _mapPrefToRide(p, false);
@@ -4397,7 +4449,7 @@ function hardClearRoute(){
   // ④ localStorage の地図キャッシュも完全クリア
   ['rpp_route_cache'].forEach(k=>localStorage.removeItem(k));
   activePOIs.clear();
-  document.querySelectorAll('.poi-icon-btn,.poi-list-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.poi-icon-btn,.poi-list-btn,.poi-float-btn').forEach(b=>b.classList.remove('active'));
 }
 
 function clearRoute(){
@@ -4443,6 +4495,68 @@ ${trkpts}
   a.download=name+'.gpx';
   a.click();URL.revokeObjectURL(a.href);
 }
+
+
+/* ── GPX読込 v8.54: 読み込んだコースを編集可能なwaypointへ変換 ── */
+function openGPXImport(){
+  const input=document.getElementById('gpx-import-input') || (()=>{
+    const el=document.createElement('input');
+    el.id='gpx-import-input'; el.type='file'; el.accept='.gpx,application/gpx+xml,text/xml'; el.style.display='none';
+    el.onchange=handleGPXImportFile;
+    document.body.appendChild(el);
+    return el;
+  })();
+  input.value='';
+  input.click();
+}
+function handleGPXImportFile(ev){
+  const file=ev?.target?.files?.[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=()=>importGPXText(String(reader.result||''), file.name||'GPX');
+  reader.onerror=()=>alert('GPXファイルを読み込めませんでした');
+  reader.readAsText(file);
+}
+function importGPXText(text, fileName){
+  if(!window.google || !gmap){ alert('マップ初期化後にGPXを読み込んでください'); return; }
+  let doc;
+  try{ doc=new DOMParser().parseFromString(text,'application/xml'); }
+  catch(e){ alert('GPXの形式を読み取れませんでした'); return; }
+  if(doc.querySelector('parsererror')){ alert('GPXのXML形式にエラーがあります'); return; }
+  const nodes=[...doc.getElementsByTagName('trkpt')];
+  const pts=(nodes.length?nodes:[...doc.getElementsByTagName('rtept'),...doc.getElementsByTagName('wpt')])
+    .map(n=>({lat:+n.getAttribute('lat'),lng:+n.getAttribute('lon')}))
+    .filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lng));
+  if(pts.length<2){ alert('GPX内に有効なルート点が見つかりませんでした'); return; }
+  if(waypoints.length && !confirm('現在のコースを削除してGPXを読み込みます。よろしいですか？')) return;
+  const sampled=sampleGPXPointsForEditing(pts, 23);
+  hardClearRoute();
+  const bounds=new google.maps.LatLngBounds();
+  sampled.forEach((pt,i)=>{
+    const ll=new google.maps.LatLng(pt.lat,pt.lng);
+    waypoints.push(ll);
+    createMarker(ll,i);
+    bounds.extend(ll);
+  });
+  goalFixed=true;
+  updateGoalFlagBtn();
+  renderWpList();
+  if(sampled.length>=2) calcRoute();
+  try{ gmap.fitBounds(bounds); }catch(e){}
+  const msg=document.getElementById('poi-results');
+  if(msg) msg.innerHTML=`<div style="font-size:11px;color:var(--green);padding:4px">📂 GPX読込完了：${escapeHtml(fileName||'GPX')} / 編集点 ${sampled.length}点<br><span style="color:var(--text2)">各マーカーをドラッグして編集できます。</span></div>`;
+}
+function sampleGPXPointsForEditing(points, maxPts){
+  if(points.length<=maxPts) return points;
+  const out=[];
+  for(let i=0;i<maxPts;i++){
+    const idx=Math.round(i*(points.length-1)/(maxPts-1));
+    out.push(points[idx]);
+  }
+  return out;
+}
+function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
 
 /* ── ベアリング ── */
 function calcBearing(lat1,lon1,lat2,lon2){
@@ -5084,7 +5198,6 @@ function mcpFlushAll(totalMins, moveSpdEff){
   const _mcpDistDisp=document.getElementById('mcp-dist-display'); if(_mcpDistDisp) _mcpDistDisp.textContent = `${(+mcp.dist||0).toFixed(1)} km`;
   const _mcpElevDisp=document.getElementById('mcp-elev-display'); if(_mcpElevDisp) _mcpElevDisp.textContent = `${Math.round(mcp.elev||0)} m`;
   const _mcpSpdDisp=document.getElementById('mcp-spd-display'); if(_mcpSpdDisp) _mcpSpdDisp.textContent = `${(+mcp.spd||0).toFixed(1)} km/h`;
-  if(typeof updateRidePaceDisplay==='function') updateRidePaceDisplay();
   _mcpShowDial('start', mcp.startH, mcp.startM);
   const endIsSet = mcp.endH !== null;
   if(endIsSet){
@@ -5455,7 +5568,6 @@ function refreshLockedPanelValues(){
   set('r-dist', Number(mcp.dist||50).toFixed(1).replace(/\.0$/,''));
   set('r-elev', Math.round(mcp.elev||0));
   set('r-movespd', Number(mcp.spd||30).toFixed(1).replace(/\.0$/,''));
-  if(typeof updateRidePaceDisplay==='function') updateRidePaceDisplay();
 }
 function openPlannerSettings(){ openSettingsModal(); }
 function _normDeg(d){ return ((Math.round(d)%360)+360)%360; }
@@ -5526,7 +5638,6 @@ updateDialDisplay('start');
   }
   _mcpShowDial('start', mcp.startH, mcp.startM);
   mcpCalc('start');
-  if(typeof updateRidePaceDisplay==='function') updateRidePaceDisplay();
 })();
 // 個人設定を自動適用
 (function(){
@@ -5612,20 +5723,5 @@ function refreshLockedPanelValues(){
 }
 
 </script>
-
-<script>
-/* v8.40 map pageshow recovery: Run/Ride相互遷移後のGoogle Maps復帰 */
-window.addEventListener('pageshow',function(){
-  setTimeout(function(){
-    try{
-      if(window.google&&google.maps){
-        if(typeof gmap==='undefined'||!gmap){ if(typeof initMap==='function') initMap(); }
-        else { google.maps.event.trigger(gmap,'resize'); }
-      }
-    }catch(e){console.warn('ride map pageshow recover failed',e)}
-  },120);
-});
-</script>
-
 </body>
 </html>
