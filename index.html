@@ -113,31 +113,6 @@ input[type=number],input[type=text],input[type=time],select{
 .poi-icon-btn div{font-size:8px;color:var(--text3);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;text-align:center}
 .poi-icon-btn:hover{background:var(--bg2)}.poi-icon-btn.active{background:var(--acc);border-color:var(--acc)}.poi-icon-btn.active div{color:rgba(255,255,255,.8)}
 
-
-/* ── v8.57: スマホ検索UX改善（入力ズーム防止・候補選択で即表示） ── */
-@media(max-width:768px){
-  body.sp-mode #map-search-bar{
-    padding:6px 8px!important;
-    gap:6px!important;
-    align-items:center!important;
-  }
-  body.sp-mode #map-search{
-    font-size:16px!important; /* iOS/Braveで入力時に勝手に拡大されるのを防止 */
-    line-height:1.25!important;
-    min-height:42px!important;
-    padding:9px 12px!important;
-  }
-  body.sp-mode #map-search-bar button{
-    font-size:14px!important;
-    min-height:42px!important;
-    padding:8px 12px!important;
-  }
-  body.sp-mode .pac-container{
-    z-index:100000!important;
-    font-size:15px!important;
-  }
-}
-
 /* ── map ── */
 #gmap{width:100%;min-height:300px;border-radius:var(--rs);background:var(--bg2)}
 .msb-cell{padding:0 12px;text-align:center;border-right:0.5px solid rgba(255,255,255,.15)}
@@ -379,6 +354,30 @@ body.pc-mode #map-poi-floating{display:none!important}
 }
 
 
+
+
+/* ── v8.58: スマホ検索は専用モーダル入力へ分離 ── */
+#search-modal{position:fixed;inset:0;z-index:100000;display:none;background:rgba(0,0,0,.48);backdrop-filter:blur(5px);align-items:flex-start;justify-content:center;padding:calc(env(safe-area-inset-top,0px) + 18px) 12px 12px}
+#search-modal.on{display:flex}
+.search-modal-card{width:min(720px,100%);background:var(--bg);color:var(--text);border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.35);overflow:visible;border:0.5px solid var(--border)}
+.search-modal-head{display:flex;align-items:center;justify-content:space-between;padding:13px 15px;border-bottom:0.5px solid var(--border);font-weight:800;font-size:15px}
+.search-modal-close{width:36px;height:36px;border-radius:50%;border:0.5px solid var(--border2);background:var(--bg);color:var(--text);font-size:20px;cursor:pointer}
+.search-modal-body{padding:14px;display:flex;flex-direction:column;gap:10px}
+#search-modal-input{font-size:17px!important;line-height:1.35;padding:13px 14px;border:2px solid var(--acc);border-radius:12px;background:var(--bg);color:var(--text);width:100%;font-family:inherit}
+.search-modal-actions{display:flex;gap:8px;align-items:center}
+.search-modal-actions .bp{flex:1;padding:12px 14px;font-size:14px;border-radius:10px}
+.search-modal-actions .bs{padding:11px 14px;font-size:13px;border-radius:10px;background:var(--bg2)}
+.search-modal-hint{font-size:11px;color:var(--text2);line-height:1.5;background:var(--bg2);border-radius:10px;padding:9px 10px}
+.search-open-btn{width:100%;display:flex;align-items:center;gap:8px;justify-content:flex-start;text-align:left;padding:12px 14px!important;font-size:16px!important;border-radius:12px!important;background:var(--bg)!important;border:1.5px solid var(--border2)!important;color:var(--text2)!important}
+.search-open-btn b{color:var(--text);font-size:15px}
+body.sp-mode #map-search-bar{position:relative;z-index:5;padding:6px 8px!important;background:var(--bg);border-bottom:0.5px solid var(--border)}
+body.sp-mode #map-search{display:none!important}
+body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
+.pac-container{z-index:100001!important;border-radius:12px!important;margin-top:6px!important;box-shadow:0 8px 28px rgba(0,0,0,.25)!important;font-family:'Helvetica Neue',Arial,'Hiragino Kaku Gothic ProN',sans-serif!important}
+.pac-item{padding:10px 12px!important;font-size:14px!important;line-height:1.4!important}
+.pac-item-query{font-size:15px!important;font-weight:700!important}
+@media(min-width:769px){#search-modal{padding-top:70px}.search-open-btn{font-size:13px!important;padding:8px 10px!important}}
+
 </style>
 
 <script>
@@ -393,6 +392,24 @@ body.pc-mode #map-poi-floating{display:none!important}
 </head>
 
 <body class="sp-mode">
+<!-- v8.58 スマホ検索専用モーダル：キーボード表示時も地図UIを潰さない -->
+<div id="search-modal" role="dialog" aria-modal="true" aria-label="地名検索">
+  <div class="search-modal-card">
+    <div class="search-modal-head">
+      <div>🔎 地名・住所・施設を検索</div>
+      <button type="button" class="search-modal-close" onclick="closeSearchModal()">×</button>
+    </div>
+    <div class="search-modal-body">
+      <input id="search-modal-input" type="text" inputmode="search" autocomplete="off" placeholder="例：大濠公園、糸島、セブンイレブン">
+      <div class="search-modal-actions">
+        <button type="button" class="bp" onclick="searchPlace({fromModal:true})">この場所を表示</button>
+        <button type="button" class="bs" onclick="clearSearchModalInput()">クリア</button>
+      </div>
+      <div class="search-modal-hint">候補を選ぶとすぐ地図に表示します。地図の拡大率は変えず、現在のズームのまま中心だけ移動します。</div>
+    </div>
+  </div>
+</div>
+
 <!-- GPS バナー：body直下・最前面 -->
 <div id="gps-start-banner" style="display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:99999;background:rgba(10,10,10,0.93);backdrop-filter:blur(10px);border-radius:12px;padding:12px 18px;flex-direction:row;align-items:center;gap:12px;white-space:nowrap;box-shadow:0 4px 24px rgba(0,0,0,0.5)">
   <span style="font-size:13px;color:#fff;font-weight:500">📍 現在地をスタートにしますか？</span>
@@ -402,7 +419,7 @@ body.pc-mode #map-poi-floating{display:none!important}
 <!-- GPS再取得ボタン（常時表示） -->
 <button id="gps-retry-btn" onclick="retryGPS()" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">📍</button>
 <header>
-  <h1>Ride Pace Planner <span class="ver">v8.57</span></h1>
+  <h1>Ride Pace Planner <span class="ver">v8.12</span></h1>
   <span class="sub">ライド計画 / Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
@@ -474,9 +491,9 @@ body.pc-mode #map-poi-floating{display:none!important}
   <div id="map-panel" style="padding:0;margin:0">
     <!-- 検索ボックス -->
     <div id="map-search-bar" style="margin:0 0 2px 0;display:flex;gap:4px;padding:4px">
-      <input id="map-search" type="text" placeholder="地名・住所を検索..."
-             style="flex:1;font-size:13px;padding:7px 10px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text)">
-      <button class="bs" onclick="searchPlace()" style="font-size:12px;padding:7px 12px">検索</button>
+      <input id="map-search" type="hidden" value="">
+      <button type="button" class="bs search-open-btn" onclick="openSearchModal()"><span>🔎</span><b id="search-open-label">地名・住所・施設を検索</b></button>
+      <button class="bs legacy-search-btn" onclick="openSearchModal()" style="font-size:12px;padding:7px 12px">検索</button>
     </div>
     <!-- ルート統計バー：スクロールしても固定（sticky） -->
 
@@ -3363,28 +3380,8 @@ function initMap(){
   geocoder         = new google.maps.Geocoder();
   placesService    = new google.maps.places.PlacesService(gmap);
 
-  // 検索 Autocomplete：候補を選んだ瞬間に地図へ反映（ズームはしない）
-  const input=document.getElementById('map-search');
-  const ac=new google.maps.places.Autocomplete(input,{
-    componentRestrictions:{country:'jp'},
-    fields:['geometry','name','formatted_address','place_id','vicinity']
-  });
-  ac.addListener('place_changed',()=>{
-    const pl=ac.getPlace();
-    if(pl && pl.geometry){
-      _showSearchResult(pl,{noZoom:true,fromAutocomplete:true});
-      if(input) input.blur(); // スマホで選択後にキーボードを閉じる
-    }
-  });
-  if(input){
-    input.addEventListener('keydown',(e)=>{
-      if(e.key==='Enter'){
-        e.preventDefault();
-        input.blur();
-        searchPlace({noZoom:true});
-      }
-    });
-  }
+  // v8.58 検索 Autocomplete：地図上入力ではなく専用モーダル入力に接続
+  setupSearchAutocomplete();
 
   // ── 地図クリック：パンと区別して地点追加 ──
   // Google Maps の dragstart/dragend はスマホタッチパンで発火しないため
@@ -4349,69 +4346,108 @@ function clearRoute(){
 /* ── 地点追加（履歴保存） ── */
 
 
-let _searchResultMarker=null;
-function _showSearchResult(place,opts={noZoom:true}){
-  if(!place || !place.geometry || !place.geometry.location) return;
-  const loc=place.geometry.location;
-  if(!_searchResultMarker){
-    _searchResultMarker=new google.maps.Marker({
-      map:gmap,
-      zIndex:200,
-      title:'検索結果',
-      icon:{path:google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,scale:6,fillColor:'#1a73e8',fillOpacity:1,strokeColor:'#fff',strokeWeight:2}
-    });
-  }
-  _searchResultMarker.setPosition(loc);
-  _searchResultMarker.setTitle(place.name || place.formatted_address || '検索結果');
-  // 地名検索で勝手にズームするとスマホで見失うため、基本は現在の縮尺を維持して中心移動だけ行う。
-  gmap.panTo(loc);
-  if(!opts.noZoom && gmap.getZoom()<14) gmap.setZoom(14);
-  if(!sharedIW) sharedIW=new google.maps.InfoWindow();
-  const name=place.name || place.formatted_address || '検索結果';
-  const addr=place.formatted_address || place.vicinity || '';
-  sharedIW.setContent(`<div style="min-width:210px;font-family:sans-serif">
-    <div style="font-size:14px;font-weight:700;margin-bottom:4px">📍 ${name}</div>
-    <div style="font-size:11px;color:#666;margin-bottom:8px">${addr}</div>
-    <button onclick="addWaypoint(new google.maps.LatLng(${loc.lat()},${loc.lng()})); if(sharedIW)sharedIW.close();"
-      style="padding:7px 12px;background:#18180f;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">この地点をコースに追加</button>
-    <button onclick="if(sharedIW)sharedIW.close();"
-      style="margin-left:6px;padding:7px 10px;background:#eee;color:#333;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit">閉じる</button>
-  </div>`);
-  sharedIW.open(gmap,_searchResultMarker);
-}
+let searchResultMarker=null;
+let searchAutocomplete=null;
 
-function searchPlace(opts={noZoom:true}){
-  const input=document.getElementById('map-search');
-  const q=(input?.value||'').trim();
-  if(!q) return;
-  if(!gmap){alert('マップの初期化がまだ完了していません。数秒後に再度検索してください。');return;}
-  if(!placesService && google?.maps?.places) placesService=new google.maps.places.PlacesService(gmap);
-  // Places APIを優先。Geocodingが制限されていても、施設名・地名検索はPlacesで拾える。
-  if(placesService && placesService.findPlaceFromQuery){
-    placesService.findPlaceFromQuery({
-      query:q,
-      fields:['name','geometry','formatted_address','place_id']
-    },(res,status)=>{
-      if(status==='OK' && res && res[0]){ _showSearchResult(res[0],opts); return; }
-      if(geocoder){
-        geocoder.geocode({address:q+' 日本'},(gres,gstatus)=>{
-          if(gstatus==='OK' && gres && gres[0]){ _showSearchResult(gres[0],opts); return; }
-          const msg={ZERO_RESULTS:'該当する場所が見つかりませんでした',OVER_QUERY_LIMIT:'検索APIの利用制限に達しています',REQUEST_DENIED:'検索APIが拒否されました。Google Cloud側で Places API / Maps JavaScript API の有効化とAPIキー制限を確認してください',INVALID_REQUEST:'検索内容が不正です'}[gstatus]||({ZERO_RESULTS:'該当する場所が見つかりませんでした',OVER_QUERY_LIMIT:'検索APIの利用制限に達しています',REQUEST_DENIED:'Places API設定を確認してください',INVALID_REQUEST:'検索内容が不正です'}[status]||('検索に失敗しました: '+status));
-          alert(msg);
-        });
+function openSearchModal(){
+  const modal=document.getElementById('search-modal');
+  const input=document.getElementById('search-modal-input');
+  if(!modal||!input) return;
+  modal.classList.add('on');
+  setTimeout(()=>{input.focus();input.select();},80);
+}
+function closeSearchModal(){
+  const modal=document.getElementById('search-modal');
+  const input=document.getElementById('search-modal-input');
+  if(input) input.blur();
+  if(modal) modal.classList.remove('on');
+}
+function clearSearchModalInput(){
+  const input=document.getElementById('search-modal-input');
+  if(input){input.value='';input.focus();}
+}
+function setupSearchAutocomplete(){
+  const input=document.getElementById('search-modal-input');
+  if(!input||!google.maps.places) return;
+  try{
+    searchAutocomplete=new google.maps.places.Autocomplete(input,{
+      componentRestrictions:{country:'jp'},
+      fields:['geometry','name','formatted_address','place_id']
+    });
+    searchAutocomplete.addListener('place_changed',()=>{
+      const pl=searchAutocomplete.getPlace();
+      if(pl&&pl.geometry&&pl.geometry.location){
+        document.getElementById('map-search').value=input.value||pl.name||'';
+        showSearchResultOnMap(pl);
+        closeSearchModal();
+      }
+    });
+    input.addEventListener('keydown',(e)=>{
+      if(e.key==='Enter'){
+        e.preventDefault();
+        searchPlace({fromModal:true});
+      }
+      if(e.key==='Escape') closeSearchModal();
+    });
+  }catch(e){console.warn('Autocomplete setup failed',e);}
+}
+function showSearchResultOnMap(place){
+  if(!place||!place.geometry||!place.geometry.location) return;
+  const loc=place.geometry.location;
+  const currentZoom=gmap&&gmap.getZoom?gmap.getZoom():null;
+  gmap.panTo(loc);
+  if(currentZoom!=null) setTimeout(()=>gmap.setZoom(currentZoom),50); // 検索で勝手にアップしない
+  if(searchResultMarker) searchResultMarker.setMap(null);
+  searchResultMarker=new google.maps.Marker({
+    map:gmap,
+    position:loc,
+    title:place.name||'検索結果',
+    icon:{url:'https://maps.google.com/mapfiles/ms/icons/red-dot.png'}
+  });
+  const name=place.name||'検索結果';
+  const addr=place.formatted_address||'';
+  const html=`<div style="min-width:190px;max-width:260px;font-size:13px;line-height:1.55">
+    <b>📍 ${name}</b><br>${addr?`<span style="color:#666">${addr}</span><br>`:''}
+    <button onclick="addWaypoint(searchResultMarker.getPosition());sharedIW&&sharedIW.close();" style="margin-top:8px;padding:6px 10px;border:none;border-radius:6px;background:#18180f;color:#fff;font-weight:700;cursor:pointer">この地点をコースに追加</button>
+  </div>`;
+  if(!sharedIW) sharedIW=new google.maps.InfoWindow();
+  sharedIW.setContent(html);
+  sharedIW.open(gmap,searchResultMarker);
+  const label=document.getElementById('search-open-label');
+  if(label) label.textContent=name;
+}
+function searchPlace(opts={}){
+  const modalInput=document.getElementById('search-modal-input');
+  const hiddenInput=document.getElementById('map-search');
+  const q=((modalInput&&modalInput.value)||(hiddenInput&&hiddenInput.value)||'').trim();
+  if(!q){openSearchModal();return;}
+  if(hiddenInput) hiddenInput.value=q;
+  const runGeocodeFallback=()=>{
+    if(!geocoder){alert('検索機能の初期化中です。数秒後にもう一度試してください');return;}
+    geocoder.geocode({address:q+' 日本'},(res,status)=>{
+      if(status==='OK'&&res&&res[0]){
+        showSearchResultOnMap(res[0]);
+        closeSearchModal();
       }else{
-        const msg={ZERO_RESULTS:'該当する場所が見つかりませんでした',OVER_QUERY_LIMIT:'検索APIの利用制限に達しています',REQUEST_DENIED:'Places API設定を確認してください',INVALID_REQUEST:'検索内容が不正です'}[status]||('検索に失敗しました: '+status);
+        const msg={ZERO_RESULTS:'該当する場所が見つかりませんでした',OVER_QUERY_LIMIT:'検索APIの利用制限に達しています',REQUEST_DENIED:'Google Maps APIキーまたはGeocoding/Places API設定を確認してください',INVALID_REQUEST:'検索内容が不正です'}[status]||('検索に失敗しました: '+status);
         alert(msg);
       }
     });
-    return;
-  }
-  if(geocoder){
-    geocoder.geocode({address:q+' 日本'},(res,status)=>{
-      if(status==='OK' && res && res[0]){ _showSearchResult(res[0],opts); return; }
-      const msg={ZERO_RESULTS:'該当する場所が見つかりませんでした',OVER_QUERY_LIMIT:'検索APIの利用制限に達しています',REQUEST_DENIED:'Google Maps APIキーまたは検索API設定を確認してください',INVALID_REQUEST:'検索内容が不正です'}[status]||('検索に失敗しました: '+status);
-      alert(msg);
+  };
+  if(placesService){
+    placesService.textSearch({query:q,region:'jp'},(res,status)=>{
+      if(status===google.maps.places.PlacesServiceStatus.OK&&res&&res[0]){
+        showSearchResultOnMap(res[0]);
+        closeSearchModal();
+      }else if(status===google.maps.places.PlacesServiceStatus.ZERO_RESULTS){
+        runGeocodeFallback();
+      }else{
+        const msg={OVER_QUERY_LIMIT:'検索APIの利用制限に達しています',REQUEST_DENIED:'Places API設定を確認してください',INVALID_REQUEST:'検索内容が不正です'}[status];
+        if(msg) alert(msg); else runGeocodeFallback();
+      }
     });
+  }else{
+    runGeocodeFallback();
   }
 }
 
