@@ -354,53 +354,6 @@ body.pc-mode #map-poi-floating{display:none!important}
 }
 
 
-
-/* ── v8.54: POIバーにコース削除/GPX入出力、設定モーダル Ride/Run タブ ── */
-.poi-float-btn.poi-danger{background:rgba(220,38,38,.94);color:#fff}
-.poi-float-btn.poi-danger div{color:rgba(255,255,255,.9)}
-.poi-float-btn.poi-gpx{background:rgba(24,24,15,.94);color:#fff}
-.poi-float-btn.poi-gpx div{color:rgba(255,255,255,.86)}
-.settings-tab-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 0 14px;padding:6px;background:var(--bg2);border-radius:10px}
-.settings-tab-btn{padding:10px 8px;border:0.5px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text2);font-size:13px;font-weight:800;cursor:pointer;font-family:inherit}
-.settings-tab-btn.on{background:var(--acc);color:#fff;border-color:var(--acc)}
-.settings-tab-panel{display:none}.settings-tab-panel.on{display:block}
-.run-zone-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin:8px 0 10px}
-.run-zone-card{padding:8px 4px;border-radius:8px;text-align:center;border:1px solid transparent;background:var(--bg2);cursor:pointer;font-family:inherit}
-.run-zone-card.on{border:2.5px solid var(--acc);box-shadow:0 3px 8px rgba(0,0,0,.18)}
-.run-zone-card .rz-z{font-size:12px;font-weight:900}.run-zone-card .rz-n{font-size:8px;font-weight:800;opacity:.72;white-space:nowrap}.run-zone-card .rz-bpm{font-size:9px;font-weight:900}
-@media(max-width:520px){.run-zone-grid{grid-template-columns:repeat(5,1fr);gap:4px}.run-zone-card{padding:7px 2px}.run-zone-card .rz-n{font-size:7px}.run-zone-card .rz-bpm{font-size:8px}}
-
-
-/* ── v8.55: スマホ表示圧縮 / 検索結果可視化 / ブラウザ下部バー対策 ── */
-body.sp-mode{padding-top:0!important;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 92px)!important}
-body.sp-mode #map-stats-bar{position:static!important;top:auto!important;left:auto!important;right:auto!important;z-index:5!important;pointer-events:none!important}
-body.sp-mode #map-stats-bar>div{padding:5px 6px!important;gap:0!important;box-shadow:none!important}
-body.sp-mode .msb-cell{padding:0 5px!important}
-body.sp-mode .msb-label{font-size:7px!important}
-body.sp-mode .msb-val{font-size:12px!important}
-body.sp-mode header{position:relative!important;top:auto!important;z-index:60!important}
-body.sp-mode .tabs{position:relative!important;top:auto!important;z-index:59!important;white-space:nowrap}
-body.sp-mode #mcp-bar{position:relative!important;top:auto!important;z-index:58!important}
-body.sp-mode #gps-start-banner{bottom:calc(env(safe-area-inset-bottom,0px) + 86px)!important;left:10px!important;right:10px!important;transform:none!important;white-space:normal!important;justify-content:space-between!important;padding:10px 12px!important}
-body.sp-mode #gps-start-banner span{font-size:12px!important}
-body.sp-mode #gps-start-banner button{padding:8px 10px!important}
-body.sp-mode #gps-retry-btn{bottom:calc(env(safe-area-inset-bottom,0px) + 86px)!important}
-body.sp-mode #gmap{height:calc(100dvh - 330px)!important;min-height:330px!important}
-body.sp-mode #map-search-bar{position:sticky;top:0;z-index:56;background:var(--bg3);padding:6px 6px!important}
-body.sp-mode #map-search-bar input{height:42px!important;font-size:14px!important}
-body.sp-mode #map-search-bar button{height:42px!important;min-width:64px!important;font-size:13px!important}
-.search-marker-info{font-family:inherit;min-width:190px;max-width:250px}
-.search-marker-title{font-weight:800;font-size:13px;margin-bottom:5px;color:#18180f}
-.search-marker-sub{font-size:11px;color:#555;margin-bottom:8px;line-height:1.35}
-.search-marker-actions{display:flex;gap:6px;flex-wrap:wrap}
-.search-marker-actions button{border:none;border-radius:6px;background:#18180f;color:#fff;padding:6px 8px;font-size:11px;font-weight:700;cursor:pointer}
-.search-marker-actions button.secondary{background:#e9e9e4;color:#18180f}
-@media(max-width:430px){
-  body.sp-mode #locked-course-panel{grid-template-columns:repeat(2,1fr)!important}
-  body.sp-mode .course-setting-tile{grid-column:span 2!important}
-  body.sp-mode #gmap{height:calc(100dvh - 360px)!important;min-height:300px!important}
-}
-
 </style>
 
 <script>
@@ -424,14 +377,14 @@ body.sp-mode #map-search-bar button{height:42px!important;min-width:64px!importa
 <!-- GPS再取得ボタン（常時表示） -->
 <button id="gps-retry-btn" onclick="retryGPS()" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">📍</button>
 <header>
-  <h1>Ride Pace Planner <span class="ver">v8.55</span></h1>
+  <h1>Ride Pace Planner <span class="ver">v8.56</span></h1>
   <span class="sub">ライド計画 / Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
 
 <div class="tabs" id="app-tabs">
   <button class="tab on" onclick="sw('ride')">🚴 ライド</button>
-  <button class="tab" onclick="openSettingsModal();setSettingsTab('run')">🏃 ラン</button>
+  <a class="tab" href="./run.html" style="text-decoration:none">🏃 ラン</a>
   <button class="tab" onclick="sw('tri')">Bike→Run</button>
   <button class="tab" onclick="sw('saved')">📁 保存</button>
   <button class="tab" onclick="sw('log')">ログ</button>
@@ -496,7 +449,7 @@ body.sp-mode #map-search-bar button{height:42px!important;min-width:64px!importa
   <div id="map-panel" style="padding:0;margin:0">
     <!-- 検索ボックス -->
     <div id="map-search-bar" style="margin:0 0 2px 0;display:flex;gap:4px;padding:4px">
-      <input id="map-search" type="text" placeholder="地名・住所を検索..." onkeydown="if(event.key==='Enter'){event.preventDefault();searchPlace();}"
+      <input id="map-search" type="text" placeholder="地名・住所を検索..."
              style="flex:1;font-size:13px;padding:7px 10px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text)">
       <button class="bs" onclick="searchPlace()" style="font-size:12px;padding:7px 12px">検索</button>
     </div>
@@ -508,10 +461,6 @@ body.sp-mode #map-search-bar button{height:42px!important;min-width:64px!importa
 
       <!-- スマホ専用：地図上固定POIショートカットバー -->
       <div id="map-poi-floating" aria-label="POI shortcut buttons">
-        <button class="poi-float-btn poi-danger" onclick="hardClearRoute()" title="コース削除">🗑️<div>削除</div></button>
-        <button class="poi-float-btn poi-gpx" onclick="downloadGPX()" title="GPX保存">💾<div>GPX</div></button>
-        <button class="poi-float-btn poi-gpx" onclick="openGPXImport()" title="GPX読込">📂<div>読込</div></button>
-        <input id="gpx-import-input" type="file" accept=".gpx,application/gpx+xml,text/xml" style="display:none" onchange="handleGPXImportFile(event)">
         <button class="poi-float-btn" data-poi-label="コンビニ" onclick="selectPOICategory('コンビニ')" title="コンビニ">🏪<div>CVS</div></button>
         <button class="poi-float-btn" data-poi-label="カフェ" onclick="selectPOICategory('カフェ')" title="カフェ">☕<div>Café</div></button>
         <button class="poi-float-btn" data-poi-label="レストラン" onclick="selectPOICategory('レストラン')" title="食事">🍽️<div>食事</div></button>
@@ -720,7 +669,6 @@ body.sp-mode #map-search-bar button{height:42px!important;min-width:64px!importa
     <button class="bs" onclick="undoRoute()"        style="font-size:11px;padding:4px 8px">↩</button>
     <button class="bs" onclick="redoRoute()"        style="font-size:11px;padding:4px 8px">↪</button>
     <button class="bp" onclick="downloadGPX()" title="作成したコースをGPXで保存" style="font-size:12px;padding:6px 12px;font-weight:800;background:var(--green);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.18)">💾 GPX保存</button>
-    <button class="bp" onclick="openGPXImport()" title="GPXファイルを読み込んで編集" style="font-size:12px;padding:6px 12px;font-weight:800;background:var(--blue);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.18)">📂 GPX読込</button>
     <button class="bs" onclick="showSaveDialog()"   style="font-size:11px;padding:4px 8px">💾</button>
     <button class="bp" onclick="manualSync()"       style="font-size:11px;padding:4px 10px">🔄</button>
     <select id="route-mode" onchange="smartCalc('dist');if(waypoints.length>=2)calcRoute();" style="font-size:10px;padding:3px 5px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text)">
@@ -2523,11 +2471,6 @@ function openSettingsModal(){
           <button onclick="closeSettingsModal()" aria-label="閉じる" style="width:34px;height:34px;border:0.5px solid var(--border2);border-radius:50%;background:var(--bg);color:var(--text);font-size:24px;line-height:28px;cursor:pointer;font-family:inherit">×</button>
         </div>
         <div style="padding:20px 22px 22px">
-          <div class="settings-tab-row">
-            <button type="button" id="settings-tab-btn-ride" class="settings-tab-btn on" onclick="setSettingsModalTab('ride')">🚴 ライド設定</button>
-            <button type="button" id="settings-tab-btn-run" class="settings-tab-btn" onclick="setSettingsModalTab('run')">🏃 ラン設定</button>
-          </div>
-          <div id="settings-tab-ride" class="settings-tab-panel on">
           <div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.03em;margin-bottom:12px">ライド設定（デフォルト値）</div>
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:18px;padding:9px;background:var(--bg2);border-radius:10px">
             <span style="font-size:12px;font-weight:600;color:var(--text2);white-space:nowrap">モード:</span>
@@ -2585,39 +2528,8 @@ function openSettingsModal(){
             <div id="modal-temp-display" style="font-size:18px;font-weight:800;padding:8px 10px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg2);color:var(--text)">22°C</div>
             <div class="hint">セレクト中の日付・地域から自動推定。手入力は不要。</div>
           </div>
-
-          </div>
-          <div id="settings-tab-run" class="settings-tab-panel">
-            <div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.03em;margin-bottom:12px">ラン設定（Rideマップ共通）</div>
-            <div style="padding:12px;border:0.5px solid var(--border);border-radius:12px;background:var(--bg2);margin-bottom:12px">
-              <div class="g3" style="gap:10px;margin-bottom:12px">
-                <div class="field"><label>ラン距離 (km)</label><input type="number" id="modal-run-dist" value="5" step="0.1" oninput="saveModalRunPref(true)"><div class="hint">初期値 5km</div></div>
-                <div class="field"><label>体重 (kg)</label><input type="number" id="modal-run-weight" value="65" step="0.5" oninput="saveModalRunPref(true)"></div>
-                <div class="field"><label>Ratio (%)</label><input type="number" id="modal-run-ratio" value="85" step="1" oninput="saveModalRunPref(true)"><div class="hint">信号・休憩込み</div></div>
-              </div>
-              <div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:8px">1kmペース</div>
-              <div style="display:flex;gap:8px;align-items:center;justify-content:center;background:var(--bg);border:0.5px solid var(--border);border-radius:10px;padding:10px;margin-bottom:8px">
-                <button class="time-mini-btn" onclick="modalRunPaceAdj('sec',-10)">-10</button>
-                <button class="time-mini-btn" onclick="modalRunPaceAdj('sec',-5)">-5</button>
-                <div style="font-size:26px;font-weight:900;font-variant-numeric:tabular-nums;color:var(--text);min-width:96px;text-align:center"><span id="modal-run-pace-min">06</span>:<span id="modal-run-pace-sec">00</span><span style="font-size:12px;color:var(--text2)">/km</span></div>
-                <button class="time-mini-btn" onclick="modalRunPaceAdj('sec',5)">+5</button>
-                <button class="time-mini-btn" onclick="modalRunPaceAdj('sec',10)">+10</button>
-                <input type="hidden" id="modal-run-pace" value="6.000">
-              </div>
-              <div class="hint" id="modal-run-pace-hint" style="text-align:center;margin-bottom:10px">6:00/km ≒ 10.0km/h</div>
-            </div>
-            <div style="padding:12px;border:0.5px solid var(--border);border-radius:12px;background:var(--bg2);margin-bottom:14px">
-              <div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:4px">心拍Zone</div>
-              <div class="hint">最大心拍・安静時心拍から一般的なトレーニングZone目安を表示します。</div>
-              <div class="g2" style="gap:10px;margin:10px 0">
-                <div class="field"><label>最大心拍</label><input type="number" id="modal-run-maxhr" value="180" step="1" oninput="saveModalRunPref(false);buildModalRunZones()"></div>
-                <div class="field"><label>安静時心拍</label><input type="number" id="modal-run-resthr" value="60" step="1" oninput="saveModalRunPref(false);buildModalRunZones()"></div>
-              </div>
-              <div id="modal-run-zonebar" class="run-zone-grid"></div>
-            </div>
-          </div>
           <div style="display:flex;gap:10px;align-items:center;margin-top:8px">
-            <button class="bp" onclick="applyUserPref()" style="padding:10px 20px;font-size:13px;font-weight:700">設定を適用</button>
+            <button class="bp" onclick="applyUserPref()" style="padding:10px 20px;font-size:13px;font-weight:700">ライドに適用</button>
             <button class="bs" onclick="resetUserPref()" style="padding:10px 18px;font-size:13px;background:var(--bg)">リセット</button>
             <span class="hint" id="modal-pref-saved" style="margin-left:auto"></span>
           </div>
@@ -2629,9 +2541,6 @@ function openSettingsModal(){
   const sel=document.getElementById('modal-pref');
   if(sel && !sel.options.length) sel.innerHTML=_prefOptionsHtml();
   loadUserPrefUI();
-  loadModalRunPrefUI();
-  buildModalRunZones();
-  setSettingsModalTab(__settingsModalTab||'ride');
   m.style.display='flex';
 }
 function closeSettingsModal(){
@@ -2803,95 +2712,7 @@ function modalSyncZoneFromWkg(){
   buildModalPowerZones();
 }
 
-
-/* ── v8.54 設定モーダル内 Ride / Run タブ ── */
-let __settingsModalTab='ride';
-let _modalRunPaceState={min:6,sec:0};
-function setSettingsModalTab(tab){
-  __settingsModalTab=(tab==='run')?'run':'ride';
-  document.getElementById('settings-tab-btn-ride')?.classList.toggle('on',__settingsModalTab==='ride');
-  document.getElementById('settings-tab-btn-run')?.classList.toggle('on',__settingsModalTab==='run');
-  document.getElementById('settings-tab-ride')?.classList.toggle('on',__settingsModalTab==='ride');
-  document.getElementById('settings-tab-run')?.classList.toggle('on',__settingsModalTab==='run');
-  if(__settingsModalTab==='run'){loadModalRunPrefUI();buildModalRunZones();}
-}
-function _getRunPref(){
-  try{return Object.assign({dist:5,pace:6,weight:65,ratio:85,maxhr:180,resthr:60}, JSON.parse(localStorage.getItem('rpp_run_map_pref')||'{}'));}
-  catch(e){return {dist:5,pace:6,weight:65,ratio:85,maxhr:180,resthr:60};}
-}
-function loadModalRunPrefUI(){
-  const p=_getRunPref();
-  const set=(id,v)=>{const el=document.getElementById(id); if(el) el.value=v;};
-  set('modal-run-dist',p.dist); set('modal-run-weight',p.weight); set('modal-run-ratio',p.ratio); set('modal-run-maxhr',p.maxhr); set('modal-run-resthr',p.resthr);
-  const pace=+p.pace||6;
-  _modalRunPaceState.min=Math.floor(pace);
-  _modalRunPaceState.sec=Math.round((pace-Math.floor(pace))*60/5)*5;
-  if(_modalRunPaceState.sec>=60){_modalRunPaceState.min++;_modalRunPaceState.sec=0;}
-  _syncModalRunPace();
-}
-function _syncModalRunPace(){
-  const min=Math.max(1,Math.min(30,_modalRunPaceState.min));
-  const sec=((Math.round(_modalRunPaceState.sec/5)*5)%60+60)%60;
-  _modalRunPaceState={min,sec};
-  const pace=min+sec/60;
-  const kmh=60/pace;
-  const setText=(id,t)=>{const el=document.getElementById(id); if(el) el.textContent=t;};
-  setText('modal-run-pace-min',String(min).padStart(2,'0'));
-  setText('modal-run-pace-sec',String(sec).padStart(2,'0'));
-  const hidden=document.getElementById('modal-run-pace'); if(hidden) hidden.value=pace.toFixed(3);
-  const hint=document.getElementById('modal-run-pace-hint'); if(hint) hint.textContent=`${min}:${String(sec).padStart(2,'0')}/km ≒ ${kmh.toFixed(1)}km/h`;
-}
-function modalRunPaceAdj(part,delta){
-  if(part==='min') _modalRunPaceState.min=Math.max(1,Math.min(30,_modalRunPaceState.min+delta));
-  else{
-    let total=_modalRunPaceState.min*60+_modalRunPaceState.sec+delta;
-    total=Math.max(60,Math.min(30*60,total));
-    _modalRunPaceState.min=Math.floor(total/60); _modalRunPaceState.sec=total%60;
-  }
-  _syncModalRunPace();
-  saveModalRunPref(true);
-}
-function saveModalRunPref(liveApply){
-  const val=(id,fb)=>{const el=document.getElementById(id); return el?el.value:fb;};
-  const pref={
-    dist:+val('modal-run-dist',5)||5,
-    pace:+val('modal-run-pace',6)||6,
-    weight:+val('modal-run-weight',65)||65,
-    ratio:+val('modal-run-ratio',85)||85,
-    maxhr:+val('modal-run-maxhr',180)||180,
-    resthr:+val('modal-run-resthr',60)||60
-  };
-  localStorage.setItem('rpp_run_map_pref',JSON.stringify(pref));
-  if(liveApply) applyModalRunToRide(false);
-}
-function applyModalRunToRide(closeAfter){
-  saveModalRunPref(false);
-  const p=_getRunPref();
-  const spd=60/(+p.pace||6);
-  const ridePref=_getSavedPref();
-  const merged=Object.assign({},ridePref,{dist:String(p.dist),elev:'0',spd:String(spd.toFixed(2)),weight:String(p.weight),ratio:String(p.ratio),rideInputMode:'spd'});
-  localStorage.setItem('rpp_user_pref',JSON.stringify(merged));
-  _mapPrefToRide(merged,true);
-  const h=document.getElementById('modal-pref-saved');
-  if(h){h.textContent='🏃 ラン設定をRideマップへ適用'; clearTimeout(window.__prefMsgTimer); window.__prefMsgTimer=setTimeout(()=>h.textContent='',1200);}
-  if(closeAfter){ closeSettingsModal(); sw('ride'); }
-}
-function buildModalRunZones(){
-  const box=document.getElementById('modal-run-zonebar'); if(!box) return;
-  const max=+document.getElementById('modal-run-maxhr')?.value||180;
-  const rest=+document.getElementById('modal-run-resthr')?.value||60;
-  const reserve=Math.max(1,max-rest);
-  const zones=[
-    ['Z1','Recovery',0.50,0.60,'#dbeafe','#1d4ed8'],['Z2','Endurance',0.60,0.70,'#dcfce7','#166534'],['Z3','Tempo',0.70,0.80,'#fef3c7','#b45309'],['Z4','Threshold',0.80,0.90,'#ffedd5','#c2410c'],['Z5','VO2max+',0.90,1.00,'#fce7f3','#be185d']
-  ];
-  box.innerHTML=zones.map((z,i)=>{const lo=Math.round(rest+reserve*z[2]); const hi=Math.round(rest+reserve*z[3]); return `<button type="button" class="run-zone-card ${i===2?'on':''}" style="background:${z[4]};color:${z[5]}" onclick="document.querySelectorAll('.run-zone-card').forEach(x=>x.classList.remove('on'));this.classList.add('on')"><div class="rz-z">${z[0]}</div><div class="rz-n">${z[1]}</div><div class="rz-bpm">${lo}–${hi} bpm</div></button>`;}).join('');
-}
-
 function applyUserPref(){
-  if(__settingsModalTab==='run'){
-    applyModalRunToRide(true);
-    return;
-  }
   saveUserPref(false);
   const p=_getSavedPref();
   _mapPrefToRide(p, false);
@@ -4480,7 +4301,7 @@ function hardClearRoute(){
   // ④ localStorage の地図キャッシュも完全クリア
   ['rpp_route_cache'].forEach(k=>localStorage.removeItem(k));
   activePOIs.clear();
-  document.querySelectorAll('.poi-icon-btn,.poi-list-btn,.poi-float-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.poi-icon-btn,.poi-list-btn').forEach(b=>b.classList.remove('active'));
 }
 
 function clearRoute(){
@@ -4490,70 +4311,69 @@ function clearRoute(){
 /* ── 地点追加（履歴保存） ── */
 
 
-let searchResultMarker=null;
-
-function addSearchedPlaceAsWaypoint(){
-  if(!searchResultMarker) return;
-  const pos=searchResultMarker.getPosition();
-  if(pos) addWaypoint(pos);
-}
-
-function clearSearchResultMarker(){
-  if(searchResultMarker){searchResultMarker.setMap(null);searchResultMarker=null;}
-  if(sharedIW) sharedIW.close();
-}
-
-function _openSearchInfo(placeName, address, loc){
+let _searchResultMarker=null;
+function _showSearchResult(place){
+  if(!place || !place.geometry || !place.geometry.location) return;
+  const loc=place.geometry.location;
+  if(!_searchResultMarker){
+    _searchResultMarker=new google.maps.Marker({
+      map:gmap,
+      zIndex:200,
+      title:'検索結果',
+      icon:{path:google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,scale:6,fillColor:'#1a73e8',fillOpacity:1,strokeColor:'#fff',strokeWeight:2}
+    });
+  }
+  _searchResultMarker.setPosition(loc);
+  _searchResultMarker.setTitle(place.name || place.formatted_address || '検索結果');
+  gmap.panTo(loc);
+  if(gmap.getZoom()<14) gmap.setZoom(14);
   if(!sharedIW) sharedIW=new google.maps.InfoWindow();
-  const safeName=escapeHtml(placeName||'検索地点');
-  const safeAddr=escapeHtml(address||'');
-  sharedIW.setContent(`
-    <div class="search-marker-info">
-      <div class="search-marker-title">📍 ${safeName}</div>
-      <div class="search-marker-sub">${safeAddr}</div>
-      <div class="search-marker-actions">
-        <button onclick="addSearchedPlaceAsWaypoint()">地点に追加</button>
-        <button class="secondary" onclick="clearSearchResultMarker()">閉じる</button>
-      </div>
-    </div>`);
-  sharedIW.open({map:gmap,anchor:searchResultMarker});
+  const name=place.name || place.formatted_address || '検索結果';
+  const addr=place.formatted_address || place.vicinity || '';
+  sharedIW.setContent(`<div style="min-width:210px;font-family:sans-serif">
+    <div style="font-size:14px;font-weight:700;margin-bottom:4px">📍 ${name}</div>
+    <div style="font-size:11px;color:#666;margin-bottom:8px">${addr}</div>
+    <button onclick="addWaypoint(new google.maps.LatLng(${loc.lat()},${loc.lng()})); if(sharedIW)sharedIW.close();"
+      style="padding:7px 12px;background:#18180f;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">この地点をコースに追加</button>
+    <button onclick="if(sharedIW)sharedIW.close();"
+      style="margin-left:6px;padding:7px 10px;background:#eee;color:#333;border:none;border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit">閉じる</button>
+  </div>`);
+  sharedIW.open(gmap,_searchResultMarker);
 }
-
 function searchPlace(){
   const input=document.getElementById('map-search');
   const q=(input?.value||'').trim();
-  if(!q){alert('検索する地名・住所を入力してください');return;}
-  if(!gmap||!geocoder){alert('マップの初期化がまだ完了していません。数秒後に再度検索してください。');return;}
-
-  geocoder.geocode({address:q+' 日本'},(res,status)=>{
-    if(status==='OK'&&res&&res[0]){
-      const r=res[0];
-      const loc=r.geometry.location;
-      clearSearchResultMarker();
-      searchResultMarker=new google.maps.Marker({
-        position:loc,
-        map:gmap,
-        title:r.formatted_address||q,
-        draggable:false,
-        icon:{
-          path:google.maps.SymbolPath.CIRCLE,
-          scale:9,
-          fillColor:'#fb923c',
-          fillOpacity:1,
-          strokeColor:'#ffffff',
-          strokeWeight:3
-        }
-      });
-      if(r.geometry.viewport){gmap.fitBounds(r.geometry.viewport);}else{gmap.setCenter(loc);gmap.setZoom(Math.max(gmap.getZoom()||14,15));}
-      _openSearchInfo(q, r.formatted_address, loc);
-      google.maps.event.addListenerOnce(searchResultMarker,'click',()=>_openSearchInfo(q,r.formatted_address,loc));
-      if(input) input.blur();
-      setTimeout(()=>{try{google.maps.event.trigger(gmap,'resize');gmap.setCenter(loc);}catch(e){}},120);
-      return;
-    }
-    const msg={ZERO_RESULTS:'該当する場所が見つかりませんでした',OVER_QUERY_LIMIT:'検索APIの利用制限に達しています',REQUEST_DENIED:'Google Maps APIキーまたはGeocoding API設定を確認してください',INVALID_REQUEST:'検索内容が不正です'}[status]||('検索に失敗しました: '+status);
-    alert(msg);
-  });
+  if(!q) return;
+  if(!gmap){alert('マップの初期化がまだ完了していません。数秒後に再度検索してください。');return;}
+  if(!placesService && google?.maps?.places) placesService=new google.maps.places.PlacesService(gmap);
+  // Geocoding API側でREQUEST_DENIEDが出ても検索できるよう、Maps JSのPlaces検索を優先する。
+  if(placesService && placesService.findPlaceFromQuery){
+    placesService.findPlaceFromQuery({
+      query:q,
+      fields:['name','geometry','formatted_address','place_id']
+    },(res,status)=>{
+      if(status==='OK' && res && res[0]){ _showSearchResult(res[0]); return; }
+      // Placesで見つからない場合だけGeocoderへフォールバック
+      if(geocoder){
+        geocoder.geocode({address:q+' 日本'},(gres,gstatus)=>{
+          if(gstatus==='OK' && gres && gres[0]){ _showSearchResult(gres[0]); return; }
+          const msg={ZERO_RESULTS:'該当する場所が見つかりませんでした',OVER_QUERY_LIMIT:'検索APIの利用制限に達しています',REQUEST_DENIED:'検索APIが拒否されました。Google Cloud側で Places API / Maps JavaScript API の有効化とAPIキー制限を確認してください',INVALID_REQUEST:'検索内容が不正です'}[gstatus]||({ZERO_RESULTS:'該当する場所が見つかりませんでした',OVER_QUERY_LIMIT:'検索APIの利用制限に達しています',REQUEST_DENIED:'Places API設定を確認してください',INVALID_REQUEST:'検索内容が不正です'}[status]||('検索に失敗しました: '+status));
+          alert(msg);
+        });
+      }else{
+        const msg={ZERO_RESULTS:'該当する場所が見つかりませんでした',OVER_QUERY_LIMIT:'検索APIの利用制限に達しています',REQUEST_DENIED:'Places API設定を確認してください',INVALID_REQUEST:'検索内容が不正です'}[status]||('検索に失敗しました: '+status);
+        alert(msg);
+      }
+    });
+    return;
+  }
+  if(geocoder){
+    geocoder.geocode({address:q+' 日本'},(res,status)=>{
+      if(status==='OK' && res && res[0]){ _showSearchResult(res[0]); return; }
+      const msg={ZERO_RESULTS:'該当する場所が見つかりませんでした',OVER_QUERY_LIMIT:'検索APIの利用制限に達しています',REQUEST_DENIED:'Google Maps APIキーまたはGeocoding API設定を確認してください',INVALID_REQUEST:'検索内容が不正です'}[status]||('検索に失敗しました: '+status);
+      alert(msg);
+    });
+  }
 }
 
 /* ── GPX出力 ── */
@@ -4584,68 +4404,6 @@ ${trkpts}
   a.download=name+'.gpx';
   a.click();URL.revokeObjectURL(a.href);
 }
-
-
-/* ── GPX読込 v8.54: 読み込んだコースを編集可能なwaypointへ変換 ── */
-function openGPXImport(){
-  const input=document.getElementById('gpx-import-input') || (()=>{
-    const el=document.createElement('input');
-    el.id='gpx-import-input'; el.type='file'; el.accept='.gpx,application/gpx+xml,text/xml'; el.style.display='none';
-    el.onchange=handleGPXImportFile;
-    document.body.appendChild(el);
-    return el;
-  })();
-  input.value='';
-  input.click();
-}
-function handleGPXImportFile(ev){
-  const file=ev?.target?.files?.[0];
-  if(!file) return;
-  const reader=new FileReader();
-  reader.onload=()=>importGPXText(String(reader.result||''), file.name||'GPX');
-  reader.onerror=()=>alert('GPXファイルを読み込めませんでした');
-  reader.readAsText(file);
-}
-function importGPXText(text, fileName){
-  if(!window.google || !gmap){ alert('マップ初期化後にGPXを読み込んでください'); return; }
-  let doc;
-  try{ doc=new DOMParser().parseFromString(text,'application/xml'); }
-  catch(e){ alert('GPXの形式を読み取れませんでした'); return; }
-  if(doc.querySelector('parsererror')){ alert('GPXのXML形式にエラーがあります'); return; }
-  const nodes=[...doc.getElementsByTagName('trkpt')];
-  const pts=(nodes.length?nodes:[...doc.getElementsByTagName('rtept'),...doc.getElementsByTagName('wpt')])
-    .map(n=>({lat:+n.getAttribute('lat'),lng:+n.getAttribute('lon')}))
-    .filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lng));
-  if(pts.length<2){ alert('GPX内に有効なルート点が見つかりませんでした'); return; }
-  if(waypoints.length && !confirm('現在のコースを削除してGPXを読み込みます。よろしいですか？')) return;
-  const sampled=sampleGPXPointsForEditing(pts, 23);
-  hardClearRoute();
-  const bounds=new google.maps.LatLngBounds();
-  sampled.forEach((pt,i)=>{
-    const ll=new google.maps.LatLng(pt.lat,pt.lng);
-    waypoints.push(ll);
-    createMarker(ll,i);
-    bounds.extend(ll);
-  });
-  goalFixed=true;
-  updateGoalFlagBtn();
-  renderWpList();
-  if(sampled.length>=2) calcRoute();
-  try{ gmap.fitBounds(bounds); }catch(e){}
-  const msg=document.getElementById('poi-results');
-  if(msg) msg.innerHTML=`<div style="font-size:11px;color:var(--green);padding:4px">📂 GPX読込完了：${escapeHtml(fileName||'GPX')} / 編集点 ${sampled.length}点<br><span style="color:var(--text2)">各マーカーをドラッグして編集できます。</span></div>`;
-}
-function sampleGPXPointsForEditing(points, maxPts){
-  if(points.length<=maxPts) return points;
-  const out=[];
-  for(let i=0;i<maxPts;i++){
-    const idx=Math.round(i*(points.length-1)/(maxPts-1));
-    out.push(points[idx]);
-  }
-  return out;
-}
-function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-
 
 /* ── ベアリング ── */
 function calcBearing(lat1,lon1,lat2,lon2){
