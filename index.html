@@ -113,6 +113,31 @@ input[type=number],input[type=text],input[type=time],select{
 .poi-icon-btn div{font-size:8px;color:var(--text3);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;text-align:center}
 .poi-icon-btn:hover{background:var(--bg2)}.poi-icon-btn.active{background:var(--acc);border-color:var(--acc)}.poi-icon-btn.active div{color:rgba(255,255,255,.8)}
 
+
+/* ── v8.57: スマホ検索UX改善（入力ズーム防止・候補選択で即表示） ── */
+@media(max-width:768px){
+  body.sp-mode #map-search-bar{
+    padding:6px 8px!important;
+    gap:6px!important;
+    align-items:center!important;
+  }
+  body.sp-mode #map-search{
+    font-size:16px!important; /* iOS/Braveで入力時に勝手に拡大されるのを防止 */
+    line-height:1.25!important;
+    min-height:42px!important;
+    padding:9px 12px!important;
+  }
+  body.sp-mode #map-search-bar button{
+    font-size:14px!important;
+    min-height:42px!important;
+    padding:8px 12px!important;
+  }
+  body.sp-mode .pac-container{
+    z-index:100000!important;
+    font-size:15px!important;
+  }
+}
+
 /* ── map ── */
 #gmap{width:100%;min-height:300px;border-radius:var(--rs);background:var(--bg2)}
 .msb-cell{padding:0 12px;text-align:center;border-right:0.5px solid rgba(255,255,255,.15)}
@@ -377,7 +402,7 @@ body.pc-mode #map-poi-floating{display:none!important}
 <!-- GPS再取得ボタン（常時表示） -->
 <button id="gps-retry-btn" onclick="retryGPS()" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">📍</button>
 <header>
-  <h1>Ride Pace Planner <span class="ver">v8.56</span></h1>
+  <h1>Ride Pace Planner <span class="ver">v8.57</span></h1>
   <span class="sub">ライド計画 / Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
@@ -3338,15 +3363,28 @@ function initMap(){
   geocoder         = new google.maps.Geocoder();
   placesService    = new google.maps.places.PlacesService(gmap);
 
-  // 検索 Autocomplete
+  // 検索 Autocomplete：候補を選んだ瞬間に地図へ反映（ズームはしない）
   const input=document.getElementById('map-search');
-  const ac=new google.maps.places.Autocomplete(input,{componentRestrictions:{country:'jp'},fields:['geometry','name']});
+  const ac=new google.maps.places.Autocomplete(input,{
+    componentRestrictions:{country:'jp'},
+    fields:['geometry','name','formatted_address','place_id','vicinity']
+  });
   ac.addListener('place_changed',()=>{
     const pl=ac.getPlace();
-    if(pl.geometry){
-      // 自動ズームなし — ユーザーが手動でナビゲート
+    if(pl && pl.geometry){
+      _showSearchResult(pl,{noZoom:true,fromAutocomplete:true});
+      if(input) input.blur(); // スマホで選択後にキーボードを閉じる
     }
   });
+  if(input){
+    input.addEventListener('keydown',(e)=>{
+      if(e.key==='Enter'){
+        e.preventDefault();
+        input.blur();
+        searchPlace({noZoom:true});
+      }
+    });
+  }
 
   // ── 地図クリック：パンと区別して地点追加 ──
   // Google Maps の dragstart/dragend はスマホタッチパンで発火しないため
@@ -4312,7 +4350,7 @@ function clearRoute(){
 
 
 let _searchResultMarker=null;
-function _showSearchResult(place){
+function _showSearchResult(place,opts={noZoom:true}){
   if(!place || !place.geometry || !place.geometry.location) return;
   const loc=place.geometry.location;
   if(!_searchResultMarker){
@@ -4325,8 +4363,9 @@ function _showSearchResult(place){
   }
   _searchResultMarker.setPosition(loc);
   _searchResultMarker.setTitle(place.name || place.formatted_address || '検索結果');
+  // 地名検索で勝手にズームするとスマホで見失うため、基本は現在の縮尺を維持して中心移動だけ行う。
   gmap.panTo(loc);
-  if(gmap.getZoom()<14) gmap.setZoom(14);
+  if(!opts.noZoom && gmap.getZoom()<14) gmap.setZoom(14);
   if(!sharedIW) sharedIW=new google.maps.InfoWindow();
   const name=place.name || place.formatted_address || '検索結果';
   const addr=place.formatted_address || place.vicinity || '';
@@ -4340,23 +4379,23 @@ function _showSearchResult(place){
   </div>`);
   sharedIW.open(gmap,_searchResultMarker);
 }
-function searchPlace(){
+
+function searchPlace(opts={noZoom:true}){
   const input=document.getElementById('map-search');
   const q=(input?.value||'').trim();
   if(!q) return;
   if(!gmap){alert('マップの初期化がまだ完了していません。数秒後に再度検索してください。');return;}
   if(!placesService && google?.maps?.places) placesService=new google.maps.places.PlacesService(gmap);
-  // Geocoding API側でREQUEST_DENIEDが出ても検索できるよう、Maps JSのPlaces検索を優先する。
+  // Places APIを優先。Geocodingが制限されていても、施設名・地名検索はPlacesで拾える。
   if(placesService && placesService.findPlaceFromQuery){
     placesService.findPlaceFromQuery({
       query:q,
       fields:['name','geometry','formatted_address','place_id']
     },(res,status)=>{
-      if(status==='OK' && res && res[0]){ _showSearchResult(res[0]); return; }
-      // Placesで見つからない場合だけGeocoderへフォールバック
+      if(status==='OK' && res && res[0]){ _showSearchResult(res[0],opts); return; }
       if(geocoder){
         geocoder.geocode({address:q+' 日本'},(gres,gstatus)=>{
-          if(gstatus==='OK' && gres && gres[0]){ _showSearchResult(gres[0]); return; }
+          if(gstatus==='OK' && gres && gres[0]){ _showSearchResult(gres[0],opts); return; }
           const msg={ZERO_RESULTS:'該当する場所が見つかりませんでした',OVER_QUERY_LIMIT:'検索APIの利用制限に達しています',REQUEST_DENIED:'検索APIが拒否されました。Google Cloud側で Places API / Maps JavaScript API の有効化とAPIキー制限を確認してください',INVALID_REQUEST:'検索内容が不正です'}[gstatus]||({ZERO_RESULTS:'該当する場所が見つかりませんでした',OVER_QUERY_LIMIT:'検索APIの利用制限に達しています',REQUEST_DENIED:'Places API設定を確認してください',INVALID_REQUEST:'検索内容が不正です'}[status]||('検索に失敗しました: '+status));
           alert(msg);
         });
@@ -4369,8 +4408,8 @@ function searchPlace(){
   }
   if(geocoder){
     geocoder.geocode({address:q+' 日本'},(res,status)=>{
-      if(status==='OK' && res && res[0]){ _showSearchResult(res[0]); return; }
-      const msg={ZERO_RESULTS:'該当する場所が見つかりませんでした',OVER_QUERY_LIMIT:'検索APIの利用制限に達しています',REQUEST_DENIED:'Google Maps APIキーまたはGeocoding API設定を確認してください',INVALID_REQUEST:'検索内容が不正です'}[status]||('検索に失敗しました: '+status);
+      if(status==='OK' && res && res[0]){ _showSearchResult(res[0],opts); return; }
+      const msg={ZERO_RESULTS:'該当する場所が見つかりませんでした',OVER_QUERY_LIMIT:'検索APIの利用制限に達しています',REQUEST_DENIED:'Google Maps APIキーまたは検索API設定を確認してください',INVALID_REQUEST:'検索内容が不正です'}[status]||('検索に失敗しました: '+status);
       alert(msg);
     });
   }
