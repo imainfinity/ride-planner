@@ -346,6 +346,11 @@ body.sp-mode #map-poi-floating{
 .poi-float-btn div{font-size:8px;font-weight:800;color:#333;line-height:1;white-space:nowrap}
 .poi-float-btn.active{background:var(--acc);color:#fff}
 .poi-float-btn.active div{color:rgba(255,255,255,.82)}
+.poi-float-btn.cmd-danger{background:#dc2626;color:#fff;font-weight:900}
+.poi-float-btn.cmd-danger div{color:#fff}
+.poi-float-btn.cmd-gpx{background:rgba(20,20,20,.88);color:#fff}
+.poi-float-btn.cmd-gpx div{color:#fff}
+.poi-float-sep{height:5px;width:42px}
 body.pc-mode #map-poi-floating{display:none!important}
 @media(max-width:380px){
   body.sp-mode #map-poi-floating{top:8px;right:8px;gap:3px}
@@ -356,7 +361,7 @@ body.pc-mode #map-poi-floating{display:none!important}
 
 
 
-/* ── v8.58: スマホ検索は専用モーダル入力へ分離 ── */
+/* ── v8.60: スマホ検索は専用モーダル入力へ分離 ── */
 #search-modal{position:fixed;inset:0;z-index:100000;display:none;background:rgba(0,0,0,.48);backdrop-filter:blur(5px);align-items:flex-start;justify-content:center;padding:calc(env(safe-area-inset-top,0px) + 18px) 12px 12px}
 #search-modal.on{display:flex}
 .search-modal-card{width:min(720px,100%);background:var(--bg);color:var(--text);border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.35);overflow:visible;border:0.5px solid var(--border)}
@@ -392,7 +397,7 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
 </head>
 
 <body class="sp-mode">
-<!-- v8.58 スマホ検索専用モーダル：キーボード表示時も地図UIを潰さない -->
+<!-- v8.60 スマホ検索専用モーダル：キーボード表示時も地図UIを潰さない -->
 <div id="search-modal" role="dialog" aria-modal="true" aria-label="地名検索">
   <div class="search-modal-card">
     <div class="search-modal-head">
@@ -426,8 +431,6 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
 
 <div class="tabs" id="app-tabs">
   <button class="tab on" onclick="sw('ride')">🚴 ライド</button>
-  <a class="tab" href="./run.html" style="text-decoration:none">🏃 ラン</a>
-  <button class="tab" onclick="sw('tri')">Bike→Run</button>
   <button class="tab" onclick="sw('saved')">📁 保存</button>
   <button class="tab" onclick="sw('log')">ログ</button>
   <button class="tab" id="tab-settings" onclick="sw('settings')">⚙️ 設定</button>
@@ -503,6 +506,10 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
 
       <!-- スマホ専用：地図上固定POIショートカットバー -->
       <div id="map-poi-floating" aria-label="POI shortcut buttons">
+        <button class="poi-float-btn cmd-danger" onclick="if(confirm('コースを削除しますか？')) hardClearRoute()" title="コース削除">🗑️<div>削除</div></button>
+        <button class="poi-float-btn cmd-gpx" onclick="downloadGPX()" title="GPX保存">💾<div>GPX</div></button>
+        <button class="poi-float-btn cmd-gpx" onclick="triggerGPXImport()" title="GPX読込">📂<div>読込</div></button>
+        <div class="poi-float-sep" aria-hidden="true"></div>
         <button class="poi-float-btn" data-poi-label="コンビニ" onclick="selectPOICategory('コンビニ')" title="コンビニ">🏪<div>CVS</div></button>
         <button class="poi-float-btn" data-poi-label="カフェ" onclick="selectPOICategory('カフェ')" title="カフェ">☕<div>Café</div></button>
         <button class="poi-float-btn" data-poi-label="レストラン" onclick="selectPOICategory('レストラン')" title="食事">🍽️<div>食事</div></button>
@@ -512,6 +519,7 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
         <button class="poi-float-btn" data-poi-label="名所・観光" onclick="selectPOICategory('名所・観光')" title="名所・観光">⛩️<div>名所</div></button>
         <button class="poi-float-btn" data-poi-label="温泉" onclick="selectPOICategory('温泉')" title="温泉">♨️<div>温泉</div></button>
       </div>
+      <input id="gpx-import-file" type="file" accept=".gpx,application/gpx+xml,text/xml,application/xml" style="display:none" onchange="readGPXFile(this.files&&this.files[0]);this.value=''">
 
       <!-- ルート統計バー：画面上部に常時固定 -->
       <div id="map-stats-bar" style="display:none;position:fixed;top:0;left:0;right:0;z-index:300;pointer-events:none">
@@ -2399,7 +2407,7 @@ function renderLog(){
   document.getElementById('log-count').textContent=logs.length+'件';
   const c=document.getElementById('log-wrap');
   if(!logs.length){c.innerHTML='<div class="empty">ログはまだありません。<br>各タブから保存してください。</div>';return;}
-  const tl={ride:'Ride',run:'Run',tri:'Bike→Run'};
+  const tl={ride:'Ride',run:'Run',tri:'Bike→Run'}; // run/dual tabs removed from main navigation
   const tc={ride:'br',run:'bn',tri:'bt'};
   c.innerHTML=`<div class="ltw"><table class="lt">
   <thead><tr><th>日付</th><th>種別</th><th>距離</th><th>標高</th><th>Start</th><th>到着予想</th><th>時間</th><th>速度</th><th>メモ</th><th></th></tr></thead>
@@ -3380,7 +3388,7 @@ function initMap(){
   geocoder         = new google.maps.Geocoder();
   placesService    = new google.maps.places.PlacesService(gmap);
 
-  // v8.58 検索 Autocomplete：地図上入力ではなく専用モーダル入力に接続
+  // v8.60 検索 Autocomplete：地図上入力ではなく専用モーダル入力に接続
   setupSearchAutocomplete();
 
   // ── 地図クリック：パンと区別して地点追加 ──
@@ -4478,6 +4486,55 @@ ${trkpts}
   a.href=URL.createObjectURL(new Blob([gpx],{type:'application/gpx+xml'}));
   a.download=name+'.gpx';
   a.click();URL.revokeObjectURL(a.href);
+}
+
+
+/* ── v8.60: GPX読込 → 編集可能な経由地として復元 ── */
+function triggerGPXImport(){
+  const inp=document.getElementById('gpx-import-file');
+  if(!inp){alert('GPX読込UIが見つかりません');return;}
+  inp.click();
+}
+function readGPXFile(file){
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=()=>importGPXText(String(reader.result||''), file.name||'import.gpx');
+  reader.onerror=()=>alert('GPXファイルを読み込めませんでした');
+  reader.readAsText(file);
+}
+function importGPXText(txt, filename){
+  if(!gmap || !window.google || !google.maps){alert('マップ初期化後にGPXを読み込んでください');return;}
+  let xml;
+  try{ xml=new DOMParser().parseFromString(txt,'application/xml'); }catch(e){ alert('GPX形式を解析できませんでした'); return; }
+  if(xml.querySelector('parsererror')){ alert('GPX形式が不正です'); return; }
+  let nodes=[...xml.querySelectorAll('trkpt')];
+  if(nodes.length<2) nodes=[...xml.querySelectorAll('rtept')];
+  if(nodes.length<2) nodes=[...xml.querySelectorAll('wpt')];
+  const pts=nodes.map(n=>({lat:parseFloat(n.getAttribute('lat')),lng:parseFloat(n.getAttribute('lon'))}))
+                 .filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lng));
+  if(pts.length<2){alert('GPX内に有効な地点が2点以上ありません');return;}
+  if(waypoints.length && !confirm('現在のコースを削除して、GPXコースを読み込みますか？')) return;
+  const maxPts=23;
+  const sampled=[];
+  if(pts.length<=maxPts){ sampled.push(...pts); }
+  else{
+    for(let i=0;i<maxPts;i++){
+      const idx=Math.round(i*(pts.length-1)/(maxPts-1));
+      sampled.push(pts[idx]);
+    }
+  }
+  hardClearRoute();
+  waypoints=sampled.map(p=>new google.maps.LatLng(p.lat,p.lng));
+  goalFixed=waypoints.length>1;
+  markers.forEach(m=>m.setMap(null)); markers=[];
+  waypoints.forEach((ll,i)=>createMarker(ll,i));
+  renderWpList();
+  updateGoalFlagBtn();
+  const bounds=new google.maps.LatLngBounds();
+  waypoints.forEach(ll=>bounds.extend(ll));
+  try{ gmap.fitBounds(bounds); }catch(e){}
+  calcRoute();
+  alert('GPXを読み込みました。マーカーをドラッグして編集できます。');
 }
 
 /* ── ベアリング ── */
