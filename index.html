@@ -383,15 +383,40 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
 .pac-item-query{font-size:15px!important;font-weight:700!important}
 @media(min-width:769px){#search-modal{padding-top:70px}.search-open-btn{font-size:13px!important;padding:8px 10px!important}}
 
+/* ── v8.63: 旧インライン設定パネル非表示（モーダル統合済み） ──
+/* 対象：右/下カラムの「コース設定」「走力入力」だけ。風向き・カロリー系は触らない。 */
+.panel.op-locked{display:none!important}
+
 </style>
 
 <script>
+/* Google Maps loader: initMap 定義後に読み込む。地図ロジック自体は変更しない。 */
 (function(){
-  var k=['AIzaSyBhHoe','SN2ARNTD','lL7SG4fhD_48Fw5efGYw'].join('');
-  var s=document.createElement('script');
-  s.src='https://maps.googleapis.com/maps/api/js?key='+k+'&libraries=places,geometry&callback=initMap';
-  s.async=true;s.defer=true;
-  document.head.appendChild(s);
+  window.gm_authFailure = function(){
+    try{
+      var box=document.getElementById('gmap');
+      if(box){
+        box.innerHTML='<div style="padding:16px;line-height:1.7;font-size:13px;color:#a32d2d;background:#fff;border:1px solid #f3b4b4;border-radius:8px;margin:8px">Google Maps APIキーの認証で拒否されています。Google Cloud側のHTTPリファラ制限に、このGitHub PagesのURLを追加してください。</div>';
+      }
+    }catch(e){}
+  };
+  window.__rppLoadGoogleMaps = function(){
+    if(window.__rppGoogleMapsLoading || (window.google && window.google.maps)) return;
+    window.__rppGoogleMapsLoading = true;
+    var k=['AIzaSyBhHoe','SN2ARNTD','lL7SG4fhD_48Fw5efGYw'].join('');
+    var s=document.createElement('script');
+    s.src='https://maps.googleapis.com/maps/api/js?key='+k+'&libraries=places,geometry&callback=initMap';
+    s.async=true;
+    s.defer=true;
+    s.onerror=function(){
+      try{
+        var box=document.getElementById('gmap');
+        if(box) box.innerHTML='<div style="padding:16px;line-height:1.7;font-size:13px;color:#a32d2d;background:#fff;border:1px solid #f3b4b4;border-radius:8px;margin:8px">Google Maps APIの読み込みに失敗しました。通信またはAPIキー制限を確認してください。</div>';
+      }catch(e){}
+    };
+    document.head.appendChild(s);
+  };
+  window.addEventListener('load', function(){ setTimeout(window.__rppLoadGoogleMaps, 0); });
 })();
 </script>
 </head>
@@ -480,7 +505,7 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
     <div class="locked-metric"><div class="locked-label">距離</div><div class="locked-value" id="mcp-dist-display">50.0 km</div><div class="locked-sub" id="mcp-source">🔒 設定値反映</div></div>
     <div class="locked-metric"><div class="locked-label">獲得標高</div><div class="locked-value" id="mcp-elev-display">300 m</div><div class="locked-sub">設定/ルート反映</div></div>
     <div class="locked-metric"><div class="locked-label">平地基準速度</div><div class="locked-value" id="mcp-spd-display">30.0 km/h</div><div class="locked-sub">平地巡航の基準</div></div>
-    <div class="locked-metric"><div class="locked-label">補正後速度</div><div class="locked-value" id="mcp-corrected-display">—</div><div class="locked-sub" id="mcp-corrected-note">負荷補正後</div></div>
+    <div class="locked-metric"><div class="locked-label">補正後速度</div><div class="locked-value" id="mcp-corrected-spd-display">— km/h</div><div class="locked-sub" id="mcp-corrected-note">坂・風・体調反映</div></div>
     <div class="locked-metric"><div class="locked-label">所要時間</div><div class="locked-value" id="mcp-total">—</div><div class="locked-sub" id="mcp-time-note">Ratio込み</div></div>
     <button type="button" class="locked-metric course-setting-tile" onclick="openSettingsModal()"><div class="locked-label">🚩 コース</div><div class="locked-value">コース設定</div><div class="locked-sub">数値変更はこちら</div></button>
   </div>
@@ -2538,7 +2563,7 @@ function openSettingsModal(){
           <div class="g3" style="gap:10px;margin-bottom:12px">
             <div class="field"><label>距離 (km)</label><input type="number" id="modal-dist" value="50" step="0.1" oninput="saveUserPref(true)"></div>
             <div class="field"><label>獲得標高 (m)</label><input type="number" id="modal-elev" value="300" step="10" oninput="saveUserPref(true)"></div>
-            <div class="field" id="modal-spd-field"><label>平地基準速度 (km/h)</label><input type="number" id="modal-spd" value="30" step="0.5" oninput="saveUserPref(true)"><div class="hint">パワー指定時は参考値として保存</div></div>
+            <div class="field" id="modal-spd-field"><label>平地基準速度 (km/h)</label><input type="number" id="modal-spd" value="30" step="0.5" oninput="saveUserPref(true)"><div class="hint">平地巡航の基準速度。0/空欄ならセルフ情報から推定</div></div>
           </div>
           <div class="g3" style="gap:10px;margin-bottom:12px">
             <div class="field"><label>体重 (kg)</label><input type="number" id="modal-weight" value="65" step="0.5" oninput="saveUserPref(true);buildModalPowerZones()"></div>
@@ -2650,8 +2675,8 @@ function getRunSettingsPanelHtml(){
     <div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.03em;margin-bottom:12px">ラン設定（マップ共通・速度だけラン仕様）</div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:18px;padding:9px;background:var(--bg2);border-radius:10px">
       <span style="font-size:12px;font-weight:600;color:var(--text2);white-space:nowrap">モード:</span>
-      <button class="modebt" onclick="setDefaultTimeMode('start-first')" style="flex:1;font-size:13px;font-weight:700;padding:10px 8px">スタートから計算</button>
-      <button class="modebt" onclick="setDefaultTimeMode('goal-first')" style="flex:1;font-size:13px;font-weight:700;padding:10px 8px">ゴールから逆算</button>
+      <button type="button" class="modebt" id="run-modal-mode-start" onclick="setRunDefaultTimeMode('start-first')" style="flex:1;font-size:13px;font-weight:700;padding:10px 8px">スタートから計算</button>
+      <button type="button" class="modebt" id="run-modal-mode-goal" onclick="setRunDefaultTimeMode('goal-first')" style="flex:1;font-size:13px;font-weight:700;padding:10px 8px">ゴールから逆算</button>
     </div>
 
     <div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.03em;margin:4px 0 8px">ラン計算入力方式</div>
@@ -2718,6 +2743,7 @@ function loadRunSettingsUI(){
   set('run-weight',p.weight); set('run-ratio',p.ratio); set('run-elev',p.elev);
   set('run-hr-max',p.hrMax); set('run-hr-rest',p.hrRest);
   set('run-start',p.start); set('run-goal',p.goal);
+  if(typeof _updateModeButtons==='function') _updateModeButtons(localStorage.getItem('rpp_time_mode')||'start-first');
   updateRunPaceHint();
   buildRunHeartZones();
 }
@@ -3705,11 +3731,42 @@ function setGpsAsStart(){
 function _updateModeButtons(mode){
   document.getElementById('modal-mode-start')?.classList.toggle('on', mode==='start-first');
   document.getElementById('modal-mode-goal')?.classList.toggle('on', mode==='goal-first');
+  document.getElementById('run-modal-mode-start')?.classList.toggle('on', mode==='start-first');
+  document.getElementById('run-modal-mode-goal')?.classList.toggle('on', mode==='goal-first');
   document.getElementById('mode-btn-start')?.classList.toggle('on', mode==='start-first');
   document.getElementById('mode-btn-goal')?.classList.toggle('on', mode==='goal-first');
   document.getElementById('mcp-mode-start')?.classList.toggle('on', mode==='start-first');
   document.getElementById('mcp-mode-goal')?.classList.toggle('on', mode==='goal-first');
 }
+
+function setRunDefaultTimeMode(mode){
+  // ラン設定モーダルのスタート/ゴール切替専用。
+  // 共通の上部パネル計算モードも同時に切り替え、選択状態を黒表示に同期する。
+  mode = (mode === 'goal-first') ? 'goal-first' : 'start-first';
+  localStorage.setItem('rpp_time_mode', mode);
+  if(typeof _updateModeButtons === 'function') _updateModeButtons(mode);
+
+  const p = (typeof _getRunSettings === 'function') ? _getRunSettings() : {};
+  if(mode === 'goal-first'){
+    const goal = (document.getElementById('run-goal')?.value || p.goal || '07:00');
+    const [eh=7, em=0] = goal.split(':').map(Number);
+    mcp.endH = eh; mcp.endM = em;
+    if(typeof setDialFromString === 'function') setDialFromString('end', goal);
+    if(typeof syncDialToHidden === 'function') syncDialToHidden('end');
+    if(typeof smartCalc === 'function') smartCalc('end');
+  }else{
+    if(typeof clearEndDial === 'function') clearEndDial();
+    mcp.endH = null; mcp.endM = null;
+    const start = (document.getElementById('run-start')?.value || p.start || '08:00');
+    const [sh=8, sm=0] = start.split(':').map(Number);
+    mcp.startH = sh; mcp.startM = sm;
+    if(typeof setDialFromString === 'function') setDialFromString('start', start);
+    if(typeof syncDialToHidden === 'function') syncDialToHidden('start');
+    if(typeof smartCalc === 'function') smartCalc('start');
+  }
+  try{ saveRunSettings(true); }catch(e){}
+}
+
 function setDefaultTimeMode(mode){
   localStorage.setItem('rpp_time_mode', mode);
   _updateModeButtons(mode);
@@ -5929,221 +5986,424 @@ function refreshLockedPanelValues(){
   _updateModeButtons(mode);
 }
 
+</script>
 
-
-/* ── v8.70: 平地基準速度 / コース負荷補正 / セルフ情報モデル ── */
+<script>
+/* ══════════════════════════════════════
+   v8.70 Ride/Run/Self + Course Load reflection patch
+   - Modal values become the single source for top MCP cards
+   - No Google Maps / route drawing logic is touched
+══════════════════════════════════════ */
 (function(){
-  const PERF_KEY='rpp_perf_model_v870';
-  const DEFAULT_PERF={climbDensity:'normal',height:170,bodyFat:18,age:40,sex:'na',level:'normal'};
+  if(window.__rppEnhancedCourseSelfPatch) return;
+  window.__rppEnhancedCourseSelfPatch = true;
 
-  function q(id){return document.getElementById(id)}
-  function num(id, def=0){const el=q(id); const v=el?parseFloat(el.value):NaN; return Number.isFinite(v)?v:def}
-  function setText(id,txt){const el=q(id); if(el) el.textContent=txt}
-  function fmt1(v){return Number.isFinite(v)?v.toFixed(1):'—'}
-  function readPerf(){
-    try{return Object.assign({},DEFAULT_PERF,JSON.parse(localStorage.getItem(PERF_KEY)||'{}'))}catch(e){return {...DEFAULT_PERF}}
+  const LS_RIDE_EXT='rpp_ride_ext_pref';
+  const LS_SELF='rpp_self_pref';
+
+  function num(v,d){ v=+v; return Number.isFinite(v)?v:d; }
+  function el(id){ return document.getElementById(id); }
+  function val(id,d){ const x=el(id); return x && x.value!=='' ? x.value : d; }
+  function setVal(id,v){ const x=el(id); if(x && document.activeElement!==x) x.value=v; }
+  function txt(id,v){ const x=el(id); if(x) x.textContent=v; }
+
+  function getRideExt(){
+    try{return Object.assign({climbFocus:'normal', flatSpeed:''}, JSON.parse(localStorage.getItem(LS_RIDE_EXT)||'{}'));}
+    catch(e){return {climbFocus:'normal', flatSpeed:''};}
   }
-  window.readPerfModel=readPerf;
-  window.savePerfModel=function(liveApply){
-    const p=readPerf();
-    ['climbDensity','height','bodyFat','age','sex','level'].forEach(k=>{const el=q('modal-'+k); if(el) p[k]=el.value;});
-    localStorage.setItem(PERF_KEY,JSON.stringify(p));
-    updateSelfInfoPreview();
-    updateCourseLoadPreview();
-    if(liveApply) applyPerformanceCorrection('settings');
-  };
-  window.loadPerfModelUI=function(){
-    const p=readPerf();
-    Object.keys(p).forEach(k=>{const el=q('modal-'+k); if(el) el.value=p[k];});
-    updateSelfInfoPreview();
-    updateCourseLoadPreview();
-  };
-  function getMainWeight(){return num('modal-weight', num('r-weight', num('r-weight-pwr',65))) || 65}
-  function getMainFTP(){return num('modal-ftp', num('r-ftp',220)) || 220}
-  function getMainRatio(){return (num('modal-ratio', num('r-ratio',85)) || 85)/100}
-  function getFlatSpeed(){
-    let v = num('modal-spd', num('mcp-spd', (window.mcp&&mcp.spd)||30));
-    if(v>0) return v;
-    const wt=getMainWeight(), ftp=getMainFTP(), perf=readPerf();
-    const wkg=ftp/Math.max(40,wt);
-    const levelMap={beginner:-2,normal:0,trained:1.5,racer:3};
-    const agePenalty=Math.max(0,(+perf.age||40)-45)*0.035;
-    return Math.max(14, Math.min(42, 14 + wkg*5.2 + (levelMap[perf.level]||0) - agePenalty));
+  function setRideExt(p){ localStorage.setItem(LS_RIDE_EXT, JSON.stringify(Object.assign(getRideExt(),p||{}))); }
+  function getSelf(){
+    try{return Object.assign({height:170,weight:65,bodyFat:18,age:45,gender:'na',experience:'intermediate'}, JSON.parse(localStorage.getItem(LS_SELF)||'{}'));}
+    catch(e){return {height:170,weight:65,bodyFat:18,age:45,gender:'na',experience:'intermediate'};}
   }
-  window.estimateCorrectedRide=function(){
-    const perf=readPerf();
-    const dist=(window.mcp&&mcp.dist)||num('modal-dist',num('r-dist',50))||50;
-    const elev=(window.mcp&&mcp.elev)||num('modal-elev',num('r-elev',300))||0;
-    const flat=getFlatSpeed();
-    const wt=getMainWeight();
-    const ftp=getMainFTP();
-    const bf=Math.max(3,Math.min(45,+perf.bodyFat||18));
-    const height=Math.max(120,+perf.height||170);
+  function setSelf(p){ localStorage.setItem(LS_SELF, JSON.stringify(Object.assign(getSelf(),p||{}))); }
+
+  function estimateFlatSpeed(){
+    const self=getSelf();
+    const wt=num(val('modal-weight', self.weight), self.weight)||65;
+    const ftp=num(val('modal-ftp',220),220)||220;
+    const bf=num(self.bodyFat,18);
     const lean=wt*(1-bf/100);
-    const bmi=wt/Math.pow(height/100,2);
-    const wkg=ftp/Math.max(40,wt);
-    const levelFactor={beginner:.92,normal:1,trained:1.07,racer:1.14}[perf.level]||1;
-    const climbTolerance=wkg*(lean/wt)*levelFactor;
-    const density=perf.climbDensity||'normal';
-    const climbShare={gentle:.36,normal:.18,steep:.09}[density]||.18;
-    const climbGrade=elev>0 && dist>0 ? elev/(dist*1000*climbShare)*100 : 0;
-    const elevPerKm=dist>0?elev/dist:0;
-    const elevPenalty=elevPerKm*0.18;                      // 50km/300m => 1.08km/h
-    const gradePenalty=Math.max(0,climbGrade-1.5)*0.50;    // 坂がまとまるほど落ちる
-    const weightPenalty=Math.max(0,wt-65)*0.025 + Math.max(0,bf-18)*0.035;
-    const toleranceDiscount=Math.max(0,climbTolerance-2.6)*0.55;
-    const weather=num('modal-weather',num('r-weather',1))||1;
-    const cond=num('modal-cond',num('r-cond',1))||1;
-    const rawPenalty=Math.max(0,elevPenalty+gradePenalty+weightPenalty-toleranceDiscount);
-    const corrected=Math.max(5, (flat-rawPenalty)*weather*cond);
-    const ratio=getMainRatio()||.85;
-    const totalMins=dist/corrected*60/ratio;
-    return {dist,elev,flat,corrected,totalMins,climbGrade,elevPenalty,gradePenalty,weightPenalty,toleranceDiscount,lean,bmi,wkg,climbTolerance,density};
+    const wkg=ftp/wt;
+    const exp={beginner:-2, intermediate:0, advanced:2, racer:4}[self.experience]||0;
+    let spd=27.0 + (wkg-3.0)*2.7 + (lean-55)*0.035 + exp;
+    return Math.max(18, Math.min(40, spd));
+  }
+
+  function effectiveGrade(dist,elev,focus){
+    dist=Math.max(num(dist,0),0.1); elev=Math.max(num(elev,0),0);
+    const avg=elev/(dist*1000)*100;
+    const factor={gentle:3.2, normal:5.5, hard:8.0}[focus]||5.5;
+    return Math.max(avg, Math.min(15, avg*factor));
+  }
+
+  function calcCorrectedSpeed(){
+    const ext=getRideExt();
+    const dist=num(val('modal-dist', el('mcp-dist')?.value || 50),50);
+    const elev=num(val('modal-elev', el('mcp-elev')?.value || 300),300);
+    const wt=num(val('modal-weight', getSelf().weight),65);
+    let flatRaw=val('modal-flat-speed', val('modal-spd', el('mcp-spd')?.value || 30));
+    let flat=num(flatRaw,0);
+    if(flat<=0) flat=estimateFlatSpeed();
+    const focus=val('modal-climb-focus', ext.climbFocus||'normal');
+    const g=effectiveGrade(dist,elev,focus);
+    const elevDrop=(elev/100)*0.42;
+    const gradeDrop=Math.max(0,g-2.0)*0.42;
+    const weightDrop=Math.max(0,wt-65)*0.035;
+    const weather=num(el('r-weather')?.value,1);
+    const cond=num(el('r-cond')?.value,1);
+    const weatherDrop= flat*(1-weather) + flat*(1-cond);
+    const drop=elevDrop+gradeDrop+weightDrop+weatherDrop;
+    const corrected=Math.max(8, flat-drop);
+    const ratio=Math.max(0.3, (num(val('modal-ratio', el('r-ratio')?.value || 85),85))/100);
+    const mins=dist/corrected*60/ratio;
+    return {flat, corrected, drop, grade:g, dist, elev, wt, ratio, mins, focus};
+  }
+
+  function fmtD(mins){
+    mins=Math.round(num(mins,0));
+    const h=Math.floor(mins/60), m=mins%60;
+    return h+':'+String(m).padStart(2,'0');
+  }
+
+  function updateCoursePreview(){
+    const r=calcCorrectedSpeed();
+    txt('modal-grade-preview', r.grade.toFixed(1)+' %');
+    txt('modal-corrected-speed-preview', r.corrected.toFixed(1)+' km/h');
+    txt('modal-speed-drop-preview', '-'+r.drop.toFixed(1)+' km/h');
+    txt('modal-time-preview', fmtD(r.mins));
+    txt('modal-correction-detail', `獲得標高 ${Math.round(r.elev)}m / 斜度 ${r.grade.toFixed(1)}% / 体重 ${r.wt.toFixed(1)}kg / 推定低下 -${r.drop.toFixed(1)} km/h`);
+    txt('modal-flat-speed-hint', r.flat.toFixed(1)+' km/h を使用');
+    return r;
+  }
+
+  window.rppSaveCourseLoad = function(liveApply){
+    const ext={flatSpeed: val('modal-flat-speed',''), climbFocus: val('modal-climb-focus','normal')};
+    setRideExt(ext);
+    updateCoursePreview();
+    if(liveApply) window.rppApplyRideModalToTop(false);
   };
-  window.updateSelfInfoPreview=function(){
-    const r=estimateCorrectedRide();
-    setText('self-lean', fmt1(r.lean)+' kg');
-    setText('self-bmi', fmt1(r.bmi));
-    setText('self-wkg', fmt1(r.wkg)+' W/kg');
-    setText('self-climb-index', fmt1(r.climbTolerance));
-  };
-  window.updateCourseLoadPreview=function(){
-    const r=estimateCorrectedRide();
-    setText('course-climb-grade', fmt1(r.climbGrade)+' %');
-    setText('course-corrected-preview', fmt1(r.corrected)+' km/h');
-    setText('course-penalty-preview', '-' + fmt1(Math.max(0,r.flat-r.corrected)) + ' km/h');
-    const detail=`獲得標高 -${fmt1(r.elevPenalty)} / 斜度 -${fmt1(r.gradePenalty)} / 体重 -${fmt1(r.weightPenalty)} / 走力 +${fmt1(r.toleranceDiscount)} km/h`;
-    setText('course-correction-detail', detail);
-  };
-  window.applyPerformanceCorrection=function(trigger){
-    const r=estimateCorrectedRide();
-    setText('mcp-spd-display', fmt1(r.flat)+' km/h');
-    setText('mcp-corrected-display', fmt1(r.corrected)+' km/h');
-    setText('mcp-corrected-note', r.density==='gentle'?'緩やか':r.density==='steep'?'急坂集中':'坂多め');
-    setText('mcp-total', r.totalMins?fmtD(r.totalMins):'—');
-    const sb=q('mcp-sb-total'); if(sb) sb.textContent=r.totalMins?fmtD(r.totalMins):'—';
-    // 到着予定の表示だけ補正後速度で上書き
-    if(window.mcp && r.totalMins){
-      const startTotal=(mcp.startH||0)+(mcp.startM||0)/60;
-      const endTotal=startTotal+r.totalMins/60;
-      const eh=Math.floor(((endTotal%24)+24)%24);
-      const em=Math.round((endTotal%1)*60)%60;
-      if(mcp.endH===null){
-        setText('mcp-end-h',String(eh).padStart(2,'0'));
-        setText('mcp-end-m',String(em).padStart(2,'0'));
+
+  window.rppApplyRideModalToTop = function(closeAfter){
+    const r=updateCoursePreview();
+    const p=typeof _getSavedPref==='function' ? _getSavedPref() : {};
+    // flat speed input is the basis; if empty/0 use existing modal-spd or self estimate
+    setVal('modal-spd', r.flat.toFixed(1));
+    if(typeof saveUserPref==='function'){
+      try{ saveUserPref(false); }catch(e){}
+    }
+    if(typeof mcp!=='undefined'){
+      mcp.dist=r.dist; mcp.elev=r.elev; mcp.spd=r.flat; baseSpdValue=r.flat; mcp.source='manual';
+      const st=String(val('modal-start', p.start||'08:00')).split(':').map(Number); mcp.startH=st[0]||8; mcp.startM=st[1]||0;
+      const mode=localStorage.getItem('rpp_time_mode')||'start-first';
+      if(mode==='goal-first'){
+        const gt=String(val('modal-goal', p.goalTime||'07:00')).split(':').map(Number); mcp.endH=gt[0]||7; mcp.endM=gt[1]||0;
       }
     }
-    updateCourseLoadPreview();
-    updateSelfInfoPreview();
-    return r;
+    setVal('mcp-dist', r.dist); setVal('mcp-elev', Math.round(r.elev)); setVal('mcp-spd', r.flat.toFixed(1));
+    setVal('r-dist', r.dist); setVal('r-elev', Math.round(r.elev)); setVal('r-movespd', r.flat.toFixed(1));
+    setVal('r-weight', val('modal-weight',65)); setVal('r-weight-pwr', val('modal-weight',65)); setVal('r-ratio', val('modal-ratio',85));
+    txt('mcp-dist-display', r.dist.toFixed(1)+' km');
+    txt('mcp-elev-display', Math.round(r.elev)+' m');
+    txt('mcp-spd-display', r.flat.toFixed(1)+' km/h');
+    txt('mcp-corrected-spd-display', r.corrected.toFixed(1)+' km/h');
+    txt('mcp-corrected-note', '登坂・体重補正');
+    txt('mcp-total', fmtD(r.mins));
+    // PC sidebar
+    setVal('mcp-sb-dist', r.dist); setVal('mcp-sb-elev', Math.round(r.elev)); setVal('mcp-sb-spd', r.flat.toFixed(1));
+    txt('mcp-sb-total', fmtD(r.mins));
+    // Ask existing engine to recompute all dependent displays. Maps/route functions unchanged.
+    try{ if(typeof mcpCalc==='function') mcpCalc((localStorage.getItem('rpp_time_mode')||'start-first')==='goal-first'?'end':'start'); }catch(e){}
+    // Restore derived top cards after original flush if it overwrote display.
+    setTimeout(()=>{ const rr=updateCoursePreview(); txt('mcp-corrected-spd-display', rr.corrected.toFixed(1)+' km/h'); txt('mcp-total', fmtD(rr.mins)); },0);
+    const h=el('modal-pref-saved'); if(h){h.textContent='上部に反映しました'; clearTimeout(window.__rppApplyMsg); window.__rppApplyMsg=setTimeout(()=>h.textContent='',1200);}
+    if(closeAfter){ try{closeSettingsModal(); sw('ride');}catch(e){} }
   };
 
-  const oldMcpCalc=window.mcpCalc;
-  if(typeof oldMcpCalc==='function'){
-    window.mcpCalc=function(trigger){
-      oldMcpCalc(trigger);
-      applyPerformanceCorrection(trigger);
-    };
-  }
-  const oldFlush=window.mcpFlushAll;
-  if(typeof oldFlush==='function'){
-    window.mcpFlushAll=function(totalMins, moveSpdEff){
-      oldFlush(totalMins, moveSpdEff);
-      applyPerformanceCorrection('flush');
-    };
-  }
-
-  window.getCourseLoadPanelHtml=function(){
-    return `<div id="course-load-block" style="margin:4px 0 14px;padding:12px;border:0.5px solid var(--border);border-radius:12px;background:var(--bg2)">
-      <div style="display:flex;justify-content:space-between;gap:8px;align-items:start;margin-bottom:8px">
-        <div><div style="font-size:12px;font-weight:900;color:var(--text)">コース負荷補正</div><div class="hint">平地基準速度から、獲得標高・坂の集中度・体重・体調を加味して補正後速度を出します。</div></div>
-      </div>
+  function buildCourseLoadBox(){
+    if(el('rpp-course-load-box')) return;
+    const power=el('modal-power-section');
+    const holder=document.createElement('div');
+    holder.id='rpp-course-load-box';
+    holder.style.cssText='margin:4px 0 14px;padding:12px;border:0.5px solid var(--border);border-radius:12px;background:var(--bg2)';
+    holder.innerHTML=`
+      <div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:2px">コース負荷補正</div><div class="hint" style="margin-bottom:6px">補正プレビュー</div>
+      <div class="hint" style="margin-bottom:10px">平地基準速度から、獲得標高・坂の集中度・体重・体調を加味して補正後速度を出します。</div>
       <div class="g3" style="gap:10px;margin-bottom:10px">
-        <div class="field"><label>平地基準速度 (km/h)</label><input type="number" id="modal-flat-spd-alias" step="0.5" value="30" oninput="const m=document.getElementById('modal-spd');if(m){m.value=this.value;m.dispatchEvent(new Event('input',{bubbles:true}))};savePerfModel(true)"></div>
-        <div class="field"><label>登坂集中度</label><select id="modal-climbDensity" onchange="savePerfModel(true)"><option value="gentle">緩やかに登る</option><option value="normal">坂が多い</option><option value="steep">急坂に集中</option></select></div>
-        <div class="field"><label>推定登坂平均斜度</label><div class="mcp-readonly" id="course-climb-grade" style="text-align:left">—</div></div>
+        <div class="field"><label>平地基準速度 (km/h)</label><input type="number" id="modal-flat-speed" step="0.5" placeholder="空欄/0=セルフ情報から推定" oninput="rppSaveCourseLoad(true)"><div class="hint" id="modal-flat-speed-hint">30.0 km/h を使用</div></div>
+        <div class="field"><label>登坂集中度</label><select id="modal-climb-focus" onchange="rppSaveCourseLoad(true)"><option value="gentle">緩やかに登る</option><option value="normal">坂が多い</option><option value="hard">急坂に集中</option></select></div>
+        <div class="field"><label>推定登坂平均斜度</label><div id="modal-grade-preview" style="font-size:16px;font-weight:800;padding:8px 10px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text)">—</div></div>
       </div>
       <div class="g3" style="gap:10px;margin-bottom:8px">
-        <div class="pp"><div class="ppl">補正後速度</div><div class="ppv" id="course-corrected-preview">—</div></div>
-        <div class="pp"><div class="ppl">速度低下</div><div class="ppv" id="course-penalty-preview">—</div></div>
-        <div class="pp"><div class="ppl">所要時間</div><div class="ppv" id="course-time-preview">上部に反映</div></div>
+        <div style="background:var(--bg);border:0.5px solid var(--border);border-radius:var(--rs);padding:10px;text-align:center"><div class="hint">補正後速度</div><div id="modal-corrected-speed-preview" style="font-size:18px;font-weight:900">—</div></div>
+        <div style="background:var(--bg);border:0.5px solid var(--border);border-radius:var(--rs);padding:10px;text-align:center"><div class="hint">速度低下</div><div id="modal-speed-drop-preview" style="font-size:18px;font-weight:900">—</div></div>
+        <div style="background:var(--bg);border:0.5px solid var(--border);border-radius:var(--rs);padding:10px;text-align:center"><div class="hint">所要時間</div><div id="modal-time-preview" style="font-size:18px;font-weight:900">—</div></div>
       </div>
-      <div class="hint" id="course-correction-detail">—</div>
-    </div>`;
-  };
-  window.getSelfInfoPanelHtml=function(){
-    return `<div id="settings-self-panel" style="display:none">
+      <div class="hint" id="modal-correction-detail">—</div>
+      <button class="bp" type="button" onclick="rppApplyRideModalToTop(false)" style="margin-top:10px;width:100%;padding:10px;font-weight:900">上部パネルに反映</button>
+    `;
+    if(power && power.parentNode) power.parentNode.insertBefore(holder,power); else el('settings-ride-panel')?.appendChild(holder);
+  }
+
+  function selfPanelHtml(){
+    return `
       <div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.03em;margin-bottom:12px">セルフ情報</div>
       <div class="g3" style="gap:10px;margin-bottom:12px">
-        <div class="field"><label>身長 (cm)</label><input type="number" id="modal-height" value="170" step="1" oninput="savePerfModel(true)"></div>
-        <div class="field"><label>体重 (kg)</label><input type="number" id="modal-self-weight" value="65" step="0.5" oninput="const w=document.getElementById('modal-weight');if(w){w.value=this.value;w.dispatchEvent(new Event('input',{bubbles:true}))};savePerfModel(true)"></div>
-        <div class="field"><label>体脂肪率 (%)</label><input type="number" id="modal-bodyFat" value="18" step="0.5" oninput="savePerfModel(true)"></div>
+        <div class="field"><label>身長 (cm)</label><input type="number" id="self-height" value="170" step="1" oninput="saveSelfSettings(true)"></div>
+        <div class="field"><label>体重 (kg)</label><input type="number" id="self-weight" value="65" step="0.5" oninput="saveSelfSettings(true)"></div>
+        <div class="field"><label>体脂肪率 (%)</label><input type="number" id="self-bodyfat" value="18" step="0.5" oninput="saveSelfSettings(true)"></div>
       </div>
       <div class="g3" style="gap:10px;margin-bottom:12px">
-        <div class="field"><label>年齢</label><input type="number" id="modal-age" value="40" step="1" oninput="savePerfModel(true)"></div>
-        <div class="field"><label>性別</label><select id="modal-sex" onchange="savePerfModel(true)"><option value="na">未指定</option><option value="male">男性</option><option value="female">女性</option></select></div>
-        <div class="field"><label>経験レベル</label><select id="modal-level" onchange="savePerfModel(true)"><option value="beginner">ビギナー</option><option value="normal">標準</option><option value="trained">鍛えている</option><option value="racer">レース志向</option></select></div>
+        <div class="field"><label>年齢</label><input type="number" id="self-age" value="45" step="1" oninput="saveSelfSettings(true)"></div>
+        <div class="field"><label>性別</label><select id="self-gender" onchange="saveSelfSettings(true)"><option value="na">未設定</option><option value="male">男性</option><option value="female">女性</option></select></div>
+        <div class="field"><label>経験レベル</label><select id="self-experience" onchange="saveSelfSettings(true)"><option value="beginner">初心者</option><option value="intermediate">中級</option><option value="advanced">上級</option><option value="racer">競技者</option></select></div>
       </div>
-      <div class="g4" style="gap:8px;margin-bottom:14px">
-        <div class="pp"><div class="ppl">除脂肪体重</div><div class="ppv" id="self-lean">—</div></div>
-        <div class="pp"><div class="ppl">BMI</div><div class="ppv" id="self-bmi">—</div></div>
-        <div class="pp"><div class="ppl">W/kg</div><div class="ppv" id="self-wkg">—</div></div>
-        <div class="pp"><div class="ppl">登坂耐性指数</div><div class="ppv" id="self-climb-index">—</div></div>
+      <div class="g4" style="gap:8px;margin-bottom:12px">
+        <div class="card"><div class="cl">除脂肪体重</div><div class="cv" id="self-lean-mass">—</div></div>
+        <div class="card"><div class="cl">BMI</div><div class="cv" id="self-bmi">—</div></div>
+        <div class="card"><div class="cl">W/kg</div><div class="cv" id="self-wkg">—</div></div>
+        <div class="card"><div class="cl">登坂耐性指数</div><div class="cv" id="self-climb-index">—</div></div>
       </div>
-      <div style="display:flex;gap:10px;align-items:center;margin-top:8px"><button class="bp" onclick="savePerfModel(true);applyPerformanceCorrection('self');switchSettingsTab('ride')" style="padding:10px 20px;font-size:13px;font-weight:700">走力補正に反映</button><span class="hint">速度を0にした場合、この情報とFTPから平地基準速度を推定します。</span></div>
-    </div>`;
+      <div style="background:var(--bg2);border:0.5px solid var(--border);border-radius:12px;padding:12px;margin-bottom:12px">
+        <div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:4px">推定平地基準速度</div>
+        <div style="font-size:24px;font-weight:900" id="self-est-flat-speed">— km/h</div>
+        <div class="hint">ライド設定の平地基準速度を0または空欄にした場合、この推定値を使います。</div>
+      </div>
+      <button class="bp" type="button" onclick="applySelfToRide()" style="width:100%;padding:11px;font-weight:900">セルフ情報をライド補正へ反映</button>
+    `;
+  }
+
+  window.loadSelfSettingsUI=function(){
+    const p=getSelf();
+    setVal('self-height',p.height); setVal('self-weight',p.weight); setVal('self-bodyfat',p.bodyFat); setVal('self-age',p.age); setVal('self-gender',p.gender); setVal('self-experience',p.experience);
+    updateSelfDerived();
+  };
+  window.updateSelfDerived=function(){
+    const p={height:num(val('self-height',170),170),weight:num(val('self-weight',65),65),bodyFat:num(val('self-bodyfat',18),18),age:num(val('self-age',45),45),gender:val('self-gender','na'),experience:val('self-experience','intermediate')};
+    const lean=p.weight*(1-p.bodyFat/100);
+    const bmi=p.weight/Math.pow((p.height||170)/100,2);
+    const ftp=num(val('modal-ftp',220),220)||220;
+    const wkg=ftp/p.weight;
+    const climb=(wkg*25 + lean/p.weight*35 - Math.max(0,p.bodyFat-15)*0.8 + ({beginner:-8,intermediate:0,advanced:7,racer:12}[p.experience]||0));
+    txt('self-lean-mass', lean.toFixed(1)+'kg'); txt('self-bmi', bmi.toFixed(1)); txt('self-wkg', wkg.toFixed(2)); txt('self-climb-index', Math.max(0,Math.min(100,climb)).toFixed(0));
+    txt('self-est-flat-speed', estimateFlatSpeed().toFixed(1)+' km/h');
+  };
+  window.saveSelfSettings=function(liveApply){
+    const p={height:num(val('self-height',170),170),weight:num(val('self-weight',65),65),bodyFat:num(val('self-bodyfat',18),18),age:num(val('self-age',45),45),gender:val('self-gender','na'),experience:val('self-experience','intermediate')};
+    setSelf(p); updateSelfDerived();
+    if(liveApply) updateCoursePreview();
+  };
+  window.applySelfToRide=function(){
+    saveSelfSettings(false);
+    const p=getSelf();
+    setVal('modal-weight', p.weight); setVal('r-weight', p.weight); setVal('r-weight-pwr', p.weight);
+    if(!num(val('modal-flat-speed',0),0)) setVal('modal-spd', estimateFlatSpeed().toFixed(1));
+    rppApplyRideModalToTop(false);
   };
 
-  window.injectCourseLoadIntoRidePanel=function(){
-    const ride=q('settings-ride-panel'); if(!ride) return;
-    ride.querySelectorAll('label').forEach(l=>{ if((l.textContent||'').includes('平地基準速度')===false && (l.textContent||'').includes('NET平均')) l.textContent='平地基準速度 (km/h)'; });
-    const spd=q('modal-spd'); if(spd && q('modal-flat-spd-alias')) q('modal-flat-spd-alias').value=spd.value;
-    if(!q('course-load-block')){
-      const modeBlock=q('modal-power-section');
-      const div=document.createElement('div');
-      div.innerHTML=getCourseLoadPanelHtml();
-      const node=div.firstElementChild;
-      if(modeBlock) ride.insertBefore(node, modeBlock); else ride.insertBefore(node, ride.children[2]||null);
+  const _origEnsure = window.ensureSettingsRideRunTabs;
+  window.ensureSettingsRideRunTabs = function(){
+    if(typeof _origEnsure==='function') _origEnsure();
+    const body=document.getElementById('settings-modal')?.firstElementChild?.children?.[1];
+    if(!body) return;
+    const tabs=el('settings-subtabs');
+    if(tabs && !el('settings-tab-self')){
+      tabs.style.gridTemplateColumns='1fr 1fr 1fr';
+      const b=document.createElement('button');
+      b.type='button'; b.className='modebt'; b.id='settings-tab-self';
+      b.setAttribute('onclick',"switchSettingsTab('self')");
+      b.style.cssText='font-size:13px;font-weight:900;padding:10px 8px';
+      b.textContent='👤 セルフ情報';
+      tabs.appendChild(b);
     }
-  };
-
-  window.ensureSettingsRideRunTabs=function(){
-    const modal=q('settings-modal'); if(!modal) return;
-    const card=modal.firstElementChild; if(!card) return;
-    const body=card.children&&card.children[1]; if(!body) return;
-    if(!q('settings-subtabs')){
-      const existing=[...body.childNodes];
-      const tabs=document.createElement('div');
-      tabs.id='settings-subtabs';
-      tabs.style.cssText='display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:14px;padding:7px;background:var(--bg2);border-radius:12px;position:sticky;top:70px;z-index:2';
-      tabs.innerHTML='<button type="button" class="modebt on" id="settings-tab-ride" onclick="switchSettingsTab(\'ride\')" style="font-size:13px;font-weight:900;padding:10px 8px">🚴 ライド設定</button><button type="button" class="modebt" id="settings-tab-run" onclick="switchSettingsTab(\'run\')" style="font-size:13px;font-weight:900;padding:10px 8px">🏃 ラン設定</button><button type="button" class="modebt" id="settings-tab-self" onclick="switchSettingsTab(\'self\')" style="font-size:13px;font-weight:900;padding:10px 8px">👤 セルフ情報</button>';
-      const ride=document.createElement('div'); ride.id='settings-ride-panel'; existing.forEach(n=>ride.appendChild(n));
-      const run=document.createElement('div'); run.id='settings-run-panel'; run.style.display='none'; run.innerHTML=(typeof getRunSettingsPanelHtml==='function'?getRunSettingsPanelHtml():'<div class="panel">ラン設定</div>');
-      const tmp=document.createElement('div'); tmp.innerHTML=getSelfInfoPanelHtml();
-      body.appendChild(tabs); body.appendChild(ride); body.appendChild(run); body.appendChild(tmp.firstElementChild);
+    if(!el('settings-self-panel')){
+      const self=document.createElement('div'); self.id='settings-self-panel'; self.style.display='none'; self.innerHTML=selfPanelHtml(); body.appendChild(self);
     }
-    injectCourseLoadIntoRidePanel();
-    loadRunSettingsUI&&loadRunSettingsUI();
-    loadPerfModelUI();
-    const active=localStorage.getItem('rpp_settings_active_tab')||'ride';
+    const ext=getRideExt(); setVal('modal-flat-speed', ext.flatSpeed||''); setVal('modal-climb-focus', ext.climbFocus||'normal');
+    const lab=document.querySelector('#modal-spd-field label'); if(lab) lab.textContent='平地基準速度 (km/h)';
+    buildCourseLoadBox(); loadSelfSettingsUI(); updateCoursePreview();
+    const active=localStorage.getItem('rpp_settings_active_tab') || 'ride';
     switchSettingsTab(active);
   };
+
+  const _origSwitch = window.switchSettingsTab;
   window.switchSettingsTab=function(tab){
-    tab=(tab==='run'||tab==='self')?tab:'ride'; localStorage.setItem('rpp_settings_active_tab',tab);
-    ['ride','run','self'].forEach(k=>{const p=q('settings-'+k+'-panel'), b=q('settings-tab-'+k); if(p) p.style.display=(tab===k?'':'none'); if(b) b.classList.toggle('on',tab===k);});
-    if(tab==='self') loadPerfModelUI();
-    if(tab==='ride'){injectCourseLoadIntoRidePanel();loadPerfModelUI();}
+    tab = (tab==='run'||tab==='self') ? tab : 'ride';
+    localStorage.setItem('rpp_settings_active_tab', tab);
+    const ride=el('settings-ride-panel'), run=el('settings-run-panel'), self=el('settings-self-panel');
+    const bRide=el('settings-tab-ride'), bRun=el('settings-tab-run'), bSelf=el('settings-tab-self');
+    if(ride) ride.style.display=tab==='ride'?'':'none';
+    if(run) run.style.display=tab==='run'?'':'none';
+    if(self) self.style.display=tab==='self'?'':'none';
+    if(bRide) bRide.classList.toggle('on',tab==='ride');
+    if(bRun) bRun.classList.toggle('on',tab==='run');
+    if(bSelf) bSelf.classList.toggle('on',tab==='self');
+    if(tab==='run' && typeof loadRunSettingsUI==='function') loadRunSettingsUI();
+    if(tab==='self') loadSelfSettingsUI();
+    if(tab==='ride') updateCoursePreview();
   };
 
-  const oldLoad=window.loadUserPrefUI;
-  if(typeof oldLoad==='function') window.loadUserPrefUI=function(){oldLoad(); setTimeout(()=>{loadPerfModelUI(); const spd=q('modal-spd'); const a=q('modal-flat-spd-alias'); if(spd&&a)a.value=spd.value;},0);};
-  const oldSave=window.saveUserPref;
-  if(typeof oldSave==='function') window.saveUserPref=function(liveApply){oldSave(liveApply); if(q('modal-spd')&&q('modal-flat-spd-alias')) q('modal-flat-spd-alias').value=q('modal-spd').value; savePerfModel(false); if(liveApply) applyPerformanceCorrection('save');};
-  const oldApply=window.applyUserPref;
-  if(typeof oldApply==='function') window.applyUserPref=function(){savePerfModel(false); oldApply(); setTimeout(()=>applyPerformanceCorrection('apply'),0);};
+  // Override Apply button behavior to close only after all enhanced values are reflected.
+  const _origApplyUserPref = window.applyUserPref;
+  window.applyUserPref=function(){ rppApplyRideModalToTop(true); };
 
-  document.addEventListener('DOMContentLoaded',()=>setTimeout(()=>applyPerformanceCorrection('init'),500));
+  // Existing mcpFlushAll overwrites top cards. Wrap and restore corrected card after every calc.
+  if(typeof window.mcpFlushAll==='function'){
+    const _origFlush=window.mcpFlushAll;
+    window.mcpFlushAll=function(totalMins, moveSpdEff){
+      _origFlush(totalMins, moveSpdEff);
+      const r=calcCorrectedSpeed();
+      txt('mcp-spd-display', r.flat.toFixed(1)+' km/h');
+      txt('mcp-corrected-spd-display', (moveSpdEff>0?moveSpdEff:r.corrected).toFixed(1)+' km/h');
+      txt('mcp-corrected-note', '坂・風・体調反映');
+    };
+  }
+
+  function normalizeTopPanel(){
+    const old=[...document.querySelectorAll('.locked-label')].find(x=>x.textContent.trim()==='NET平均速度');
+    if(old) old.textContent='平地基準速度';
+    const spdCard=el('mcp-spd-display')?.closest('.locked-metric');
+    if(spdCard && !el('mcp-corrected-spd-display')){
+      const c=document.createElement('div'); c.className='locked-metric';
+      c.innerHTML='<div class="locked-label">補正後速度</div><div class="locked-value" id="mcp-corrected-spd-display">— km/h</div><div class="locked-sub" id="mcp-corrected-note">坂・風・体調反映</div>';
+      spdCard.insertAdjacentElement('afterend', c);
+    }
+    const r=calcCorrectedSpeed();
+    txt('mcp-spd-display', r.flat.toFixed(1)+' km/h');
+    txt('mcp-corrected-spd-display', r.corrected.toFixed(1)+' km/h');
+  }
+
+  document.addEventListener('DOMContentLoaded',()=>{ normalizeTopPanel(); setTimeout(normalizeTopPanel,300); });
+  window.addEventListener('load',()=>{ normalizeTopPanel(); setTimeout(normalizeTopPanel,500); });
 })();
 </script>
+
+
+<script>
+/* v8.64: 設定保存フィードバック + JSONバックアップ/復元 + Maps診断表示 */
+(function(){
+  if(window.__rppSettingsFeedbackPatch) return;
+  window.__rppSettingsFeedbackPatch=true;
+
+  function el(id){return document.getElementById(id);}
+  function notify(msg){
+    var t=el('rpp-toast');
+    if(!t){
+      t=document.createElement('div');
+      t.id='rpp-toast';
+      t.style.cssText='position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:100002;background:rgba(10,10,10,.92);color:#fff;padding:10px 16px;border-radius:999px;font-size:13px;font-weight:800;box-shadow:0 6px 24px rgba(0,0,0,.28);opacity:0;transition:opacity .18s, bottom .18s;pointer-events:none;white-space:nowrap';
+      document.body.appendChild(t);
+    }
+    t.textContent=msg;
+    t.style.opacity='1';
+    t.style.bottom='28px';
+    clearTimeout(window.__rppToastTimer);
+    window.__rppToastTimer=setTimeout(function(){t.style.opacity='0';t.style.bottom='22px';},1700);
+  }
+  window.rppNotify=notify;
+
+  function setInlineStatus(msg){
+    var h=el('modal-pref-saved');
+    if(h){ h.textContent=msg; clearTimeout(window.__prefMsgTimer); window.__prefMsgTimer=setTimeout(function(){h.textContent='';},1800); }
+    var s=el('self-apply-status');
+    if(s){ s.textContent=msg; clearTimeout(window.__selfMsgTimer); window.__selfMsgTimer=setTimeout(function(){s.textContent='';},2200); }
+  }
+
+  function backupKeys(){
+    return ['rpp_user_pref','rpp_self_pref','rpp_ride_ext_pref','rpp_run_pref','rpp_time_mode','rpp_settings_active_tab'];
+  }
+  window.exportRppSettingsJSON=function(){
+    var data={version:'rpp-settings-v1', exportedAt:new Date().toISOString(), values:{}};
+    backupKeys().forEach(function(k){ data.values[k]=localStorage.getItem(k); });
+    var blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='rpp_settings.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){URL.revokeObjectURL(a.href);},1000);
+    notify('設定JSONを書き出しました');
+    setInlineStatus('設定JSONを書き出しました');
+  };
+  window.importRppSettingsJSON=function(file){
+    if(!file) return;
+    var r=new FileReader();
+    r.onload=function(){
+      try{
+        var data=JSON.parse(String(r.result||'{}'));
+        var vals=data.values||data;
+        backupKeys().forEach(function(k){ if(Object.prototype.hasOwnProperty.call(vals,k) && vals[k]!=null) localStorage.setItem(k,String(vals[k])); });
+        try{ if(typeof loadUserPrefUI==='function') loadUserPrefUI(); }catch(e){}
+        try{ if(typeof loadRunSettingsUI==='function') loadRunSettingsUI(); }catch(e){}
+        try{ if(typeof loadSelfSettingsUI==='function') loadSelfSettingsUI(); }catch(e){}
+        try{ if(typeof rppApplyRideModalToTop==='function') rppApplyRideModalToTop(false); }catch(e){}
+        notify('設定JSONを読み込みました');
+        setInlineStatus('設定JSONを読み込みました');
+      }catch(e){ alert('設定JSONを読み込めませんでした'); }
+    };
+    r.readAsText(file);
+  };
+
+  function ensureJsonTools(){
+    var panel=el('settings-self-panel');
+    if(!panel || el('self-json-tools')) return;
+    var tools=document.createElement('div');
+    tools.id='self-json-tools';
+    tools.style.cssText='display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center';
+    tools.innerHTML='<button type="button" class="bs" onclick="exportRppSettingsJSON()" style="font-weight:800">⬇ 設定JSON保存</button><button type="button" class="bs" onclick="document.getElementById(\'rpp-settings-json-file\').click()" style="font-weight:800">⬆ 設定JSON読込</button><span class="hint" id="self-apply-status" style="font-weight:800;color:var(--green)"></span><input id="rpp-settings-json-file" type="file" accept="application/json,.json" style="display:none" onchange="importRppSettingsJSON(this.files&&this.files[0]);this.value=\'\'">';
+    panel.appendChild(tools);
+  }
+
+  function hookOnce(){
+    if(window.__rppFeedbackHooked) return;
+    window.__rppFeedbackHooked=true;
+    var oldSelf=window.applySelfToRide;
+    if(typeof oldSelf==='function'){
+      window.applySelfToRide=function(){
+        var ret=oldSelf.apply(this,arguments);
+        notify('セルフ情報を反映しました');
+        setInlineStatus('セルフ情報を反映しました');
+        return ret;
+      };
+    }
+    var oldRide=window.rppApplyRideModalToTop;
+    if(typeof oldRide==='function'){
+      window.rppApplyRideModalToTop=function(closeAfter){
+        var ret=oldRide.apply(this,arguments);
+        if(!window.__rppSuppressApplyToast){ notify('上部パネルに反映しました'); setInlineStatus('上部パネルに反映しました'); }
+        return ret;
+      };
+    }
+    var oldRun=window.applyRunSettings;
+    if(typeof oldRun==='function'){
+      window.applyRunSettings=function(silent){
+        var ret=oldRun.apply(this,arguments);
+        if(!silent){ notify('ラン設定を反映しました'); setInlineStatus('ラン設定を反映しました'); }
+        return ret;
+      };
+    }
+  }
+
+  var oldEnsure=window.ensureSettingsRideRunTabs;
+  if(typeof oldEnsure==='function'){
+    window.ensureSettingsRideRunTabs=function(){
+      oldEnsure.apply(this,arguments);
+      ensureJsonTools();
+      hookOnce();
+    };
+  }
+  var oldSwitch=window.switchSettingsTab;
+  if(typeof oldSwitch==='function'){
+    window.switchSettingsTab=function(tab){
+      var ret=oldSwitch.apply(this,arguments);
+      ensureJsonTools();
+      hookOnce();
+      return ret;
+    };
+  }
+  document.addEventListener('DOMContentLoaded',function(){setTimeout(function(){ensureJsonTools();hookOnce();},500);});
+  window.addEventListener('load',function(){setTimeout(function(){ensureJsonTools();hookOnce();},800);});
+})();
+</script>
+
 </body>
 </html>
