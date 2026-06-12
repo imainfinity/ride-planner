@@ -3002,6 +3002,8 @@ function modalSelZone(i){
   const wt=+_modalVal('weight',65)||65;
   const mid=(ZONES[i].lo+ZONES[i].hi)/2/100;
   _setModalVal('wkg',(ftp*mid/wt).toFixed(2));
+  _setModalVal('np',''); // Zカード選択時はNP直接を残さない。残るとZ変更が反映されない。
+  if(typeof setRideInputModeFromSettings==='function') setRideInputModeFromSettings('pwr');
   if(typeof selZone==='function'){
     selZ=i;
     const rw=document.getElementById('r-wkg'); if(rw) rw.value=_modalVal('wkg',2.5);
@@ -3009,6 +3011,7 @@ function modalSelZone(i){
   }
   saveUserPref(true);
   buildModalPowerZones();
+  if(typeof updateCoursePreview==='function') updateCoursePreview();
 }
 function modalSyncZoneFromWkg(){
   const rw=document.getElementById('r-wkg'); if(rw) rw.value=_modalVal('wkg',2.5);
@@ -6042,22 +6045,47 @@ function refreshLockedPanelValues(){
     const dist=num(val('modal-dist', el('mcp-dist')?.value || 50),50);
     const elev=num(val('modal-elev', el('mcp-elev')?.value || 300),300);
     const wt=num(val('modal-weight', getSelf().weight),65);
-    let flatRaw=val('modal-flat-speed', val('modal-spd', el('mcp-spd')?.value || 30));
-    let flat=num(flatRaw,0);
-    if(flat<=0) flat=estimateFlatSpeed();
+    const ftp=num(val('modal-ftp',220),220)||220;
+    const ratio=Math.max(0.3, (num(val('modal-ratio', el('r-ratio')?.value || 85),85))/100);
     const focus=val('modal-climb-focus', ext.climbFocus||'normal');
     const g=effectiveGrade(dist,elev,focus);
+    const weather=num(el('r-weather')?.value,1);
+    const cond=num(el('r-cond')?.value,1);
+
+    // 速度入力時の基準補正。セルフ走力/平地基準速度の従来挙動は維持する。
+    let baseFlatRaw=val('modal-flat-speed', val('modal-spd', el('mcp-spd')?.value || 30));
+    let baseFlat=num(baseFlatRaw,0);
+    if(baseFlat<=0) baseFlat=estimateFlatSpeed();
     const elevDrop=(elev/100)*0.42;
     const gradeDrop=Math.max(0,g-2.0)*0.42;
     const weightDrop=Math.max(0,wt-65)*0.035;
-    const weather=num(el('r-weather')?.value,1);
-    const cond=num(el('r-cond')?.value,1);
-    const weatherDrop= flat*(1-weather) + flat*(1-cond);
-    const drop=elevDrop+gradeDrop+weightDrop+weatherDrop;
-    const corrected=Math.max(8, flat-drop);
-    const ratio=Math.max(0.3, (num(val('modal-ratio', el('r-ratio')?.value || 85),85))/100);
-    const mins=dist/corrected*60/ratio;
-    return {flat, corrected, drop, grade:g, dist, elev, wt, ratio, mins, focus};
+    const baseWeatherDrop= baseFlat*(1-weather) + baseFlat*(1-cond);
+    const baseDrop=elevDrop+gradeDrop+weightDrop+baseWeatherDrop;
+    const baseCorrected=Math.max(8, baseFlat-baseDrop);
+
+    const saved=(typeof _getSavedPref==='function')?_getSavedPref():{};
+    const mode=(window.__modalRideInputMode || saved.rideInputMode || 'spd');
+    let flat=baseFlat, corrected=baseCorrected, drop=baseDrop;
+    let power=null, wkg=null, modeLabel='speed';
+
+    if(mode==='pwr'){
+      const np=num(val('modal-np',0),0);
+      wkg=num(val('modal-wkg', ftp/wt), ftp/wt);
+      power=np>0 ? np : wkg*wt;
+      wkg=power/wt;
+      // 平地表示はPower換算。ただし登坂補正は同じコースの基準走力からの上積みで計算する。
+      // これでZ1 < Z2 < Z3 < Z4 < Z5が成立し、Z5で逆に遅くなる異常を防ぐ。
+      const baselineWkg=Math.max(1.8, ftp/wt);
+      const powerFlat=18 + Math.pow(Math.max(power,1)/wt,0.82)*7.3;
+      flat=Math.max(baseFlat, powerFlat);
+      const powerBonus=(wkg-baselineWkg)*9.0;
+      corrected=Math.max(4, Math.min(flat*0.96, baseCorrected + powerBonus));
+      drop=Math.max(0, flat-corrected);
+      modeLabel='power';
+    }
+
+    const mins=dist/Math.max(corrected,0.1)*60/ratio;
+    return {flat, corrected, drop, grade:g, dist, elev, wt, ratio, mins, focus, mode:modeLabel, baseFlat, baseCorrected, power, wkg};
   }
 
   function fmtD(mins){
@@ -6070,10 +6098,14 @@ function refreshLockedPanelValues(){
     const r=calcCorrectedSpeed();
     txt('modal-grade-preview', r.grade.toFixed(1)+' %');
     txt('modal-corrected-speed-preview', r.corrected.toFixed(1)+' km/h');
-    txt('modal-speed-drop-preview', '-'+r.drop.toFixed(1)+' km/h');
+    txt('modal-speed-drop-preview', r.mode==='power' ? ('+'+(r.corrected-r.baseCorrected).toFixed(1)+' km/h') : ('-'+r.drop.toFixed(1)+' km/h'));
     txt('modal-time-preview', fmtD(r.mins));
-    txt('modal-correction-detail', `獲得標高 ${Math.round(r.elev)}m / 斜度 ${r.grade.toFixed(1)}% / 体重 ${r.wt.toFixed(1)}kg / 推定低下 -${r.drop.toFixed(1)} km/h`);
-    txt('modal-flat-speed-hint', r.flat.toFixed(1)+' km/h を使用');
+    txt('modal-correction-detail', r.mode==='power'
+      ? `Power ${Math.round(r.power)}W / ${r.wkg.toFixed(2)}W/kg / 同条件の基準走力 ${r.baseCorrected.toFixed(1)}km/h から +${(r.corrected-r.baseCorrected).toFixed(1)}km/h`
+      : `獲得標高 ${Math.round(r.elev)}m / 斜度 ${r.grade.toFixed(1)}% / 体重 ${r.wt.toFixed(1)}kg / 推定低下 -${r.drop.toFixed(1)} km/h`);
+    txt('modal-flat-speed-hint', r.mode==='power' ? ('Power換算 '+r.flat.toFixed(1)+' km/h') : (r.flat.toFixed(1)+' km/h を使用'));
+    const dropLabel=el('modal-speed-drop-preview')?.previousElementSibling;
+    if(dropLabel) dropLabel.textContent = r.mode==='power' ? '基準比' : '速度低下';
     return r;
   }
 
@@ -6115,7 +6147,7 @@ function refreshLockedPanelValues(){
     // Ask existing engine to recompute all dependent displays. Maps/route functions unchanged.
     try{ if(typeof mcpCalc==='function') mcpCalc((localStorage.getItem('rpp_time_mode')||'start-first')==='goal-first'?'end':'start'); }catch(e){}
     // Restore derived top cards after original flush if it overwrote display.
-    setTimeout(()=>{ const rr=updateCoursePreview(); txt('mcp-corrected-spd-display', rr.corrected.toFixed(1)+' km/h'); txt('mcp-total', fmtD(rr.mins)); },0);
+    setTimeout(()=>{ const rr=updateCoursePreview(); txt('mcp-spd-display', rr.flat.toFixed(1)+' km/h'); txt('mcp-corrected-spd-display', rr.corrected.toFixed(1)+' km/h'); txt('mcp-total', fmtD(rr.mins)); txt('mcp-sb-total', fmtD(rr.mins)); },0);
     const h=el('modal-pref-saved'); if(h){h.textContent='上部に反映しました'; clearTimeout(window.__rppApplyMsg); window.__rppApplyMsg=setTimeout(()=>h.textContent='',1200);}
     if(closeAfter){ try{closeSettingsModal(); sw('ride');}catch(e){} }
   };
@@ -6254,7 +6286,7 @@ function refreshLockedPanelValues(){
       _origFlush(totalMins, moveSpdEff);
       const r=calcCorrectedSpeed();
       txt('mcp-spd-display', r.flat.toFixed(1)+' km/h');
-      txt('mcp-corrected-spd-display', (moveSpdEff>0?moveSpdEff:r.corrected).toFixed(1)+' km/h');
+      txt('mcp-corrected-spd-display', r.corrected.toFixed(1)+' km/h');
       txt('mcp-corrected-note', '坂・風・体調反映');
     };
   }
