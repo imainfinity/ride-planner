@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ride Pace Planner</title>
+<title>RIDE & RUN Planner</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -387,6 +387,11 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
 /* 対象：右/下カラムの「コース設定」「走力入力」だけ。風向き・カロリー系は触らない。 */
 .panel.op-locked{display:none!important}
 
+
+/* ── v8.64: 単一画面化。上部タブは非表示、MCPをヘッダー直下へ ── */
+#app-tabs{display:none!important}
+#mcp-bar{top:44px!important}
+
 </style>
 
 <script>
@@ -449,16 +454,13 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
 <!-- GPS再取得ボタン（常時表示） -->
 <button id="gps-retry-btn" onclick="retryGPS()" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">📍</button>
 <header>
-  <h1>Ride Pace Planner <span class="ver">v8.12</span></h1>
-  <span class="sub">ライド計画 / Google Maps ルート連携</span>
+  <h1>RIDE &amp; RUN Planner <span class="ver">v8.12</span></h1>
+  <span class="sub">Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
 
 <div class="tabs" id="app-tabs">
   <button class="tab on" onclick="sw('ride')">🚴 ライド</button>
-  <button class="tab" onclick="sw('saved')">📁 保存</button>
-  <button class="tab" onclick="sw('log')">ログ</button>
-  <button class="tab" id="tab-settings" onclick="sw('settings')">⚙️ 設定</button>
 </div>
 
 <!-- ══ MCP: 一元管理パネル（Master Control Panel） ══ -->
@@ -6435,6 +6437,281 @@ function refreshLockedPanelValues(){
   document.addEventListener('DOMContentLoaded',function(){setTimeout(function(){ensureJsonTools();hookOnce();},500);});
   window.addEventListener('load',function(){setTimeout(function(){ensureJsonTools();hookOnce();},800);});
 })();
+
+/* ── v8.72: 最新安定版から差分修正：ラン心拍モード選択 + 上部タブ整理 ── */
+(function(){
+  function readRunPref(){
+    try{return JSON.parse(localStorage.getItem('rpp_run_pref')||'{}')||{};}catch(e){return {};}
+  }
+  function writeRunPref(p){
+    try{localStorage.setItem('rpp_run_pref', JSON.stringify(p));}catch(e){}
+  }
+  function getRunMode(){
+    var p=readRunPref();
+    return (p.mode==='hr') ? 'hr' : 'pace';
+  }
+  function getRunZone(){
+    var p=readRunPref();
+    return p.hrZone || 'Z2';
+  }
+  function setRunModeVisual(mode){
+    var bP=document.getElementById('run-input-mode-pace');
+    var bH=document.getElementById('run-input-mode-hr');
+    if(bP) bP.classList.toggle('on', mode!=='hr');
+    if(bH) bH.classList.toggle('on', mode==='hr');
+    var hint=document.getElementById('run-mode-hint');
+    if(hint){
+      hint.textContent = mode==='hr'
+        ? '心拍Zoneから換算したラン速度を上部パネルへ反映します。'
+        : '1kmペースからラン速度を上部パネルへ反映します。';
+    }
+  }
+  function zonePaceFromBase(zone, basePace){
+    var z=String(zone||'Z2').toUpperCase();
+    var mult={Z1:1.35,Z2:1.18,Z3:1.00,Z4:0.90,Z5:0.82}[z] || 1.18;
+    return Math.max(2.5, Math.min(12, (+basePace||6) * mult));
+  }
+  window.setRunInputModeFromSettings=function(mode){
+    mode = (mode==='hr') ? 'hr' : 'pace';
+    var p=Object.assign({}, (typeof _getRunSettings==='function'?_getRunSettings():readRunPref()), readRunPref());
+    p.mode=mode;
+    if(!p.hrZone) p.hrZone='Z2';
+    writeRunPref(p);
+    setRunModeVisual(mode);
+    if(typeof buildRunHeartZones==='function') buildRunHeartZones();
+    try{ saveRunSettings(false); }catch(e){}
+    if(mode==='hr'){
+      var block=document.getElementById('run-hr-zone-block');
+      if(block) block.scrollIntoView({behavior:'smooth',block:'center'});
+    }
+  };
+  window.selectRunHeartZoneFromSettings=function(zone){
+    var p=Object.assign({}, (typeof _getRunSettings==='function'?_getRunSettings():readRunPref()), readRunPref());
+    p.mode='hr';
+    p.hrZone=zone || 'Z2';
+    writeRunPref(p);
+    setRunModeVisual('hr');
+    if(typeof buildRunHeartZones==='function') buildRunHeartZones();
+    try{ applyRunSettings(true); }catch(e){}
+  };
+
+  var oldGetHtml=window.getRunSettingsPanelHtml;
+  if(typeof oldGetHtml==='function'){
+    window.getRunSettingsPanelHtml=function(){
+      var html=oldGetHtml.apply(this,arguments);
+      html=html.replace(
+        '<button class="modebt on" style="flex:1;font-size:13px;font-weight:800;padding:10px 8px">🏃 1kmペースから</button>',
+        '<button type="button" class="modebt on" id="run-input-mode-pace" onclick="setRunInputModeFromSettings(\'pace\')" style="flex:1;font-size:13px;font-weight:800;padding:10px 8px">🏃 1kmペースから</button>'
+      );
+      html=html.replace(
+        '<button class="modebt" style="flex:1;font-size:13px;font-weight:800;padding:10px 8px" onclick="document.getElementById(\'run-hr-zone-block\')?.scrollIntoView({behavior:\'smooth\',block:\'center\'})">❤️ 心拍Zoneから</button>',
+        '<button type="button" class="modebt" id="run-input-mode-hr" onclick="setRunInputModeFromSettings(\'hr\')" style="flex:1;font-size:13px;font-weight:800;padding:10px 8px">❤️ 心拍Zoneから</button>'
+      );
+      html=html.replace('</div>\n\n    <div class="g3" style="gap:10px;margin-bottom:12px">', '</div><div class="hint" id="run-mode-hint" style="margin:-6px 0 12px"></div>\n\n    <div class="g3" style="gap:10px;margin-bottom:12px">');
+      html=html.replace('onclick="applyRunSettings()" style="font-size:11px;padding:6px 10px;white-space:nowrap">🏃 ラン設定を適用</button>', 'onclick="setRunInputModeFromSettings(\'hr\');applyRunSettings()" style="font-size:11px;padding:6px 10px;white-space:nowrap">❤️ この方式を選択</button>');
+      return html;
+    };
+  }
+
+  var oldGet=window._getRunSettings;
+  if(typeof oldGet==='function'){
+    window._getRunSettings=function(){
+      var p=oldGet.apply(this,arguments) || {};
+      if(!p.mode) p.mode='pace';
+      if(!p.hrZone) p.hrZone='Z2';
+      return p;
+    };
+  }
+
+  window.buildRunHeartZones=function(){
+    var p=(typeof _getRunSettings==='function'?_getRunSettings():readRunPref());
+    var max=+(document.getElementById('run-hr-max')?.value || p.hrMax || 185);
+    var rest=+(document.getElementById('run-hr-rest')?.value || p.hrRest || 60);
+    var reserve=Math.max(1,max-rest);
+    var active=getRunZone();
+    var zones=[
+      ['Z1','Recovery',0.50,0.60,'#e6f6e8'],
+      ['Z2','Endurance',0.60,0.70,'#e3f2fd'],
+      ['Z3','Tempo',0.70,0.80,'#fff4d6'],
+      ['Z4','Threshold',0.80,0.90,'#fde6d8'],
+      ['Z5','VO2max+',0.90,1.00,'#fde3ef']
+    ];
+    var html=zones.map(function(z){
+      var lo=Math.round(rest+reserve*z[2]);
+      var hi=Math.round(rest+reserve*z[3]);
+      var on=(z[0]===active);
+      return '<div class="zone-card '+(on?'on':'')+'" onclick="selectRunHeartZoneFromSettings(\''+z[0]+'\')" style="background:'+z[4]+'"><div class="zc-num">'+z[0]+'</div><div class="zc-name">'+z[1]+'</div><div class="zc-w">'+lo+'–'+hi+' bpm</div></div>';
+    }).join('');
+    var el=document.getElementById('run-zonebar');
+    if(el) el.innerHTML=html;
+  };
+
+  var oldLoad=window.loadRunSettingsUI;
+  if(typeof oldLoad==='function'){
+    window.loadRunSettingsUI=function(){
+      var ret=oldLoad.apply(this,arguments);
+      setRunModeVisual(getRunMode());
+      if(typeof buildRunHeartZones==='function') buildRunHeartZones();
+      return ret;
+    };
+  }
+
+  var oldSave=window.saveRunSettings;
+  if(typeof oldSave==='function'){
+    window.saveRunSettings=function(liveApply){
+      var before=readRunPref();
+      var mode=before.mode || getRunMode();
+      var zone=before.hrZone || getRunZone();
+      var ret=oldSave.apply(this,arguments);
+      var after=readRunPref();
+      after.mode=mode;
+      after.hrZone=zone;
+      writeRunPref(after);
+      setRunModeVisual(after.mode);
+      if(typeof buildRunHeartZones==='function') buildRunHeartZones();
+      return ret;
+    };
+  }
+
+  window.applyRunSettings=function(silent){
+    if(typeof mcp!=='object') return;
+    var p=(typeof _getRunSettings==='function'?_getRunSettings():readRunPref());
+    var paceMin=+p.paceMin||6, paceSec=+p.paceSec||0;
+    var basePace=((paceMin*60)+paceSec)/60;
+    if(!isFinite(basePace)||basePace<=0) basePace=6;
+    var mode=(p.mode==='hr')?'hr':'pace';
+    var effectivePace = mode==='hr' ? zonePaceFromBase(p.hrZone, basePace) : basePace;
+    var spd = 60 / effectivePace;
+    mcp.dist = +p.dist || 5;
+    mcp.elev = +p.elev || 0;
+    mcp.spd = spd || 10;
+    window.baseSpdValue = mcp.spd;
+    var sh=(p.start||'08:00').split(':').map(Number); mcp.startH=sh[0]||8; mcp.startM=sh[1]||0;
+    var eh=(p.goal||'07:00').split(':').map(Number); mcp.endH=eh[0]||7; mcp.endM=eh[1]||0;
+    var setVal=function(id,v){var el=document.getElementById(id); if(el) el.value=v;};
+    setVal('mcp-dist',mcp.dist); setVal('mcp-elev',mcp.elev); setVal('mcp-spd',mcp.spd.toFixed(2));
+    setVal('mcp-sb-dist',mcp.dist); setVal('mcp-sb-elev',mcp.elev); setVal('mcp-sb-spd',mcp.spd.toFixed(2));
+    setVal('r-dist',mcp.dist); setVal('r-elev',mcp.elev); setVal('r-movespd',mcp.spd.toFixed(2));
+    setVal('r-weight',p.weight); setVal('r-ratio',p.ratio);
+    setVal('r-start',p.start); setVal('r-goal',p.goal);
+    setRunModeVisual(mode);
+    if(typeof buildRunHeartZones==='function') buildRunHeartZones();
+    if(typeof syncMcpUI==='function') syncMcpUI();
+    if(typeof smartCalc==='function') smartCalc('spd');
+    if(typeof calc==='function') calc();
+    var h=document.getElementById('run-pref-saved');
+    if(h && !silent){h.textContent='適用しました'; setTimeout(function(){h.textContent='';},1200);}
+    if(!silent && typeof notify==='function') notify('ラン設定を反映しました');
+  };
+
+  var oldEnsure=window.ensureSettingsRideRunTabs;
+  if(typeof oldEnsure==='function'){
+    window.ensureSettingsRideRunTabs=function(){
+      var ret=oldEnsure.apply(this,arguments);
+      setRunModeVisual(getRunMode());
+      if(typeof buildRunHeartZones==='function') buildRunHeartZones();
+      return ret;
+    };
+  }
+})();
+
+
+
+/* ── v8.65: Run反映時はRide補正式で補正後速度を上書きしない ── */
+(function(){
+  function el(id){return document.getElementById(id)}
+  function setText(id,v){var x=el(id); if(x) x.textContent=v}
+  function setVal(id,v){var x=el(id); if(x) x.value=v}
+  function fmtMin(mins){
+    mins=Number(mins)||0;
+    var h=Math.floor(mins/60), m=Math.round(mins%60);
+    if(m>=60){h++;m-=60}
+    return h+':'+String(m).padStart(2,'0');
+  }
+  function timeParts(str,dh,dm){
+    var a=String(str||'').split(':').map(Number);
+    return {h:isFinite(a[0])?a[0]:dh, m:isFinite(a[1])?a[1]:dm};
+  }
+  function writeClock(prefix,t){
+    setText(prefix+'-h', String(t.h).padStart(2,'0'));
+    setText(prefix+'-m', String(t.m).padStart(2,'0'));
+  }
+  function addMin(t,mins){
+    var total=((t.h*60+t.m+Math.round(mins))%(24*60)+24*60)%(24*60);
+    return {h:Math.floor(total/60),m:total%60};
+  }
+  function runSpeedFromSettings(p){
+    var paceMin=+p.paceMin||6, paceSec=+p.paceSec||0;
+    var basePace=((paceMin*60)+paceSec)/60;
+    if(!isFinite(basePace)||basePace<=0) basePace=6;
+    var mode=(p.mode==='hr')?'hr':'pace';
+    var effectivePace=basePace;
+    if(mode==='hr' && typeof zonePaceFromBase==='function') effectivePace=zonePaceFromBase(p.hrZone,basePace);
+    var spd=60/effectivePace;
+    return isFinite(spd)&&spd>0 ? spd : 10;
+  }
+  function runCorrectedSpeed(spd,dist,elev){
+    dist=+dist||0; elev=+elev||0; spd=+spd||10;
+    if(dist<=0) return spd;
+    if(elev<=0) return spd;
+    // ラン用の簡易登坂補正。RideのPower/風/体重補正式は使わない。
+    var grade=elev/(dist*1000); // 0.03 = 3%
+    var penalty=Math.min(0.45, grade*4.2);
+    return Math.max(3, spd*(1-penalty));
+  }
+  function paintRunTopPanel(p,spd){
+    var dist=+p.dist||5, elev=+p.elev||0, ratio=+p.ratio||85;
+    if(!isFinite(ratio)||ratio<=0) ratio=85;
+    var corrected=runCorrectedSpeed(spd,dist,elev);
+    var rideMin=dist/corrected*60;
+    var tripMin=rideMin/(ratio/100);
+    if(typeof mcp==='object'){
+      mcp.dist=dist; mcp.elev=elev; mcp.spd=spd; window.baseSpdValue=spd;
+      var st=timeParts(p.start||'08:00',8,0), gt=timeParts(p.goal||'07:00',7,0);
+      var mode=localStorage.getItem('rpp_time_mode')||'start-first';
+      if(mode==='goal-first'){
+        var start=addMin(gt,-tripMin); mcp.startH=start.h; mcp.startM=start.m; mcp.endH=gt.h; mcp.endM=gt.m;
+      }else{
+        var goal=addMin(st,tripMin); mcp.startH=st.h; mcp.startM=st.m; mcp.endH=goal.h; mcp.endM=goal.m;
+      }
+    }
+    setVal('mcp-dist',dist); setVal('mcp-elev',elev); setVal('mcp-spd',spd.toFixed(2));
+    setVal('mcp-sb-dist',dist); setVal('mcp-sb-elev',elev); setVal('mcp-sb-spd',spd.toFixed(2));
+    setText('mcp-dist-display',dist.toFixed(1)+' km');
+    setText('mcp-elev-display',Math.round(elev)+' m');
+    setText('mcp-spd-display',spd.toFixed(1)+' km/h');
+    setText('mcp-corrected-spd-display',corrected.toFixed(1)+' km/h');
+    setText('mcp-corrected-note','Run Pace反映');
+    setText('mcp-total',fmtMin(tripMin));
+    setText('mcp-time-note','Trip Hour / Ride '+fmtMin(rideMin));
+    setText('mcp-sb-total',fmtMin(tripMin));
+    if(typeof mcp==='object'){
+      writeClock('mcp-start',{h:mcp.startH||8,m:mcp.startM||0});
+      writeClock('mcp-end',{h:mcp.endH??null,m:mcp.endM??null});
+      writeClock('mcp-sb-start',{h:mcp.startH||8,m:mcp.startM||0});
+      writeClock('mcp-sb-end',{h:mcp.endH??null,m:mcp.endM??null});
+    }
+    return {corrected:corrected, rideMin:rideMin, tripMin:tripMin};
+  }
+  window.applyRunSettings=function(silent){
+    var p=(typeof _getRunSettings==='function'?_getRunSettings():{});
+    var spd=runSpeedFromSettings(p);
+    setVal('r-dist',+p.dist||5); setVal('r-elev',+p.elev||0); setVal('r-movespd',spd.toFixed(2));
+    setVal('r-weight',+p.weight||65); setVal('r-ratio',+p.ratio||85);
+    setVal('r-start',p.start||'08:00'); setVal('r-goal',p.goal||'07:00');
+    if(typeof setRunModeVisual==='function') setRunModeVisual((p.mode==='hr')?'hr':'pace');
+    if(typeof buildRunHeartZones==='function') buildRunHeartZones();
+    paintRunTopPanel(p,spd);
+    var h=el('run-pref-saved');
+    if(h && !silent){h.textContent='適用しました'; setTimeout(function(){h.textContent='';},1200);}
+    if(!silent && typeof notify==='function') notify('ラン設定を反映しました');
+  };
+  document.addEventListener('DOMContentLoaded',function(){
+    var tabs=el('app-tabs'); if(tabs) tabs.style.display='none';
+    var sub=document.querySelector('header .sub'); if(sub) sub.textContent='Google Maps ルート連携';
+  });
+})();
+
 </script>
 
 </body>
