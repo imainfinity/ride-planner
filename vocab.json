@@ -1,0 +1,6 @@
+[
+  { "w": "car",        "jp": "くるま",   "c": "nature",  "img": "img/car.jpg" },
+  { "w": "train",      "jp": "でんしゃ", "c": "nature",  "img": "img/train.jpg" },
+  { "w": "strawberry", "jp": "いちご",   "c": "food",    "e": "🍓" },
+  { "w": "penguin",    "jp": "ペンギン", "c": "animals", "e": "🐧" }
+]
