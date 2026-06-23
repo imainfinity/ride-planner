@@ -1,893 +1,321 @@
-<!DOCTYPE html>
-<html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>えいご れんしゅう｜English for Kids</title>
-<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ride Pace Planner</title>
+<title>RIDE & RUN Planner</title>
 <style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+@@ -387,6 +387,11 @@
+/* 対象：右/下カラムの「コース設定」「走力入力」だけ。風向き・カロリー系は触らない。 */
+.panel.op-locked{display:none!important}
 
-  :root{
-    --bg:#EAF6FF; --paper:#FFFFFF; --ink:#2D3A4A; --soft:#7A8AA0;
-    --sky:#37A6F0; --sky-d:#1E84CC; --sun:#FFC247; --leaf:#5BC98A;
-    --berry:#FF7BAC; --grape:#A684E8; --good:#3FBF6B; --bad:#FF6B6B;
-    --shadow:0 8px 0 rgba(45,58,74,.12), 0 14px 26px rgba(45,58,74,.14);
-    --radius:26px;
-  }
-  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
-  html,body{height:100%}
-  body{
-    font-family:"Fredoka","M PLUS Rounded 1c",sans-serif;
-    background:
-      radial-gradient(1200px 700px at 80% -10%, #FFF4D6 0%, transparent 55%),
-      radial-gradient(1000px 600px at -10% 110%, #DCF6E7 0%, transparent 55%),
-      var(--bg);
-    color:var(--ink);min-height:100%;
-    display:flex;flex-direction:column;align-items:center;padding:16px;overflow-x:hidden;
-  }
-  .app{width:100%;max-width:880px;display:flex;flex-direction:column;gap:16px}
 
-  .topbar{display:flex;align-items:center;gap:10px;background:var(--paper);
-    border-radius:var(--radius);padding:12px 16px;box-shadow:var(--shadow);flex-wrap:wrap}
-  .brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:18px}
-  .brand .logo{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;
-    background:linear-gradient(160deg,var(--sky),var(--grape));color:#fff;font-size:22px}
-  .brand small{display:block;font-size:11px;color:var(--soft);font-weight:500;font-family:"M PLUS Rounded 1c"}
-  .spacer{flex:1}
-  .stars{display:flex;align-items:center;gap:6px;font-weight:700;font-size:18px;
-    background:#FFF6E0;color:#C8881A;padding:7px 14px;border-radius:16px}
-  .stars .num{min-width:22px;text-align:center}
-
-  .pill{border:none;cursor:pointer;font-family:inherit;font-weight:600;padding:9px 14px;
-    border-radius:14px;font-size:14px;background:#EEF3FA;color:var(--soft);transition:.15s}
-  .pill.on{background:var(--sky);color:#fff;box-shadow:0 4px 0 var(--sky-d)}
-  .pill:active{transform:translateY(2px)}
-
-  .home-hero{background:var(--paper);border-radius:var(--radius);padding:24px;
-    box-shadow:var(--shadow);text-align:center}
-  .home-hero h1{font-size:28px;font-weight:700;letter-spacing:.5px}
-  .home-hero p{font-family:"M PLUS Rounded 1c";color:var(--soft);margin-top:6px;font-weight:500;font-size:15px}
-  .mode-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-  @media(max-width:760px){.mode-grid{grid-template-columns:1fr 1fr}}
-  @media(max-width:420px){.mode-grid{grid-template-columns:1fr 1fr}}
-  .mode-card{border:none;cursor:pointer;font-family:inherit;background:var(--paper);
-    border-radius:var(--radius);padding:18px 12px;box-shadow:var(--shadow);text-align:center;transition:.15s;color:var(--ink)}
-  .mode-card:active{transform:translateY(3px)}
-  .mode-card .ic{width:62px;height:62px;border-radius:18px;margin:0 auto 10px;display:grid;place-items:center;font-size:32px}
-  .mc1 .ic{background:#E3F1FF}.mc2 .ic{background:#FFF0DE}.mc3 .ic{background:#E6F8EE}.mc4 .ic{background:#F0EBFF}
-  .mode-card .en{font-size:17px;font-weight:700}
-  .mode-card .jp{font-family:"M PLUS Rounded 1c";color:var(--soft);font-weight:500;margin-top:3px;font-size:13px}
-
-  .panel{background:var(--paper);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow)}
-  .panel h3{font-family:"M PLUS Rounded 1c";font-size:14px;color:var(--soft);font-weight:700;margin-bottom:10px}
-  .cat-row{display:flex;flex-wrap:wrap;gap:9px}
-
-  .scr-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-  .back{border:none;cursor:pointer;font-family:inherit;font-weight:700;font-size:15px;
-    background:var(--paper);color:var(--ink);padding:11px 16px;border-radius:16px;box-shadow:var(--shadow)}
-  .back:active{transform:translateY(2px)}
-  .scr-title{font-weight:700;font-size:20px}
-  .scr-title small{display:block;font-family:"M PLUS Rounded 1c";color:var(--soft);font-weight:500;font-size:13px}
-  .progress{font-family:"M PLUS Rounded 1c";font-weight:700;color:var(--soft);background:#EEF3FA;padding:7px 12px;border-radius:12px;font-size:14px}
-  .timer{font-family:"M PLUS Rounded 1c";font-weight:700;color:#C8881A;background:#FFF6E0;padding:7px 12px;border-radius:12px;font-size:14px;min-width:74px;text-align:center}
-
-  .stage{display:flex;flex-direction:column;align-items:center;gap:16px}
-  .flashcard{width:100%;max-width:520px;height:300px;cursor:pointer;perspective:1400px}
-  .fc-inner{position:relative;width:100%;height:100%;transition:transform .5s cubic-bezier(.3,1.2,.5,1);transform-style:preserve-3d}
-  .flashcard.flip .fc-inner{transform:rotateY(180deg)}
-  .fc-face{position:absolute;inset:0;-webkit-backface-visibility:hidden;backface-visibility:hidden;background:var(--paper);
-    border-radius:34px;box-shadow:var(--shadow);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:4px solid #EAF1F8}
-  .fc-emoji{font-size:108px;line-height:1}
-  .fc-word{font-size:44px;font-weight:700;letter-spacing:1px}
-  .fc-jp{font-family:"M PLUS Rounded 1c";font-size:30px;font-weight:700;color:var(--sky-d)}
-  .fc-hint{font-family:"M PLUS Rounded 1c";font-size:13px;color:var(--soft);position:absolute;bottom:14px}
-  .fc-back{transform:rotateY(180deg);background:#FFFDF6;border-color:#FCEFCB}
-
-  .controls{display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:center}
-  .btn{border:none;cursor:pointer;font-family:inherit;font-weight:700;font-size:17px;
-    padding:15px 22px;border-radius:18px;transition:.12s;display:inline-flex;align-items:center;gap:8px}
-  .btn:active{transform:translateY(3px)}
-  .btn-sky{background:var(--sky);color:#fff;box-shadow:0 5px 0 var(--sky-d)}
-  .btn-sun{background:var(--sun);color:#7A5200;box-shadow:0 5px 0 #E0A422}
-  .btn-leaf{background:var(--leaf);color:#fff;box-shadow:0 5px 0 #3FA86C}
-  .btn-ghost{background:#EEF3FA;color:var(--soft);box-shadow:0 5px 0 #D6DEE9}
-  .btn-round{width:60px;height:60px;justify-content:center;padding:0;font-size:24px;border-radius:50%}
-  .speak-big{width:90px;height:90px;border-radius:50%;font-size:40px;background:var(--sun);color:#7A5200;box-shadow:0 6px 0 #E0A422}
-
-  .q-prompt{background:var(--paper);border-radius:34px;box-shadow:var(--shadow);width:100%;max-width:520px;padding:24px;text-align:center;border:4px solid #EAF1F8}
-  .q-emoji{font-size:100px;line-height:1}
-  .q-emoji.hide{font-size:88px;opacity:.6}
-  .q-jp{font-family:"M PLUS Rounded 1c";font-size:25px;font-weight:700;color:var(--sky-d);margin-top:8px}
-  .q-ask{font-family:"M PLUS Rounded 1c";color:var(--soft);font-weight:600;margin-top:6px}
-  .opt-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;max-width:520px}
-  @media(max-width:480px){.opt-grid{grid-template-columns:1fr}}
-  .opt{border:none;cursor:pointer;font-family:inherit;font-weight:700;font-size:23px;padding:20px;
-    border-radius:20px;background:var(--paper);color:var(--ink);box-shadow:var(--shadow);transition:.12s;
-    display:flex;align-items:center;justify-content:center;gap:10px}
-  .opt:active{transform:translateY(3px)}
-  .opt .oe{font-size:28px}
-  .opt.good{background:var(--good);color:#fff;box-shadow:0 6px 0 #2E9A53;animation:pop .3s}
-  .opt.bad{background:var(--bad);color:#fff;box-shadow:0 6px 0 #D84B4B}
-  @keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.08)}100%{transform:scale(1)}}
-
-  .story{background:var(--paper);border-radius:34px;box-shadow:var(--shadow);width:100%;max-width:560px;padding:24px;text-align:center;border:4px solid #EAF1F8}
-  .story .pic{font-size:74px;line-height:1}
-  .story .txt{font-size:25px;font-weight:600;margin-top:10px;line-height:1.4;color:var(--ink)}
-  .story .stxt{font-family:"M PLUS Rounded 1c";color:var(--soft);font-weight:500;margin-top:8px;font-size:15px}
-  .story .ques{font-family:"M PLUS Rounded 1c";font-size:21px;font-weight:700;color:var(--sky-d);margin-top:14px}
-
-  .sent-pic{font-size:84px;text-align:center}
-  .sent-jp{font-family:"M PLUS Rounded 1c";font-size:21px;font-weight:700;color:var(--sky-d);text-align:center}
-  .slots{display:flex;flex-wrap:wrap;gap:9px;justify-content:center;align-items:center;min-height:78px;width:100%;max-width:600px;background:#F6FAFF;border:3px dashed #C7DAEE;border-radius:20px;padding:14px}
-  .slot-ph{font-family:"M PLUS Rounded 1c";color:#B7C6D8;font-weight:600}
-  .bank{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;width:100%;max-width:600px}
-  .tile{border:none;cursor:pointer;font-family:inherit;font-weight:700;font-size:21px;padding:13px 18px;border-radius:14px;background:var(--paper);color:var(--ink);box-shadow:0 5px 0 #D6DEE9;transition:.12s}
-  .tile:active{transform:translateY(3px)}
-  .tile.placed{background:var(--sky);color:#fff;box-shadow:0 5px 0 var(--sky-d)}
-  .tile.used{visibility:hidden}
-  .sent-result{font-family:"M PLUS Rounded 1c";font-weight:700;font-size:19px;text-align:center;min-height:26px}
-  .sent-result.ok{color:var(--good)}.sent-result.ng{color:var(--bad)}
-
-  .done-card{background:var(--paper);border-radius:var(--radius);padding:32px;box-shadow:var(--shadow);text-align:center;max-width:480px;margin:0 auto}
-  .done-card .big{font-size:84px}
-  .done-card h2{font-size:24px;margin-top:8px}
-  .done-stats{display:flex;gap:12px;justify-content:center;margin:18px 0;flex-wrap:wrap}
-  .stat{background:#F6FAFF;border-radius:16px;padding:13px 18px;min-width:110px}
-  .stat .v{font-size:26px;font-weight:700;color:var(--sky-d)}
-  .stat .l{font-family:"M PLUS Rounded 1c";font-size:12px;color:var(--soft);font-weight:600;margin-top:2px}
-
-  .pop-feedback{position:fixed;inset:0;display:none;place-items:center;pointer-events:none;z-index:50}
-  .pop-feedback.show{display:grid}
-  .pop-badge{font-size:118px;animation:bounceIn .6s cubic-bezier(.2,1.5,.4,1);filter:drop-shadow(0 10px 18px rgba(0,0,0,.18))}
-  @keyframes bounceIn{0%{transform:scale(0) rotate(-20deg);opacity:0}60%{transform:scale(1.25) rotate(8deg)}100%{transform:scale(1) rotate(0);opacity:1}}
-
-  .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:#2D3A4A;color:#fff;
-    font-family:"M PLUS Rounded 1c";font-weight:700;padding:11px 20px;border-radius:16px;opacity:0;transition:.25s;z-index:60;font-size:15px}
-  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-
-  .visual-img{width:1em;height:1em;object-fit:contain;border-radius:.16em;display:inline-block;vertical-align:middle;box-shadow:0 4px 12px rgba(0,0,0,.14)}
-  .form-row{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin-bottom:9px}
-  .inp{font-family:inherit;font-size:15px;padding:11px 13px;border:2px solid #DCE6F2;border-radius:13px;background:#F8FBFF;color:var(--ink);min-width:120px;flex:1}
-  .inp:focus{outline:none;border-color:var(--sky)}
-  .cust-list{display:flex;flex-wrap:wrap;gap:9px;margin-top:10px}
-  .cust-item{display:flex;align-items:center;gap:8px;background:#F6FAFF;border-radius:13px;padding:7px 10px;font-weight:600;font-size:15px}
-  .cust-item .ci-v{font-size:24px;width:30px;height:30px;display:grid;place-items:center}
-  .cust-item img{width:30px;height:30px;object-fit:contain;border-radius:7px}
-  .cust-item .ci-jp{font-family:"M PLUS Rounded 1c";color:var(--soft);font-weight:600;font-size:13px}
-  .del{border:none;background:#FFE3E3;color:#D84B4B;border-radius:9px;padding:4px 9px;font-weight:700;cursor:pointer;font-family:inherit}
-
-  /* manager */
-  .mgr-tools{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin-bottom:12px}
-  .mgr-search{font-family:inherit;font-size:15px;padding:10px 13px;border:2px solid #DCE6F2;border-radius:13px;background:#F8FBFF;color:var(--ink);flex:1;min-width:140px}
-  .mgr-search:focus{outline:none;border-color:var(--sky)}
-  .mrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:#F6FAFF;border-radius:15px;padding:11px;margin-bottom:8px}
-  .mrow.ovr{background:#FFF8E8;box-shadow:inset 0 0 0 2px #F4D58D}
-  .mv{width:46px;height:46px;display:grid;place-items:center;font-size:28px;border-radius:11px;background:#fff;flex:0 0 auto;box-shadow:0 2px 6px rgba(0,0,0,.06)}
-  .mv img{width:40px;height:40px;object-fit:contain;border-radius:8px}
-  .mw{font-weight:700;font-size:17px;min-width:96px;flex:0 0 auto}
-  .minp{font-family:inherit;font-size:14px;padding:8px 10px;border:2px solid #DCE6F2;border-radius:10px;background:#fff;color:var(--ink)}
-  .minp:focus{outline:none;border-color:var(--sky)}
-  .mw-jp{width:110px}.mw-emo{width:64px;text-align:center}.mw-img{width:150px}.mw-cat{width:130px}
-  .micon{border:none;cursor:pointer;font-family:inherit;font-weight:700;border-radius:10px;padding:8px 11px;font-size:15px}
-  .mreset{background:#FFE9C7;color:#9A6B14}.mdel{background:#FFE3E3;color:#D84B4B}
-  .mupl{background:#E3F1FF;color:#1E84CC;cursor:pointer;border-radius:10px;padding:8px 11px;font-weight:700;font-size:15px}
-  .mgr-hint{font-family:"M PLUS Rounded 1c";color:var(--soft);font-weight:600;font-size:13px;margin:4px 0 12px}
-  .hidden{display:none!important}
+/* ── v8.64: 単一画面化。上部タブは非表示、MCPをヘッダー直下へ ── */
+#app-tabs{display:none!important}
+#mcp-bar{top:44px!important}
 
 </style>
-</head>
-<body>
-<div class="app">
-
-  <div class="topbar">
-    <div class="brand"><span class="logo">🌟</span>
-      <span>えいご れんしゅう<small>English for Kids</small></span></div>
-    <div class="spacer"></div>
-    <button class="pill on" id="jpToggle">あ｜A にほんご</button>
-    <div class="stars">⭐ <span class="num" id="starCount">0</span></div>
-  </div>
-
-  <div id="home">
-    <div class="home-hero" style="margin-bottom:16px">
-      <h1 id="homeTitle">なにを する？</h1><p id="homeSub">カードで えいごを おぼえよう！</p>
-    </div>
-    <div class="mode-grid" style="margin-bottom:16px">
-      <button class="mode-card mc1" data-mode="flash"><div class="ic">🃏</div><div class="en">Flashcards</div><div class="jp">フラッシュカード</div></button>
-      <button class="mode-card mc2" data-mode="quiz"><div class="ic">🎯</div><div class="en">Word Quiz</div><div class="jp">たんご えらび</div></button>
-      <button class="mode-card mc3" data-mode="sent"><div class="ic">🧩</div><div class="en">Sentence</div><div class="jp">ぶんしょう づくり</div></button>
-      <button class="mode-card mc4" data-mode="listen"><div class="ic">🎧</div><div class="en">Listening</div><div class="jp">おはなし クイズ</div></button>
-      <button class="mode-card mc5" data-mode="riddle"><div class="ic">🧠</div><div class="en">Riddle</div><div class="jp">なぞなぞ</div></button>
-    </div>
-    <div class="panel" style="margin-bottom:16px">
-      <h3>なんいど / Difficulty</h3><div class="cat-row" id="diffRow"></div>
-    </div>
-    <div class="panel" style="margin-bottom:16px">
-      <h3>テーマを えらぶ / Choose a topic</h3><div class="cat-row" id="catRow"></div>
-    </div>
-    <div class="panel">
-      <h3>ことばを ふやす / Add your own word</h3>
-      <div class="form-row">
-        <input class="inp" id="addW" placeholder="English (e.g. car)">
-        <input class="inp" id="addJp" placeholder="にほんご (れい: くるま)">
-      </div>
-      <div class="form-row">
-        <select class="inp" id="addCat" style="flex:0 0 auto;min-width:150px"></select>
-        <input class="inp" id="addEmoji" placeholder="えもじ 🚗" maxlength="4" style="flex:0 0 auto;max-width:120px">
-        <input class="inp" id="addImg" placeholder="がぞうパス img/car.jpg">
-        <label class="pill" style="cursor:pointer;flex:0 0 auto">📷<input type="file" id="addFile" accept="image/*" style="display:none"></label>
-        <span id="filePrev" style="flex:0 0 auto"></span>
-      </div>
-      <div class="form-row">
-        <button class="btn btn-sky" id="addBtn" style="padding:12px 22px;font-size:16px">＋ ついか / Add</button>
-        <button class="btn btn-ghost" id="manageBtn" style="padding:12px 18px;font-size:15px">🛠 かんり / Manage</button>
-        <button class="btn btn-ghost" id="exportBtn" style="padding:12px 18px;font-size:15px">⬇ vocab.json</button>
-        <span id="addMsg" style="font-family:'M PLUS Rounded 1c';font-weight:600;font-size:14px"></span>
-      </div>
-      <textarea id="exportBox" class="inp hidden" style="width:100%;min-height:120px;margin-top:10px;font-family:monospace;font-size:12px" readonly></textarea>
-    </div>
-  </div>
-
-  <div id="flash" class="hidden">
-    <div class="scr-head" style="margin-bottom:16px">
-      <button class="back" data-home>←</button>
-      <div class="scr-title">Flashcards<small id="flashSub">カードタップで うらがえし</small></div>
-      <div class="spacer"></div><div class="progress" id="flashProg">1 / 1</div>
-    </div>
-    <div class="stage">
-      <div class="flashcard" id="flashcard"><div class="fc-inner">
-        <div class="fc-face fc-front"><div class="fc-emoji" id="fcEmoji">🐶</div><div class="fc-word" id="fcWord">dog</div><div class="fc-hint" id="fcHint1">タップ</div></div>
-        <div class="fc-face fc-back"><div class="fc-emoji" id="fcEmoji2">🐶</div><div class="fc-jp" id="fcJp">いぬ</div><div class="fc-hint" id="fcHint2">タップ</div></div>
-      </div></div>
-      <div class="controls">
-        <button class="btn btn-round btn-ghost" id="fcPrev">⬅</button>
-        <button class="btn speak-big" id="fcSpeak">🔊</button>
-        <button class="btn btn-round btn-ghost" id="fcNext">➡</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="quiz" class="hidden">
-    <div class="scr-head" style="margin-bottom:16px">
-      <button class="back" data-home>←</button>
-      <div class="scr-title">Word Quiz<small id="quizSub">ただしい えいごは どれ？</small></div>
-      <div class="spacer"></div>
-      <div class="timer" id="quizTimer">⏱ 0.0</div><div class="progress" id="quizProg">1 / 1</div>
-    </div>
-    <div class="stage">
-      <div class="q-prompt">
-        <div class="q-emoji" id="qEmoji">🐶</div>
-        <div class="q-jp" id="qJp">いぬ</div>
-        <div class="q-ask" id="qAsk">えいごで なんて いう？</div>
-      </div>
-      <button class="btn btn-sun" id="qSpeak">🔊</button>
-      <div class="opt-grid" id="qOpts"></div>
-    </div>
-  </div>
-
-  <div id="listen" class="hidden">
-    <div class="scr-head" style="margin-bottom:16px">
-      <button class="back" data-home>←</button>
-      <div class="scr-title">Listening<small id="listenSub">きいて こたえよう</small></div>
-      <div class="spacer"></div><div class="progress" id="listenProg">1 / 1</div>
-    </div>
-    <div class="stage">
-      <div class="story">
-        <div class="pic" id="lsPic">🐱</div>
-        <div class="txt" id="lsTxt">The cat is black.</div>
-        <div class="stxt" id="lsStxt">ねこは くろいよ</div>
-        <div class="ques" id="lsQ">ねこは なにいろ？</div>
-      </div>
-      <button class="btn speak-big" id="lsSpeak">🔊</button>
-      <div class="opt-grid" id="lsOpts"></div>
-    </div>
-  </div>
-
-  <div id="riddle" class="hidden">
-    <div class="scr-head" style="margin-bottom:16px">
-      <button class="back" data-home>←</button>
-      <div class="scr-title">Riddle<small id="riddleSub">ヒントを きいて あてよう</small></div>
-      <div class="spacer"></div><div class="progress" id="riddleProg">1 / 1</div>
-    </div>
-    <div class="stage">
-      <div class="story">
-        <div class="pic">🧠</div>
-        <div class="txt" id="rdTxt">Long, yellow, and sweet...</div>
-        <div class="stxt" id="rdJp"></div>
-      </div>
-      <button class="btn speak-big" id="rdSpeak">🔊</button>
-      <div class="opt-grid" id="rdOpts"></div>
-    </div>
-  </div>
-
-  <div id="sent" class="hidden">
-    <div class="scr-head" style="margin-bottom:16px">
-      <button class="back" data-home>←</button>
-      <div class="scr-title">Sentence<small id="sentSub">たんごを ならべよう</small></div>
-      <div class="spacer"></div><div class="progress" id="sentProg">1 / 1</div>
-    </div>
-    <div class="stage">
-      <div class="sent-pic" id="sentPic">🐶</div>
-      <div class="sent-jp" id="sentJp">いぬが みえるよ</div>
-      <div class="slots" id="sentSlots"></div>
-      <div class="bank" id="sentBank"></div>
-      <div class="sent-result" id="sentResult"></div>
-      <div class="controls">
-        <button class="btn btn-ghost" id="sentClear">↺</button>
-        <button class="btn btn-sun" id="sentSpeak">🔊</button>
-        <button class="btn btn-leaf hidden" id="sentNext">➡</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="manage" class="hidden">
-    <div class="scr-head" style="margin-bottom:14px">
-      <button class="back" data-home>←</button>
-      <div class="scr-title">Word Manager<small>ことばの かんり・へんしゅう</small></div>
-      <div class="spacer"></div>
-      <button class="btn btn-ghost" id="mgrExport" style="padding:11px 16px;font-size:14px">⬇ vocab.json</button>
-    </div>
-    <div class="panel">
-      <div class="mgr-tools">
-        <input class="mgr-search" id="mgrSearch" placeholder="🔎 さがす (English / にほんご)">
-      </div>
-      <div class="cat-row" id="mgrCatRow" style="margin-bottom:10px"></div>
-      <div class="mgr-hint">えもじ または がぞうパスを いれると カードに はんえい。マスター語も うわがき(override)でき、↺で もとに もどせます。</div>
-      <div id="mgrList"></div>
-      <textarea id="mgrExportBox" class="inp hidden" style="width:100%;min-height:120px;margin-top:10px;font-family:monospace;font-size:12px" readonly></textarea>
-    </div>
-  </div>
-
-  <div id="done" class="hidden">
-    <div class="done-card">
-      <div class="big" id="doneBig">🏆</div>
-      <h2 id="doneTitle">よく できました！</h2>
-      <div class="done-stats" id="doneStats"></div>
-      <div class="controls">
-        <button class="btn btn-leaf" id="doneAgain">もういちど</button>
-        <button class="btn btn-ghost" id="doneHome">ホームへ</button>
-      </div>
-    </div>
-  </div>
-
-</div>
-
-<div class="pop-feedback" id="popFeedback"><div class="pop-badge" id="popBadge">⭐</div></div>
-<div class="toast" id="toast"></div>
 
 <script>
-(function(){
-"use strict";
+@@ -449,16 +454,13 @@
+<!-- GPS再取得ボタン（常時表示） -->
+<button id="gps-retry-btn" onclick="retryGPS()" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">📍</button>
+<header>
+  <h1>Ride Pace Planner <span class="ver">v8.12</span></h1>
+  <span class="sub">ライド計画 / Google Maps ルート連携</span>
+  <h1>RIDE &amp; RUN Planner <span class="ver">v8.12</span></h1>
+  <span class="sub">Google Maps ルート連携</span>
+<button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
+</header>
 
-/* ===================== MASTER DATA ===================== */
-var MASTER = [
-  {w:"dog",jp:"いぬ",e:"🐶",c:"animals"},{w:"cat",jp:"ねこ",e:"🐱",c:"animals"},
-  {w:"bird",jp:"とり",e:"🐦",c:"animals"},{w:"fish",jp:"さかな",e:"🐟",c:"animals"},
-  {w:"rabbit",jp:"うさぎ",e:"🐰",c:"animals"},{w:"bear",jp:"くま",e:"🐻",c:"animals"},
-  {w:"lion",jp:"ライオン",e:"🦁",c:"animals"},{w:"elephant",jp:"ぞう",e:"🐘",c:"animals"},
-  {w:"apple",jp:"りんご",e:"🍎",c:"food"},{w:"banana",jp:"バナナ",e:"🍌",c:"food"},
-  {w:"bread",jp:"パン",e:"🍞",c:"food"},{w:"milk",jp:"ぎゅうにゅう",e:"🥛",c:"food"},
-  {w:"egg",jp:"たまご",e:"🥚",c:"food"},{w:"cake",jp:"ケーキ",e:"🍰",c:"food"},
-  {w:"grape",jp:"ぶどう",e:"🍇",c:"food"},{w:"orange",jp:"オレンジ",e:"🍊",c:"food"},
-  {w:"red",jp:"あか",e:"🟥",c:"colors"},{w:"blue",jp:"あお",e:"🟦",c:"colors"},
-  {w:"green",jp:"みどり",e:"🟩",c:"colors"},{w:"yellow",jp:"きいろ",e:"🟨",c:"colors"},
-  {w:"pink",jp:"ピンク",e:"🩷",c:"colors"},{w:"white",jp:"しろ",e:"⬜",c:"colors"},
-  {w:"black",jp:"くろ",e:"⬛",c:"colors"},{w:"purple",jp:"むらさき",e:"🟪",c:"colors"},
-  {w:"hand",jp:"て",e:"✋",c:"body"},{w:"eye",jp:"め",e:"👁️",c:"body"},
-  {w:"ear",jp:"みみ",e:"👂",c:"body"},{w:"nose",jp:"はな",e:"👃",c:"body"},
-  {w:"mouth",jp:"くち",e:"👄",c:"body"},{w:"foot",jp:"あし",e:"🦶",c:"body"},
-  {w:"hair",jp:"かみ",e:"💇",c:"body"},{w:"tooth",jp:"は",e:"🦷",c:"body"},
-  {w:"sun",jp:"たいよう",e:"☀️",c:"nature"},{w:"moon",jp:"つき",e:"🌙",c:"nature"},
-  {w:"star",jp:"ほし",e:"⭐",c:"nature"},{w:"tree",jp:"き",e:"🌳",c:"nature"},
-  {w:"flower",jp:"はな",e:"🌸",c:"nature"},{w:"rain",jp:"あめ",e:"🌧️",c:"nature"},
-  {w:"cloud",jp:"くも",e:"☁️",c:"nature"},{w:"house",jp:"いえ",e:"🏠",c:"nature"}
-];
-var CATS = [
-  {id:"all",jp:"ぜんぶ",en:"All",e:"🌈"},{id:"animals",jp:"どうぶつ",en:"Animals",e:"🐾"},
-  {id:"food",jp:"たべもの",en:"Food",e:"🍎"},{id:"colors",jp:"いろ",en:"Colors",e:"🎨"},
-  {id:"body",jp:"からだ",en:"Body",e:"✋"},{id:"nature",jp:"しぜん",en:"Nature",e:"☀️"}
-];
-var SENTENCES = [
-  {pic:"🐶",jp:"いぬが いるよ",sentence:"I see a dog"},
-  {pic:"🍎",jp:"りんごが すきだよ",sentence:"I like apples"},
-  {pic:"🟦",jp:"そらは あおいよ",sentence:"The sky is blue"},
-  {pic:"🐱",jp:"ねこを かっているよ",sentence:"I have a cat"},
-  {pic:"✋",jp:"これは わたしの て",sentence:"This is my hand"},
-  {pic:"☀️",jp:"たいようは あついよ",sentence:"The sun is hot"},
-  {pic:"🍞",jp:"パンを たべるよ",sentence:"I eat bread"},
-  {pic:"🐦",jp:"とりは とべるよ",sentence:"Birds can fly"},
-  {pic:"🌸",jp:"おはなは ピンクだよ",sentence:"The flower is pink"},
-  {pic:"⭐",jp:"おほしさまが すき",sentence:"I love the stars"}
-];
-var STORIES = [
-  {pic:"🐱",s1:"The cat is black.",s2:"I have a cat.",jp:"ねこは くろいよ。ねこを かっているよ。",q:"ねこは なにいろ？",qEn:"What color is the cat?",ans:{w:"black",e:"⬛"},wrong:[{w:"white",e:"⬜"},{w:"blue",e:"🟦"},{w:"red",e:"🟥"}]},
-  {pic:"🍎",s1:"The apple is red.",s2:"I like apples.",jp:"りんごは あかいよ。りんごが すきだよ。",q:"りんごは なにいろ？",qEn:"What color is the apple?",ans:{w:"red",e:"🟥"},wrong:[{w:"green",e:"🟩"},{w:"yellow",e:"🟨"},{w:"pink",e:"🩷"}]},
-  {pic:"☀️",s1:"The sun is yellow.",s2:"The sun is hot.",jp:"たいようは きいろいよ。たいようは あついよ。",q:"たいようは なにいろ？",qEn:"What color is the sun?",ans:{w:"yellow",e:"🟨"},wrong:[{w:"blue",e:"🟦"},{w:"red",e:"🟥"},{w:"green",e:"🟩"}]},
-  {pic:"🍰",s1:"The cake is pink.",s2:"I like cake.",jp:"ケーキは ピンクだよ。ケーキが すきだよ。",q:"ケーキは なにいろ？",qEn:"What color is the cake?",ans:{w:"pink",e:"🩷"},wrong:[{w:"black",e:"⬛"},{w:"green",e:"🟩"},{w:"blue",e:"🟦"}]},
-  {pic:"🐶",s1:"I have a dog.",s2:"The dog is big.",jp:"いぬを かっているよ。いぬは おおきいよ。",q:"なにを かっている？",qEn:"What animal do I have?",ans:{w:"dog",e:"🐶"},wrong:[{w:"cat",e:"🐱"},{w:"bird",e:"🐦"},{w:"fish",e:"🐟"}]},
-  {pic:"🌳",s1:"The tree is green.",s2:"I see a tree.",jp:"きは みどりだよ。きが みえるよ。",q:"きは なにいろ？",qEn:"What color is the tree?",ans:{w:"green",e:"🟩"},wrong:[{w:"yellow",e:"🟨"},{w:"pink",e:"🩷"},{w:"black",e:"⬛"}]},
-  {pic:"🌸",s1:"The flower is pink.",s2:"I like flowers.",jp:"おはなは ピンクだよ。おはなが すきだよ。",q:"おはなは なにいろ？",qEn:"What color is the flower?",ans:{w:"pink",e:"🩷"},wrong:[{w:"blue",e:"🟦"},{w:"white",e:"⬜"},{w:"red",e:"🟥"}]},
-  {pic:"🐦",s1:"I see a bird.",s2:"The bird can fly.",jp:"とりが みえるよ。とりは とべるよ。",q:"とりは なにが できる？",qEn:"What can the bird do?",ans:{w:"fly",e:"🕊️"},wrong:[{w:"swim",e:"🏊"},{w:"jump",e:"🤸"},{w:"run",e:"🏃"}]}
-];
-var RIDDLES = [
-  {clue:"Long, yellow, and sweet. Peel it and eat it. Many of them grow together. What is it?",jp:"ながくて きいろくて あまい。かわを むいて たべる。",ans:{w:"banana",e:"🍌"},wrong:[{w:"apple",e:"🍎"},{w:"egg",e:"🥚"},{w:"fish",e:"🐟"}]},
-  {clue:"Round, red or green. It grows on a tree. It is sweet. What is it?",jp:"まるくて あか か みどり。きに なる。あまい。",ans:{w:"apple",e:"🍎"},wrong:[{w:"banana",e:"🍌"},{w:"cake",e:"🍰"},{w:"milk",e:"🥛"}]},
-  {clue:"Big and bright. It is up in the sky. It is very hot. What is it?",jp:"おおきくて あかるい。そらに ある。あつい。",ans:{w:"sun",e:"☀️"},wrong:[{w:"moon",e:"🌙"},{w:"star",e:"⭐"},{w:"cloud",e:"☁️"}]},
-  {clue:"Soft and small. It says meow. It likes to sleep. What is it?",jp:"やわらかくて ちいさい。ニャーと なく。",ans:{w:"cat",e:"🐱"},wrong:[{w:"dog",e:"🐶"},{w:"bird",e:"🐦"},{w:"bear",e:"🐻"}]},
-  {clue:"Very big and grey. It has a long nose and big ears. What is it?",jp:"とても おおきい。はなが ながい。みみが おおきい。",ans:{w:"elephant",e:"🐘"},wrong:[{w:"rabbit",e:"🐰"},{w:"lion",e:"🦁"},{w:"cat",e:"🐱"}]},
-  {clue:"It lives in the water. It can swim. It cannot walk. What is it?",jp:"みずの なかに いる。およげる。あるけない。",ans:{w:"fish",e:"🐟"},wrong:[{w:"bird",e:"🐦"},{w:"dog",e:"🐶"},{w:"cat",e:"🐱"}]},
-  {clue:"It falls from the sky. It is water. You need an umbrella. What is it?",jp:"そらから ふる。みず。かさが いる。",ans:{w:"rain",e:"🌧️"},wrong:[{w:"sun",e:"☀️"},{w:"star",e:"⭐"},{w:"tree",e:"🌳"}]},
-  {clue:"Small and bright. You see it at night in the sky. What is it?",jp:"ちいさくて あかるい。よるの そらに ある。",ans:{w:"star",e:"⭐"},wrong:[{w:"sun",e:"☀️"},{w:"moon",e:"🌙"},{w:"flower",e:"🌸"}]}
-];
-var DIFF = {
-  easy:  {opts:3, showEmojiQuiz:true,  storyTwoLines:false, label:"やさしい", en:"Easy",   e:"🟢"},
-  normal:{opts:4, showEmojiQuiz:true,  storyTwoLines:true,  label:"ふつう",   en:"Normal", e:"🟡"},
-  hard:  {opts:4, showEmojiQuiz:false, storyTwoLines:true,  label:"むずかしい",en:"Hard",   e:"🔴"}
-};
-var T = {
-  homeTitle:{jp:"なにを する？",en:"What do you want to do?"},
-  homeSub:{jp:"カードで えいごを おぼえよう！",en:"Let's learn English!"},
-  flashSub:{jp:"カードタップで うらがえし",en:"Tap the card to flip"},
-  quizSub:{jp:"ただしい えいごは どれ？",en:"Which is correct?"},
-  listenSub:{jp:"きいて こたえよう",en:"Listen and answer"},
-  riddleSub:{jp:"ヒントを きいて あてよう",en:"Listen to the hints and guess"},
-  sentSub:{jp:"たんごを ならべよう",en:"Put the words in order"},
-  fcHint:{jp:"タップ で うらがえし",en:"Tap to flip"},
-  quizAsk:{jp:"えいごで なんて いう？",en:"What is this in English?"},
-  slotPh:{jp:"ここに ことばを ならべてね 👇",en:"Tap the words in order 👇"},
-  correct:{jp:"せいかい！ ",en:"Correct! "},
-  almost:{jp:"おしい！ もういちど ならべてね",en:"Almost! Try again."},
-  again:{jp:"もういちど",en:"Try again"},
-  home:{jp:"ホームへ",en:"Home"},
-  sec:{jp:"びょう",en:"s"},
-  doneQuiz:{jp:"クイズ かんりょう！",en:"Quiz complete!"},
-  doneSent:{jp:"ぶんしょう マスター！",en:"Sentence master!"},
-  doneListen:{jp:"リスニング クリア！",en:"Listening cleared!"},
-  doneRiddle:{jp:"なぞなぞ クリア！",en:"Riddles cleared!"},
-  stSolved:{jp:"といた かず",en:"Solved"},
-  stAvg:{jp:"へいきん タイム",en:"Avg time"},
-  stFast:{jp:"さいそく",en:"Fastest"},
-  stMade:{jp:"つくった ぶん",en:"Sentences"},
-  stAns:{jp:"こたえた かず",en:"Answered"}
-};
+<div class="tabs" id="app-tabs">
+<button class="tab on" onclick="sw('ride')">🚴 ライド</button>
+  <button class="tab" onclick="sw('saved')">📁 保存</button>
+  <button class="tab" onclick="sw('log')">ログ</button>
+  <button class="tab" id="tab-settings" onclick="sw('settings')">⚙️ 設定</button>
+</div>
 
-/* ===================== STATE ===================== */
-var stars=0, showJp=true, activeCat="all", difficulty="normal";
-var deck=[], idx=0, canSpeak=false;
-var overrides={};       // master上書き: w -> {jp?,e?,img?,c?}
-var customWords=[];     // 新規追加: {w,jp,e?,img?,c,custom:true}
-var sessionImgs={};     // アップロードプレビュー: path -> dataURL
-var VOCAB_URL="vocab.json";
-
-/* ===================== HELPERS ===================== */
-function $(id){return document.getElementById(id);}
-function L(key){return T[key][showJp?"jp":"en"];}
-function shuffle(a){return a.map(function(x){return [Math.random(),x];}).sort(function(p,q){return p[0]-q[0];}).map(function(p){return p[1];});}
-function masterHas(w){for(var i=0;i<MASTER.length;i++){if(MASTER[i].w===w)return true;}return false;}
-function effectiveWords(){
-  var arr=MASTER.map(function(m){var o=overrides[m.w];return o?assign(assign({},m),o):m;});
-  return arr.concat(customWords);
-}
-function allWords(){return effectiveWords();}
-function assign(t,s){if(s){for(var k in s){if(Object.prototype.hasOwnProperty.call(s,k))t[k]=s[k];}}return t;}
-function hasEmoji(item){return item&&item.e&&String(item.e).trim()&&item.e!=="🔤";}
-function imgSrc(p){return (p&&sessionImgs[p])||p;}
-function imgTag(p,cls){return '<img'+(cls?' class="'+cls+'"':'')+' src="'+imgSrc(p)+'" alt="" onerror="this.replaceWith(document.createTextNode(\u0027🖼\u0027))">';}
-function setVisual(el,item){
-  if(hasEmoji(item)){el.textContent=item.e;}
-  else if(item&&item.img){el.innerHTML=imgTag(item.img,"visual-img");}
-  else{el.textContent="🔤";}
-}
-function speak(text,slow){
-  if(!canSpeak)return;
-  try{window.speechSynthesis.cancel();
-    var u=new window.SpeechSynthesisUtterance(String(text).toLowerCase());
-    u.lang="en-US";u.rate=slow?0.7:0.85;u.pitch=1.15;window.speechSynthesis.speak(u);}catch(e){}
-}
-function speakSequence(parts){
-  if(!canSpeak)return;
-  try{window.speechSynthesis.cancel();
-    parts.forEach(function(p,i){if(!p)return;
-      var u=new window.SpeechSynthesisUtterance(String(p).toLowerCase());
-      u.lang="en-US";u.rate=(i===0?0.85:0.8);u.pitch=1.15;window.speechSynthesis.speak(u);});}catch(e){}
-}
-function addStar(n){stars+=(n||1);$("starCount").textContent=stars;}
-function celebrate(b){var p=$("popFeedback");$("popBadge").textContent=b||"⭐";p.classList.add("show");setTimeout(function(){p.classList.remove("show");},800);}
-var toastT=null;
-function toast(msg){var t=$("toast");t.textContent=msg;t.classList.add("show");clearTimeout(toastT);toastT=setTimeout(function(){t.classList.remove("show");},1400);}
-function getDeck(){var src=allWords();var l=activeCat==="all"?src:src.filter(function(x){return x.c===activeCat;});return shuffle(l);}
-function show(s){["home","flash","quiz","sent","listen","riddle","manage","done"].forEach(function(x){$(x).classList.add("hidden");});$(s).classList.remove("hidden");window.scrollTo({top:0,behavior:"smooth"});}
-function optCount(){return DIFF[difficulty].opts;}
-
-/* ===================== LANGUAGE ===================== */
-function applyLang(){
-  ["fcJp","qJp","sentJp","lsStxt"].forEach(function(id){var el=$(id);if(el)el.style.display=showJp?"":"none";});
-  $("homeTitle").textContent=L("homeTitle");$("homeSub").textContent=L("homeSub");
-  $("flashSub").textContent=L("flashSub");$("quizSub").textContent=L("quizSub");
-  $("listenSub").textContent=L("listenSub");$("riddleSub").textContent=L("riddleSub");$("sentSub").textContent=L("sentSub");
-  $("fcHint1").textContent=L("fcHint");$("fcHint2").textContent=L("fcHint");
-  $("qAsk").textContent=L("quizAsk");$("doneAgain").textContent=L("again");$("doneHome").textContent=L("home");
-}
-function bindToggle(){
-  $("jpToggle").addEventListener("click",function(){
-    showJp=!showJp;
-    $("jpToggle").classList.toggle("on",showJp);
-    $("jpToggle").textContent=showJp?"あ｜A にほんご":"A only ENGLISH";
-    applyLang();
-    if(!$("flash").classList.contains("hidden"))renderFlash();
-    if(!$("quiz").classList.contains("hidden"))renderQuiz();
-    if(!$("listen").classList.contains("hidden"))renderListen();
-    if(!$("riddle").classList.contains("hidden"))renderRiddle();
-    if(!$("sent").classList.contains("hidden"))refreshSentText();
-  });
-}
-
-/* ===================== CHIPS ===================== */
-function buildCats(){
-  var row=$("catRow");row.innerHTML="";
-  CATS.forEach(function(c){var b=document.createElement("button");
-    b.className="pill"+(c.id===activeCat?" on":"");b.textContent=c.e+" "+c.jp+" / "+c.en;
-    b.addEventListener("click",function(){activeCat=c.id;buildCats();});row.appendChild(b);});
-}
-function buildDiff(){
-  var row=$("diffRow");row.innerHTML="";
-  Object.keys(DIFF).forEach(function(k){var d=DIFF[k];var b=document.createElement("button");
-    b.className="pill"+(k===difficulty?" on":"");b.textContent=d.e+" "+d.label+" / "+d.en;
-    b.addEventListener("click",function(){difficulty=k;buildDiff();});row.appendChild(b);});
-}
-
-/* ===================== FLASHCARDS ===================== */
-function startFlash(){deck=getDeck();idx=0;show("flash");renderFlash();}
-function renderFlash(){
-  var it=deck[idx];$("flashcard").classList.remove("flip");
-  setVisual($("fcEmoji"),it);setVisual($("fcEmoji2"),it);
-  $("fcWord").textContent=it.w;
-  $("fcJp").textContent=showJp?it.jp:it.w;
-  $("fcJp").style.color=showJp?"var(--sky-d)":"#2D3A4A";$("fcJp").style.display="";
-  $("flashProg").textContent=(idx+1)+" / "+deck.length;
-}
-
-/* ===================== QUIZ ===================== */
-var quizAnswered=false, quizStart=0, quizTimes=[], timerInt=null;
-function startTimer(){quizStart=Date.now();stopTimer();timerInt=setInterval(function(){$("quizTimer").textContent="⏱ "+((Date.now()-quizStart)/1000).toFixed(1);},100);}
-function stopTimer(){if(timerInt){clearInterval(timerInt);timerInt=null;}}
-function startQuiz(){deck=getDeck();idx=0;quizTimes=[];show("quiz");renderQuiz();}
-function renderQuiz(){
-  quizAnswered=false;var it=deck[idx];var emo=$("qEmoji");
-  if(DIFF[difficulty].showEmojiQuiz){setVisual(emo,it);emo.classList.remove("hide");}
-  else{emo.textContent="❓";emo.classList.add("hide");}
-  $("qJp").textContent=it.jp;$("qJp").style.display=showJp?"":"none";
-  $("qAsk").textContent=L("quizAsk");
-  $("quizProg").textContent=(idx+1)+" / "+deck.length;
-  var pool=allWords().filter(function(x){return x.w!==it.w;});
-  var wrongs=shuffle(pool).slice(0,optCount()-1);
-  var opts=shuffle([it].concat(wrongs));
-  var grid=$("qOpts");grid.innerHTML="";
-  opts.forEach(function(o){var b=document.createElement("button");b.className="opt";b.textContent=o.w;
-    b.addEventListener("click",function(){chooseQuiz(b,o,it);});grid.appendChild(b);});
-  $("quizTimer").textContent="⏱ 0.0";startTimer();
-}
-function chooseQuiz(btn,chosen,correct){
-  if(quizAnswered)return;
-  if(chosen.w===correct.w){
-    quizAnswered=true;stopTimer();
-    var dt=(Date.now()-quizStart)/1000;quizTimes.push(dt);
-    btn.classList.add("good");speak(correct.w);addStar(1);celebrate("⭐");
-    toast("⏱ "+dt.toFixed(1)+L("sec"));setTimeout(nextQuiz,1000);
-  }else{btn.classList.add("bad");btn.disabled=true;speak("try again");}
-}
-function nextQuiz(){idx++;if(idx>=deck.length){return finishQuiz();}renderQuiz();}
-function finishQuiz(){
-  stopTimer();var n=quizTimes.length;
-  var sum=quizTimes.reduce(function(a,b){return a+b;},0);var avg=n?sum/n:0;
-  var fast=n?Math.min.apply(null,quizTimes):0;
-  showDone("🏆",L("doneQuiz"),[
-    {v:n+(showJp?"もん":""),l:L("stSolved")},
-    {v:avg.toFixed(1)+L("sec"),l:L("stAvg")},
-    {v:fast.toFixed(1)+L("sec"),l:L("stFast")}
-  ],startQuiz);
-}
-
-/* ===================== LISTENING ===================== */
-var lsDeck=[], lIdx=0, lsAnswered=false;
-function startListen(){lsDeck=shuffle(STORIES.slice());lIdx=0;show("listen");renderListen();}
-function currentStoryText(){var s=lsDeck[lIdx];return DIFF[difficulty].storyTwoLines?(s.s1+" "+s.s2):s.s1;}
-function renderListen(){
-  lsAnswered=false;var s=lsDeck[lIdx];
-  $("lsPic").textContent=s.pic;$("lsTxt").textContent=currentStoryText();
-  $("lsStxt").textContent=s.jp;$("lsStxt").style.display=showJp?"":"none";
-  $("lsQ").textContent=showJp?s.q:s.qEn;
-  $("listenProg").textContent=(lIdx+1)+" / "+lsDeck.length;
-  var wrongs=shuffle(s.wrong.slice()).slice(0,optCount()-1);
-  var opts=shuffle([s.ans].concat(wrongs));
-  var grid=$("lsOpts");grid.innerHTML="";
-  opts.forEach(function(o){var b=document.createElement("button");b.className="opt";
-    b.innerHTML='<span class="oe">'+o.e+'</span><span>'+o.w+'</span>';
-    b.addEventListener("click",function(){chooseListen(b,o,s.ans);});grid.appendChild(b);});
-  speakSequence([currentStoryText(), s.qEn]);
-}
-function chooseListen(btn,chosen,ans){
-  if(lsAnswered)return;
-  if(chosen.w===ans.w){lsAnswered=true;btn.classList.add("good");speak(chosen.w);addStar(2);celebrate("⭐");setTimeout(nextListen,1000);}
-  else{btn.classList.add("bad");btn.disabled=true;speak("try again");}
-}
-function nextListen(){lIdx++;if(lIdx>=lsDeck.length){return showDone("🏆",L("doneListen"),[{v:lsDeck.length+(showJp?"もん":""),l:L("stAns")}],startListen);}renderListen();}
-
-/* ===================== RIDDLE ===================== */
-var rdDeck=[], rIdx=0, rdAnswered=false;
-function startRiddle(){rdDeck=shuffle(RIDDLES.slice());rIdx=0;show("riddle");renderRiddle();}
-function renderRiddle(){
-  rdAnswered=false;var s=rdDeck[rIdx];
-  $("rdTxt").textContent=s.clue;
-  $("rdJp").textContent=s.jp;$("rdJp").style.display=showJp?"":"none";
-  $("riddleProg").textContent=(rIdx+1)+" / "+rdDeck.length;
-  var wrongs=shuffle(s.wrong.slice()).slice(0,optCount()-1);
-  var opts=shuffle([s.ans].concat(wrongs));
-  var grid=$("rdOpts");grid.innerHTML="";
-  opts.forEach(function(o){var b=document.createElement("button");b.className="opt";
-    b.innerHTML='<span class="oe">'+o.e+'</span><span>'+o.w+'</span>';
-    b.addEventListener("click",function(){chooseRiddle(b,o,s.ans);});grid.appendChild(b);});
-  speakSequence([s.clue]);
-}
-function chooseRiddle(btn,chosen,ans){
-  if(rdAnswered)return;
-  if(chosen.w===ans.w){rdAnswered=true;btn.classList.add("good");
-    speak("yes! a "+ans.w);addStar(3);celebrate(ans.e||"🎉");
-    toast((showJp?"せいかい！ ":"Yes! ")+"a "+ans.w+"!");setTimeout(nextRiddle,1300);}
-  else{btn.classList.add("bad");btn.disabled=true;speak("try again");}
-}
-function nextRiddle(){rIdx++;if(rIdx>=rdDeck.length){return showDone("🧠",L("doneRiddle"),[{v:rdDeck.length+(showJp?"もん":""),l:L("stAns")}],startRiddle);}renderRiddle();}
-
-/* ===================== SENTENCE ===================== */
-var sentDeck=[], sIdx=0, sTarget=[], sPlaced=[];
-function startSent(){sentDeck=shuffle(SENTENCES.slice());sIdx=0;show("sent");renderSent();}
-function refreshSentText(){var s=sentDeck[sIdx];$("sentJp").textContent=s.jp;$("sentJp").style.display=showJp?"":"none";if(sPlaced.length===0)drawSlots();}
-function renderSent(){
-  var s=sentDeck[sIdx];sTarget=s.sentence.split(" ");sPlaced=[];
-  $("sentPic").textContent=s.pic;$("sentJp").textContent=s.jp;$("sentJp").style.display=showJp?"":"none";
-  $("sentProg").textContent=(sIdx+1)+" / "+sentDeck.length;
-  $("sentResult").textContent="";$("sentResult").className="sent-result";
-  $("sentNext").classList.add("hidden");
-  var bank=$("sentBank");bank.innerHTML="";
-  shuffle(sTarget.map(function(w,i){return {w:w,i:i};})).forEach(function(t){
-    var b=document.createElement("button");b.className="tile";b.textContent=t.w;
-    b.addEventListener("click",function(){placeTile(b,t);});bank.appendChild(b);});
-  drawSlots();
-}
-function drawSlots(){
-  var slots=$("sentSlots");slots.innerHTML="";
-  if(sPlaced.length===0){var ph=document.createElement("span");ph.className="slot-ph";ph.textContent=L("slotPh");slots.appendChild(ph);return;}
-  sPlaced.forEach(function(t,pos){var b=document.createElement("button");b.className="tile placed";b.textContent=t.w;
-    b.addEventListener("click",function(){removeTile(pos);});slots.appendChild(b);});
-}
-function placeTile(btn,t){if(btn.classList.contains("used"))return;btn.classList.add("used");
-  sPlaced.push({w:t.w,i:t.i,srcBtn:btn});drawSlots();speak(t.w,true);checkSentence();}
-function removeTile(pos){var t=sPlaced[pos];if(t.srcBtn)t.srcBtn.classList.remove("used");
-  sPlaced.splice(pos,1);$("sentResult").textContent="";$("sentResult").className="sent-result";drawSlots();}
-function checkSentence(){
-  if(sPlaced.length<sTarget.length)return;
-  var built=sPlaced.map(function(t){return t.w;}).join(" "),goal=sTarget.join(" "),res=$("sentResult");
-  if(built===goal){res.textContent=L("correct")+goal+" 🎉";res.className="sent-result ok";
-    speak(goal);addStar(2);celebrate("🎉");$("sentNext").classList.remove("hidden");}
-  else{res.textContent=L("almost");res.className="sent-result ng";}
-}
-
-/* ===================== ADD WORD (quick) ===================== */
-function buildAddCat(){
-  var sel=$("addCat");sel.innerHTML="";
-  CATS.filter(function(c){return c.id!=="all";}).forEach(function(c){
-    var o=document.createElement("option");o.value=c.id;o.textContent=c.e+" "+c.jp+" / "+c.en;sel.appendChild(o);});
-}
-function setAddMsg(t,bad){var m=$("addMsg");m.textContent=t;m.style.color=bad?"#D84B4B":"#3FBF6B";}
-function resizeImage(file,cb){
-  try{var reader=new FileReader();
-    reader.onload=function(){var img=new Image();
-      img.onload=function(){var max=256,sc=Math.min(max/img.width,max/img.height,1);
-        var w=Math.round(img.width*sc),h=Math.round(img.height*sc);
-        var cv=document.createElement("canvas");cv.width=w;cv.height=h;
-        cv.getContext("2d").drawImage(img,0,0,w,h);
-        try{cb(cv.toDataURL("image/jpeg",0.82));}catch(e){cb(null);}};
-      img.onerror=function(){cb(null);};img.src=reader.result;};
-    reader.onerror=function(){cb(null);};reader.readAsDataURL(file);
-  }catch(e){cb(null);}
-}
-function addCustom(){
-  var w=$("addW").value.trim(),jp=$("addJp").value.trim();
-  var cat=$("addCat").value,emo=$("addEmoji").value.trim(),img=$("addImg").value.trim();
-  if(!w){setAddMsg("えいごを いれてね / Enter English",true);return;}
-  if(!jp){setAddMsg("にほんごを いれてね",true);return;}
-  if(masterHas(w)){  // 既存マスター語 → 上書き(override)
-    var o={};if(jp)o.jp=jp;if(cat)o.c=cat;if(emo){o.e=emo;}if(img){o.img=img;o.e=emo||"";}
-    overrides[w]=assign(overrides[w]||{},o);
-    setAddMsg("マスター語 "+w+" を うわがき(override)しました",false);
-  }else{
-    var item={w:w,jp:jp,c:cat||"animals",custom:true};
-    if(emo)item.e=emo;if(img)item.img=img;if(!emo&&!img)item.e="🔤";
-    customWords.push(item);
-    setAddMsg("ついか！ ("+customWords.length+"こ) ⬇で vocab.json",false);
-  }
-  $("addW").value="";$("addJp").value="";$("addEmoji").value="";$("addImg").value="";$("filePrev").innerHTML="";
-}
-function buildExportList(){
-  var list=[];
-  Object.keys(overrides).forEach(function(w){
-    var o=overrides[w];var e={w:w};
-    if("jp" in o)e.jp=o.jp;if("c" in o)e.c=o.c;
-    if("e" in o)e.e=o.e;if("img" in o)e.img=o.img;
-    list.push(e);
-  });
-  customWords.forEach(function(x){
-    var e={w:x.w,jp:x.jp,c:x.c};
-    if(hasEmoji(x))e.e=x.e;if(x.img)e.img=x.img;if(!e.e&&!e.img)e.e="🔤";
-    list.push(e);
-  });
-  return list;
-}
-function exportVocab(boxId){
-  var json=JSON.stringify(buildExportList(),null,2);
-  var box=$(boxId||"exportBox");box.classList.remove("hidden");box.value=json;
-  try{box.select();document.execCommand&&document.execCommand("copy");}catch(e){}
-  if(window.navigator&&window.navigator.clipboard){try{window.navigator.clipboard.writeText(json);}catch(e){}}
-  setAddMsg("vocab.json に コピー → repo へ はりつけ＆コミット",false);
-}
-
-/* ===================== WORD MANAGER ===================== */
-var mgrFilter="all", mgrQuery="";
-function buildMgrCats(){
-  var row=$("mgrCatRow");row.innerHTML="";
-  CATS.forEach(function(c){var b=document.createElement("button");
-    b.className="pill"+(c.id===mgrFilter?" on":"");b.textContent=c.e+" "+c.jp;
-    b.addEventListener("click",function(){mgrFilter=c.id;buildMgrCats();buildMgr();});row.appendChild(b);});
-}
-function startManage(){show("manage");buildMgrCats();buildMgr();}
-function effOf(w){var m=null;for(var i=0;i<MASTER.length;i++){if(MASTER[i].w===w){m=MASTER[i];break;}}if(!m)return null;var o=overrides[w];return o?assign(assign({},m),o):assign({},m);}
-function mkInput(cls,val,ph){var i=document.createElement("input");i.className="minp "+cls;i.value=val||"";if(ph)i.placeholder=ph;return i;}
-function mkCatSelect(val){var s=document.createElement("select");s.className="minp mw-cat";
-  CATS.filter(function(c){return c.id!=="all";}).forEach(function(c){var o=document.createElement("option");o.value=c.id;o.textContent=c.jp+"/"+c.en;if(c.id===val)o.selected=true;s.appendChild(o);});return s;}
-function setOverride(w,field,val){var o=overrides[w]||{};o[field]=val;overrides[w]=o;}
-function clearOverrideIfEmpty(w){var o=overrides[w];if(o){var keys=Object.keys(o);if(keys.length===0)delete overrides[w];}}
-function buildMgr(){
-  var box=$("mgrList");box.innerHTML="";
-  var rows=[];
-  MASTER.forEach(function(m){rows.push({src:"master",w:m.w});});
-  customWords.forEach(function(c){rows.push({src:"custom",ref:c,w:c.w});});
-  rows.forEach(function(r){
-    var eff=r.src==="master"?effOf(r.w):r.ref;
-    if(mgrFilter!=="all"&&eff.c!==mgrFilter)return;
-    if(mgrQuery){var q=mgrQuery.toLowerCase();
-      if((eff.w||"").toLowerCase().indexOf(q)<0&&(eff.jp||"").indexOf(mgrQuery)<0)return;}
-    var isOvr=r.src==="master"&&overrides[r.w];
-    var row=document.createElement("div");row.className="mrow"+(isOvr?" ovr":"");
-    var vis=document.createElement("div");vis.className="mv";setVisual(vis,eff);row.appendChild(vis);
-
-    var wl=document.createElement("div");wl.className="mw";wl.textContent=eff.w;row.appendChild(wl);
-
-    var jp=mkInput("mw-jp",eff.jp,"にほんご");
-    var emo=mkInput("mw-emo",hasEmoji(eff)?eff.e:"","えもじ");
-    var img=mkInput("mw-img",eff.img||"","img/xxx.jpg");
-    var cat=mkCatSelect(eff.c);
-
-    function apply(field,val,opt){
-      if(r.src==="master"){setOverride(r.w,field,val);if(opt)setOverride(r.w,opt.k,opt.v);clearOverrideIfEmpty(r.w);}
-      else{r.ref[field]=val;if(opt)r.ref[opt.k]=opt.v;}
-      var e2=r.src==="master"?effOf(r.w):r.ref;setVisual(vis,e2);
-      row.className="mrow"+((r.src==="master"&&overrides[r.w])?" ovr":"");
-    }
-    jp.addEventListener("change",function(){apply("jp",jp.value.trim());});
-    emo.addEventListener("change",function(){apply("e",emo.value.trim());});
-    img.addEventListener("change",function(){var v=img.value.trim();apply("img",v, v?{k:"e",v:""}:null); if(!v){emo.value=eff.e||"";} });
-    cat.addEventListener("change",function(){apply("c",cat.value);});
-
-    var fields=document.createElement("div");fields.className="mfields";
-    fields.appendChild(jp);fields.appendChild(emo);fields.appendChild(img);fields.appendChild(cat);
-    row.appendChild(fields);
-
-    // upload
-    var lab=document.createElement("label");lab.className="mupl";lab.textContent="📷";
-    var fi=document.createElement("input");fi.type="file";fi.accept="image/*";fi.style.display="none";
-    fi.addEventListener("change",function(e){var f=e.target.files&&e.target.files[0];if(!f)return;
-      var name=("img/"+f.name).replace(/\s+/g,"_");
-      resizeImage(f,function(data){if(data)sessionImgs[name]=data;img.value=name;emo.value="";
-        apply("img",name,{k:"e",v:""});});});
-    lab.appendChild(fi);row.appendChild(lab);
-
-    // action
-    if(r.src==="master"){
-      var rst=document.createElement("button");rst.className="micon mreset";rst.textContent="↺";
-      rst.addEventListener("click",function(){delete overrides[r.w];buildMgr();});
-      row.appendChild(rst);
-    }else{
-      var del=document.createElement("button");del.className="micon mdel";del.textContent="🗑";
-      del.addEventListener("click",function(){var i=customWords.indexOf(r.ref);if(i>=0)customWords.splice(i,1);buildMgr();});
-      row.appendChild(del);
-    }
-    box.appendChild(row);
-  });
-  if(!box.children.length){var p=document.createElement("div");p.className="mgr-hint";p.textContent="該当なし / none";box.appendChild(p);}
-}
-
-/* ===================== vocab.json LOAD ===================== */
-function loadVocab(cb){
-  try{
-    window.fetch(VOCAB_URL,{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.json();}).then(function(data){
-      var arr=Array.isArray(data)?data:(data&&data.words)||[];
-      arr.forEach(function(x){
-        if(!x||!x.w)return;
-        if(masterHas(x.w)){
-          var o={};if("jp" in x)o.jp=x.jp;if("c" in x)o.c=x.c;if("e" in x)o.e=x.e;if("img" in x)o.img=x.img;
-          overrides[x.w]=assign(overrides[x.w]||{},o);
-        }else{
-          if(!x.jp)return;
-          customWords.push({w:x.w,jp:x.jp,e:x.e||"🔤",img:x.img||null,c:x.c||"animals",custom:true});
-        }
-      });
-      if(cb)cb();
-    }).catch(function(){if(cb)cb();});
-  }catch(e){if(cb)cb();}
-}
-
-/* ===================== DONE ===================== */
-var doneAgainFn=null;
-function showDone(big,title,stats,againFn){
-  $("doneBig").textContent=big;$("doneTitle").textContent=title;
-  var box=$("doneStats");box.innerHTML="";
-  stats.forEach(function(s){var d=document.createElement("div");d.className="stat";
-    d.innerHTML='<div class="v">'+s.v+'</div><div class="l">'+s.l+'</div>';box.appendChild(d);});
-  doneAgainFn=againFn;show("done");celebrate(big);
-}
-
-/* ===================== INIT ===================== */
-function init(){
-  try{
-    canSpeak=("speechSynthesis" in window)&&(typeof window.SpeechSynthesisUtterance==="function")&&window.speechSynthesis!=null;
-    if(canSpeak){try{window.speechSynthesis.getVoices();}catch(e){canSpeak=false;}}
-
-    var cards=document.querySelectorAll(".mode-card");
-    Array.prototype.forEach.call(cards,function(card){
-      card.addEventListener("click",function(){
-        var m=card.getAttribute("data-mode");
-        if(m==="flash")startFlash();else if(m==="quiz")startQuiz();else if(m==="sent")startSent();
-        else if(m==="listen")startListen();else if(m==="riddle")startRiddle();
-      });
-    });
-    var homes=document.querySelectorAll("[data-home]");
-    Array.prototype.forEach.call(homes,function(b){b.addEventListener("click",function(){if(canSpeak){try{window.speechSynthesis.cancel();}catch(e){}}stopTimer();show("home");});});
-
-    $("flashcard").addEventListener("click",function(){$("flashcard").classList.toggle("flip");});
-    $("fcSpeak").addEventListener("click",function(e){e.stopPropagation();speak(deck[idx].w,true);});
-    $("fcNext").addEventListener("click",function(){idx=(idx+1)%deck.length;renderFlash();});
-    $("fcPrev").addEventListener("click",function(){idx=(idx-1+deck.length)%deck.length;renderFlash();});
-    $("qSpeak").addEventListener("click",function(){speak(deck[idx].w,true);});
-    $("lsSpeak").addEventListener("click",function(){var s=lsDeck[lIdx];speakSequence([currentStoryText(),s.qEn]);});
-    $("rdSpeak").addEventListener("click",function(){speakSequence([rdDeck[rIdx].clue]);});
-    $("sentClear").addEventListener("click",function(){
-      var ts=document.querySelectorAll("#sentBank .tile");Array.prototype.forEach.call(ts,function(b){b.classList.remove("used");});
-      sPlaced=[];$("sentResult").textContent="";$("sentResult").className="sent-result";$("sentNext").classList.add("hidden");drawSlots();});
-    $("sentSpeak").addEventListener("click",function(){speak(sentDeck[sIdx].sentence,true);});
-    $("sentNext").addEventListener("click",function(){sIdx++;if(sIdx>=sentDeck.length){return showDone("🎉",L("doneSent"),[{v:sentDeck.length+(showJp?"もん":""),l:L("stMade")}],startSent);}renderSent();});
-    $("doneAgain").addEventListener("click",function(){if(doneAgainFn)doneAgainFn();});
-    $("doneHome").addEventListener("click",function(){show("home");});
-
-    $("addBtn").addEventListener("click",addCustom);
-    $("exportBtn").addEventListener("click",function(){exportVocab("exportBox");});
-    $("manageBtn").addEventListener("click",startManage);
-    $("mgrExport").addEventListener("click",function(){exportVocab("mgrExportBox");});
-    $("mgrSearch").addEventListener("input",function(e){mgrQuery=e.target.value.trim();buildMgr();});
-    $("addFile").addEventListener("change",function(e){
-      var f=e.target.files&&e.target.files[0];if(!f)return;
-      var name=("img/"+f.name).replace(/\s+/g,"_");$("filePrev").textContent="…";
-      resizeImage(f,function(data){if(data)sessionImgs[name]=data;
-        $("addImg").value=name;$("addEmoji").value="";
-        $("filePrev").innerHTML=data?('<img src="'+data+'" style="width:34px;height:34px;object-fit:contain;border-radius:7px;vertical-align:middle">'):"";
-        setAddMsg(data?("プレビュー中。実画像 "+name+" を repo に upload"):"がぞうエラー",!data);});
-    });
-
-    bindToggle();
-    buildCats();buildDiff();buildAddCat();applyLang();
-    loadVocab(function(){ if(!$("manage").classList.contains("hidden"))buildMgr(); });
-  }catch(err){try{console.error("init error:",err);}catch(e){}}
-}
-if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",init);}else{init();}
+<!-- ══ MCP: 一元管理パネル（Master Control Panel） ══ -->
+@@ -6435,6 +6437,281 @@ <h1>Ride Pace Planner <span class="ver">v8.12</span></h1>
+document.addEventListener('DOMContentLoaded',function(){setTimeout(function(){ensureJsonTools();hookOnce();},500);});
+window.addEventListener('load',function(){setTimeout(function(){ensureJsonTools();hookOnce();},800);});
 })();
+
+/* ── v8.72: 最新安定版から差分修正：ラン心拍モード選択 + 上部タブ整理 ── */
+(function(){
+  function readRunPref(){
+    try{return JSON.parse(localStorage.getItem('rpp_run_pref')||'{}')||{};}catch(e){return {};}
+  }
+  function writeRunPref(p){
+    try{localStorage.setItem('rpp_run_pref', JSON.stringify(p));}catch(e){}
+  }
+  function getRunMode(){
+    var p=readRunPref();
+    return (p.mode==='hr') ? 'hr' : 'pace';
+  }
+  function getRunZone(){
+    var p=readRunPref();
+    return p.hrZone || 'Z2';
+  }
+  function setRunModeVisual(mode){
+    var bP=document.getElementById('run-input-mode-pace');
+    var bH=document.getElementById('run-input-mode-hr');
+    if(bP) bP.classList.toggle('on', mode!=='hr');
+    if(bH) bH.classList.toggle('on', mode==='hr');
+    var hint=document.getElementById('run-mode-hint');
+    if(hint){
+      hint.textContent = mode==='hr'
+        ? '心拍Zoneから換算したラン速度を上部パネルへ反映します。'
+        : '1kmペースからラン速度を上部パネルへ反映します。';
+    }
+  }
+  function zonePaceFromBase(zone, basePace){
+    var z=String(zone||'Z2').toUpperCase();
+    var mult={Z1:1.35,Z2:1.18,Z3:1.00,Z4:0.90,Z5:0.82}[z] || 1.18;
+    return Math.max(2.5, Math.min(12, (+basePace||6) * mult));
+  }
+  window.setRunInputModeFromSettings=function(mode){
+    mode = (mode==='hr') ? 'hr' : 'pace';
+    var p=Object.assign({}, (typeof _getRunSettings==='function'?_getRunSettings():readRunPref()), readRunPref());
+    p.mode=mode;
+    if(!p.hrZone) p.hrZone='Z2';
+    writeRunPref(p);
+    setRunModeVisual(mode);
+    if(typeof buildRunHeartZones==='function') buildRunHeartZones();
+    try{ saveRunSettings(false); }catch(e){}
+    if(mode==='hr'){
+      var block=document.getElementById('run-hr-zone-block');
+      if(block) block.scrollIntoView({behavior:'smooth',block:'center'});
+    }
+  };
+  window.selectRunHeartZoneFromSettings=function(zone){
+    var p=Object.assign({}, (typeof _getRunSettings==='function'?_getRunSettings():readRunPref()), readRunPref());
+    p.mode='hr';
+    p.hrZone=zone || 'Z2';
+    writeRunPref(p);
+    setRunModeVisual('hr');
+    if(typeof buildRunHeartZones==='function') buildRunHeartZones();
+    try{ applyRunSettings(true); }catch(e){}
+  };
+
+  var oldGetHtml=window.getRunSettingsPanelHtml;
+  if(typeof oldGetHtml==='function'){
+    window.getRunSettingsPanelHtml=function(){
+      var html=oldGetHtml.apply(this,arguments);
+      html=html.replace(
+        '<button class="modebt on" style="flex:1;font-size:13px;font-weight:800;padding:10px 8px">🏃 1kmペースから</button>',
+        '<button type="button" class="modebt on" id="run-input-mode-pace" onclick="setRunInputModeFromSettings(\'pace\')" style="flex:1;font-size:13px;font-weight:800;padding:10px 8px">🏃 1kmペースから</button>'
+      );
+      html=html.replace(
+        '<button class="modebt" style="flex:1;font-size:13px;font-weight:800;padding:10px 8px" onclick="document.getElementById(\'run-hr-zone-block\')?.scrollIntoView({behavior:\'smooth\',block:\'center\'})">❤️ 心拍Zoneから</button>',
+        '<button type="button" class="modebt" id="run-input-mode-hr" onclick="setRunInputModeFromSettings(\'hr\')" style="flex:1;font-size:13px;font-weight:800;padding:10px 8px">❤️ 心拍Zoneから</button>'
+      );
+      html=html.replace('</div>\n\n    <div class="g3" style="gap:10px;margin-bottom:12px">', '</div><div class="hint" id="run-mode-hint" style="margin:-6px 0 12px"></div>\n\n    <div class="g3" style="gap:10px;margin-bottom:12px">');
+      html=html.replace('onclick="applyRunSettings()" style="font-size:11px;padding:6px 10px;white-space:nowrap">🏃 ラン設定を適用</button>', 'onclick="setRunInputModeFromSettings(\'hr\');applyRunSettings()" style="font-size:11px;padding:6px 10px;white-space:nowrap">❤️ この方式を選択</button>');
+      return html;
+    };
+  }
+
+  var oldGet=window._getRunSettings;
+  if(typeof oldGet==='function'){
+    window._getRunSettings=function(){
+      var p=oldGet.apply(this,arguments) || {};
+      if(!p.mode) p.mode='pace';
+      if(!p.hrZone) p.hrZone='Z2';
+      return p;
+    };
+  }
+
+  window.buildRunHeartZones=function(){
+    var p=(typeof _getRunSettings==='function'?_getRunSettings():readRunPref());
+    var max=+(document.getElementById('run-hr-max')?.value || p.hrMax || 185);
+    var rest=+(document.getElementById('run-hr-rest')?.value || p.hrRest || 60);
+    var reserve=Math.max(1,max-rest);
+    var active=getRunZone();
+    var zones=[
+      ['Z1','Recovery',0.50,0.60,'#e6f6e8'],
+      ['Z2','Endurance',0.60,0.70,'#e3f2fd'],
+      ['Z3','Tempo',0.70,0.80,'#fff4d6'],
+      ['Z4','Threshold',0.80,0.90,'#fde6d8'],
+      ['Z5','VO2max+',0.90,1.00,'#fde3ef']
+    ];
+    var html=zones.map(function(z){
+      var lo=Math.round(rest+reserve*z[2]);
+      var hi=Math.round(rest+reserve*z[3]);
+      var on=(z[0]===active);
+      return '<div class="zone-card '+(on?'on':'')+'" onclick="selectRunHeartZoneFromSettings(\''+z[0]+'\')" style="background:'+z[4]+'"><div class="zc-num">'+z[0]+'</div><div class="zc-name">'+z[1]+'</div><div class="zc-w">'+lo+'–'+hi+' bpm</div></div>';
+    }).join('');
+    var el=document.getElementById('run-zonebar');
+    if(el) el.innerHTML=html;
+  };
+
+  var oldLoad=window.loadRunSettingsUI;
+  if(typeof oldLoad==='function'){
+    window.loadRunSettingsUI=function(){
+      var ret=oldLoad.apply(this,arguments);
+      setRunModeVisual(getRunMode());
+      if(typeof buildRunHeartZones==='function') buildRunHeartZones();
+      return ret;
+    };
+  }
+
+  var oldSave=window.saveRunSettings;
+  if(typeof oldSave==='function'){
+    window.saveRunSettings=function(liveApply){
+      var before=readRunPref();
+      var mode=before.mode || getRunMode();
+      var zone=before.hrZone || getRunZone();
+      var ret=oldSave.apply(this,arguments);
+      var after=readRunPref();
+      after.mode=mode;
+      after.hrZone=zone;
+      writeRunPref(after);
+      setRunModeVisual(after.mode);
+      if(typeof buildRunHeartZones==='function') buildRunHeartZones();
+      return ret;
+    };
+  }
+
+  window.applyRunSettings=function(silent){
+    if(typeof mcp!=='object') return;
+    var p=(typeof _getRunSettings==='function'?_getRunSettings():readRunPref());
+    var paceMin=+p.paceMin||6, paceSec=+p.paceSec||0;
+    var basePace=((paceMin*60)+paceSec)/60;
+    if(!isFinite(basePace)||basePace<=0) basePace=6;
+    var mode=(p.mode==='hr')?'hr':'pace';
+    var effectivePace = mode==='hr' ? zonePaceFromBase(p.hrZone, basePace) : basePace;
+    var spd = 60 / effectivePace;
+    mcp.dist = +p.dist || 5;
+    mcp.elev = +p.elev || 0;
+    mcp.spd = spd || 10;
+    window.baseSpdValue = mcp.spd;
+    var sh=(p.start||'08:00').split(':').map(Number); mcp.startH=sh[0]||8; mcp.startM=sh[1]||0;
+    var eh=(p.goal||'07:00').split(':').map(Number); mcp.endH=eh[0]||7; mcp.endM=eh[1]||0;
+    var setVal=function(id,v){var el=document.getElementById(id); if(el) el.value=v;};
+    setVal('mcp-dist',mcp.dist); setVal('mcp-elev',mcp.elev); setVal('mcp-spd',mcp.spd.toFixed(2));
+    setVal('mcp-sb-dist',mcp.dist); setVal('mcp-sb-elev',mcp.elev); setVal('mcp-sb-spd',mcp.spd.toFixed(2));
+    setVal('r-dist',mcp.dist); setVal('r-elev',mcp.elev); setVal('r-movespd',mcp.spd.toFixed(2));
+    setVal('r-weight',p.weight); setVal('r-ratio',p.ratio);
+    setVal('r-start',p.start); setVal('r-goal',p.goal);
+    setRunModeVisual(mode);
+    if(typeof buildRunHeartZones==='function') buildRunHeartZones();
+    if(typeof syncMcpUI==='function') syncMcpUI();
+    if(typeof smartCalc==='function') smartCalc('spd');
+    if(typeof calc==='function') calc();
+    var h=document.getElementById('run-pref-saved');
+    if(h && !silent){h.textContent='適用しました'; setTimeout(function(){h.textContent='';},1200);}
+    if(!silent && typeof notify==='function') notify('ラン設定を反映しました');
+  };
+
+  var oldEnsure=window.ensureSettingsRideRunTabs;
+  if(typeof oldEnsure==='function'){
+    window.ensureSettingsRideRunTabs=function(){
+      var ret=oldEnsure.apply(this,arguments);
+      setRunModeVisual(getRunMode());
+      if(typeof buildRunHeartZones==='function') buildRunHeartZones();
+      return ret;
+    };
+  }
+})();
+
+
+
+/* ── v8.65: Run反映時はRide補正式で補正後速度を上書きしない ── */
+(function(){
+  function el(id){return document.getElementById(id)}
+  function setText(id,v){var x=el(id); if(x) x.textContent=v}
+  function setVal(id,v){var x=el(id); if(x) x.value=v}
+  function fmtMin(mins){
+    mins=Number(mins)||0;
+    var h=Math.floor(mins/60), m=Math.round(mins%60);
+    if(m>=60){h++;m-=60}
+    return h+':'+String(m).padStart(2,'0');
+  }
+  function timeParts(str,dh,dm){
+    var a=String(str||'').split(':').map(Number);
+    return {h:isFinite(a[0])?a[0]:dh, m:isFinite(a[1])?a[1]:dm};
+  }
+  function writeClock(prefix,t){
+    setText(prefix+'-h', String(t.h).padStart(2,'0'));
+    setText(prefix+'-m', String(t.m).padStart(2,'0'));
+  }
+  function addMin(t,mins){
+    var total=((t.h*60+t.m+Math.round(mins))%(24*60)+24*60)%(24*60);
+    return {h:Math.floor(total/60),m:total%60};
+  }
+  function runSpeedFromSettings(p){
+    var paceMin=+p.paceMin||6, paceSec=+p.paceSec||0;
+    var basePace=((paceMin*60)+paceSec)/60;
+    if(!isFinite(basePace)||basePace<=0) basePace=6;
+    var mode=(p.mode==='hr')?'hr':'pace';
+    var effectivePace=basePace;
+    if(mode==='hr' && typeof zonePaceFromBase==='function') effectivePace=zonePaceFromBase(p.hrZone,basePace);
+    var spd=60/effectivePace;
+    return isFinite(spd)&&spd>0 ? spd : 10;
+  }
+  function runCorrectedSpeed(spd,dist,elev){
+    dist=+dist||0; elev=+elev||0; spd=+spd||10;
+    if(dist<=0) return spd;
+    if(elev<=0) return spd;
+    // ラン用の簡易登坂補正。RideのPower/風/体重補正式は使わない。
+    var grade=elev/(dist*1000); // 0.03 = 3%
+    var penalty=Math.min(0.45, grade*4.2);
+    return Math.max(3, spd*(1-penalty));
+  }
+  function paintRunTopPanel(p,spd){
+    var dist=+p.dist||5, elev=+p.elev||0, ratio=+p.ratio||85;
+    if(!isFinite(ratio)||ratio<=0) ratio=85;
+    var corrected=runCorrectedSpeed(spd,dist,elev);
+    var rideMin=dist/corrected*60;
+    var tripMin=rideMin/(ratio/100);
+    if(typeof mcp==='object'){
+      mcp.dist=dist; mcp.elev=elev; mcp.spd=spd; window.baseSpdValue=spd;
+      var st=timeParts(p.start||'08:00',8,0), gt=timeParts(p.goal||'07:00',7,0);
+      var mode=localStorage.getItem('rpp_time_mode')||'start-first';
+      if(mode==='goal-first'){
+        var start=addMin(gt,-tripMin); mcp.startH=start.h; mcp.startM=start.m; mcp.endH=gt.h; mcp.endM=gt.m;
+      }else{
+        var goal=addMin(st,tripMin); mcp.startH=st.h; mcp.startM=st.m; mcp.endH=goal.h; mcp.endM=goal.m;
+      }
+    }
+    setVal('mcp-dist',dist); setVal('mcp-elev',elev); setVal('mcp-spd',spd.toFixed(2));
+    setVal('mcp-sb-dist',dist); setVal('mcp-sb-elev',elev); setVal('mcp-sb-spd',spd.toFixed(2));
+    setText('mcp-dist-display',dist.toFixed(1)+' km');
+    setText('mcp-elev-display',Math.round(elev)+' m');
+    setText('mcp-spd-display',spd.toFixed(1)+' km/h');
+    setText('mcp-corrected-spd-display',corrected.toFixed(1)+' km/h');
+    setText('mcp-corrected-note','Run Pace反映');
+    setText('mcp-total',fmtMin(tripMin));
+    setText('mcp-time-note','Trip Hour / Ride '+fmtMin(rideMin));
+    setText('mcp-sb-total',fmtMin(tripMin));
+    if(typeof mcp==='object'){
+      writeClock('mcp-start',{h:mcp.startH||8,m:mcp.startM||0});
+      writeClock('mcp-end',{h:mcp.endH??null,m:mcp.endM??null});
+      writeClock('mcp-sb-start',{h:mcp.startH||8,m:mcp.startM||0});
+      writeClock('mcp-sb-end',{h:mcp.endH??null,m:mcp.endM??null});
+    }
+    return {corrected:corrected, rideMin:rideMin, tripMin:tripMin};
+  }
+  window.applyRunSettings=function(silent){
+    var p=(typeof _getRunSettings==='function'?_getRunSettings():{});
+    var spd=runSpeedFromSettings(p);
+    setVal('r-dist',+p.dist||5); setVal('r-elev',+p.elev||0); setVal('r-movespd',spd.toFixed(2));
+    setVal('r-weight',+p.weight||65); setVal('r-ratio',+p.ratio||85);
+    setVal('r-start',p.start||'08:00'); setVal('r-goal',p.goal||'07:00');
+    if(typeof setRunModeVisual==='function') setRunModeVisual((p.mode==='hr')?'hr':'pace');
+    if(typeof buildRunHeartZones==='function') buildRunHeartZones();
+    paintRunTopPanel(p,spd);
+    var h=el('run-pref-saved');
+    if(h && !silent){h.textContent='適用しました'; setTimeout(function(){h.textContent='';},1200);}
+    if(!silent && typeof notify==='function') notify('ラン設定を反映しました');
+  };
+  document.addEventListener('DOMContentLoaded',function(){
+    var tabs=el('app-tabs'); if(tabs) tabs.style.display='none';
+    var sub=document.querySelector('header .sub'); if(sub) sub.textContent='Google Maps ルート連携';
+  });
+})();
+
 </script>
+
 </body>
-</html>
