@@ -535,6 +535,7 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
     <div class="locked-metric"><div class="locked-label">平地基準速度</div><div class="locked-value" id="mcp-spd-display">30.0 km/h</div><div class="locked-sub">平地巡航の基準</div></div>
     <div class="locked-metric"><div class="locked-label">補正後速度</div><div class="locked-value" id="mcp-corrected-spd-display">— km/h</div><div class="locked-sub" id="mcp-corrected-note">坂・風・体調反映</div></div>
     <div class="locked-metric"><div class="locked-label">所要時間</div><div class="locked-value" id="mcp-total">—</div><div class="locked-sub" id="mcp-time-note">Ratio込み</div></div>
+    <div class="locked-metric"><div class="locked-label">消費カロリー</div><div class="locked-value" id="mcp-calories">0 kcal</div><div class="locked-sub" id="mcp-calories-note">コース・走力連動</div></div>
     <button type="button" class="locked-metric course-setting-tile" onclick="openSettingsModal()"><div class="locked-label">② ライド条件</div><div class="locked-value">条件を設定</div><div class="locked-sub">速度・時刻・天候</div></button>
   </div>
 </div>
@@ -1997,6 +1998,14 @@ const FOOD_DATA=[
   {name:'ハンバーグ',  icon:'🍽️', unit:'定食',  kcal:680},
 ];
 
+function updateTopCalorie(kcal, modeLabel){
+  const el=document.getElementById('mcp-calories');
+  const note=document.getElementById('mcp-calories-note');
+  const value=Math.max(0, Math.round(+kcal||0));
+  if(el) el.textContent=value.toLocaleString()+' kcal';
+  if(note) note.textContent=value>0 ? ((modeLabel||'運動')+'・実走時間連動') : 'コース未作成';
+}
+
 function calcCalorie(netMins, weight){
   // MET法: 自転車ロード走行 = 8.0 METs
   const MET = 8.0;
@@ -2008,8 +2017,10 @@ function renderCaloriePanel(netMins, weight){
   const kcal = calcCalorie(netMins, weight);
   if(!kcal || kcal <= 0){
     document.getElementById('calorie-panel').style.display = 'none';
+    updateTopCalorie(0, 'Ride');
     return;
   }
+  updateTopCalorie(kcal, 'Ride');
   document.getElementById('calorie-panel').style.display = 'block';
   document.getElementById('cal-total').textContent = kcal.toLocaleString();
   document.getElementById('cal-sub').textContent =
@@ -2350,8 +2361,10 @@ function renderRunCaloriePanel(netMins, weight){
   const kcal=Math.round(MET*weight*(netMins/60));
   if(!kcal||kcal<=0){
     document.getElementById('run-calorie-panel').style.display='none';
+    updateTopCalorie(0, 'Run');
     return;
   }
+  updateTopCalorie(kcal, 'Run');
   document.getElementById('run-calorie-panel').style.display='block';
   document.getElementById('run-cal-total').textContent=kcal.toLocaleString();
   document.getElementById('run-cal-sub').textContent=
@@ -5530,6 +5543,7 @@ function mcpFlushAll(totalMins, moveSpdEff){
     document.getElementById('mcp-end-m').textContent = '--';
   }
   document.getElementById('mcp-total').textContent = totalMins ? fmtD(totalMins) : '—';
+  if(!totalMins) updateTopCalorie(0, currentActivityMode==='run'?'Run':'Ride');
   const srcLabel = mcp.source === 'route' ? '📍 ルート反映' : '🔒 設定値反映';
   const _srcEl=document.getElementById('mcp-source'); if(_srcEl) _srcEl.textContent = srcLabel;
   // PC サイドバー同期
@@ -6995,6 +7009,144 @@ function refreshLockedPanelValues(){
   var oldOpen=window.openSettingsModal;
   window.openSettingsModal=function(){var ret=oldOpen.apply(this,arguments);setTimeout(function(){paintRunRouteFields();if(activeMode()==='run')window.applyRunSettings(true);},0);return ret;};
   window.addEventListener('load',function(){setTimeout(paintRunRouteFields,0);});
+})();
+</script>
+
+
+<style>
+/* v8.68 予定運動負荷 */
+.load-score-card .locked-value{display:flex;align-items:baseline;gap:5px}
+.load-score-card .load-number{font-size:15px;font-weight:800}
+.load-score-card .load-grade{font-size:10px;font-weight:800;padding:2px 5px;border-radius:999px;background:var(--bg3);white-space:nowrap}
+#planned-load-detail{font-size:9px;color:var(--text3);line-height:1.2}
+.load-legend{display:flex;gap:5px;flex-wrap:wrap;padding:5px 7px;background:rgba(10,10,10,.72);color:#fff;font-size:8px;pointer-events:auto}
+.load-legend span{display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
+.load-legend i{width:12px;height:5px;border-radius:3px;display:inline-block}
+</style>
+<script>
+/* v8.68: ライド／ラン共通「予定運動負荷」とコース後半負荷表示 */
+(function(){
+  const LOAD_LEVELS=[
+    {max:30,label:'回復・軽い',course:'余裕あり',color:'#4ade80'},
+    {max:60,label:'適度',course:'負荷上昇',color:'#60a5fa'},
+    {max:100,label:'しっかり',course:'疲労注意',color:'#facc15'},
+    {max:150,label:'高負荷',course:'高疲労',color:'#fb923c'},
+    {max:Infinity,label:'非常に高負荷',course:'限界域',color:'#ef4444'}
+  ];
+  function el(id){return document.getElementById(id)}
+  function num(v,d=0){v=Number(v);return Number.isFinite(v)?v:d}
+  function activeMode(){return localStorage.getItem('rpp_simulation_mode')==='run'?'run':'ride'}
+  function level(score){return LOAD_LEVELS.find(x=>score<=x.max)||LOAD_LEVELS[4]}
+  function ensurePanel(){
+    if(el('mcp-planned-load')) return;
+    const kcal=el('mcp-calories')?.closest('.locked-metric');
+    const host=el('locked-course-panel');
+    if(!host) return;
+    const card=document.createElement('div');
+    card.className='locked-metric load-score-card';
+    card.id='mcp-planned-load';
+    card.innerHTML='<div class="locked-label">予定運動負荷</div><div class="locked-value"><span class="load-number" id="planned-load-score">0</span><span class="load-grade" id="planned-load-grade">回復・軽い</span></div><div class="locked-sub" id="planned-load-detail">コース未作成</div>';
+    if(kcal&&kcal.parentNode===host) host.insertBefore(card,kcal.nextSibling); else host.appendChild(card);
+  }
+  function rideScore(){
+    const rd=window._routeData;
+    const dist=num(rd?.distKm,0), elev=num(rd?.gainM,0);
+    if(dist<=0) return {score:0,dist,elev,source:'コース未作成'};
+    const mins=Math.max(0,num(window._lastTotalMins,0));
+    const hours=mins/60;
+    let score=0,source='推定負荷';
+    if(typeof inputMode!=='undefined' && inputMode==='pwr'){
+      const ftp=Math.max(1,num(el('r-ftp')?.value,220));
+      const weight=Math.max(1,num(el('r-weight-pwr')?.value,65));
+      const wkg=num(el('r-wkg')?.value,2.5);
+      const npRaw=num(el('r-np')?.value,0);
+      const np=npRaw>0?npRaw:wkg*weight;
+      const IF=Math.max(.35,Math.min(1.35,np/ftp));
+      score=hours*IF*IF*100;
+      source='TSS方式・IF '+IF.toFixed(2);
+    }else{
+      const base=Math.max(8,num(el('r-movespd')?.value,25));
+      const intensity=Math.max(.45,Math.min(1.15,base/30));
+      const climb=1+Math.min(.35,elev/Math.max(1,dist)/35);
+      score=hours*intensity*intensity*100*climb;
+      source='速度・標高換算';
+    }
+    return {score:Math.max(0,score),dist,elev,source};
+  }
+  function readRunPref(){
+    try{return typeof _getRunSettings==='function'?_getRunSettings():JSON.parse(localStorage.getItem('rpp_run_pref')||'{}')}catch(e){return {}}
+  }
+  function runScore(){
+    const rd=window._routeData;
+    const dist=num(rd?.distKm,0), elev=num(rd?.gainM,0);
+    if(dist<=0) return {score:0,dist,elev,source:'コース未作成'};
+    const p=readRunPref()||{};
+    const ratio=Math.max(.3,Math.min(1,num(p.ratio,85)/100));
+    const pace=((num(p.paceMin,6)*60)+num(p.paceSec,0))/60;
+    const gradePenalty=1+Math.min(.40,(elev/Math.max(1,dist))/30);
+    const netMin=dist*Math.max(2.5,pace)*gradePenalty;
+    const totalMin=netMin/ratio;
+    let IF=.78,source='ペース・標高換算';
+    if(p.mode==='hr'){
+      IF={Z1:.60,Z2:.70,Z3:.82,Z4:.95,Z5:1.08}[String(p.hrZone||'Z2').toUpperCase()]||.70;
+      source='心拍'+String(p.hrZone||'Z2')+'換算';
+    }else{
+      const speed=60/Math.max(2.5,pace);
+      IF=Math.max(.55,Math.min(1.08,speed/12));
+    }
+    const score=(totalMin/60)*IF*IF*100*gradePenalty;
+    return {score:Math.max(0,score),dist,elev,source};
+  }
+  function current(){return activeMode()==='run'?runScore():rideScore()}
+  function transitionText(score,dist){
+    if(score<=30||dist<=0) return '全区間：余裕あり';
+    const target=score>150?150:score>100?100:score>60?60:30;
+    const frac=Math.min(1,Math.pow(target/score,1/1.08));
+    const km=dist*frac;
+    const lv=level(target+.01).course;
+    return km.toFixed(1)+' km付近から「'+lv+'」';
+  }
+  function update(){
+    ensurePanel();
+    const r=current(),sc=Math.round(r.score),lv=level(sc);
+    if(el('planned-load-score')) el('planned-load-score').textContent=String(sc);
+    if(el('planned-load-grade')){el('planned-load-grade').textContent=lv.label;el('planned-load-grade').style.color=lv.color}
+    if(el('planned-load-detail')) el('planned-load-detail').textContent=r.dist>0?(r.source+' / '+transitionText(r.score,r.dist)):'コース未作成';
+    window._plannedLoad={...r,rounded:sc,level:lv};
+    try{if(window.lastElevResults&&typeof drawElevProfile==='function') drawElevProfile(window.lastElevResults)}catch(e){}
+  }
+  function drawLoadBand(canvas,elevResults){
+    const r=window._plannedLoad||current();
+    if(!canvas||!elevResults?.length||r.dist<=0)return;
+    const ctx=canvas.getContext('2d'),W=canvas.width,H=canvas.height;
+    const elevs=elevResults.map(x=>num(x.elevation,0));
+    let gain=0,totalGain=0;
+    for(let i=1;i<elevs.length;i++) if(elevs[i]>elevs[i-1]) totalGain+=elevs[i]-elevs[i-1];
+    const y=H-6,h=6;
+    for(let i=0;i<elevs.length-1;i++){
+      if(i>0&&elevs[i]>elevs[i-1])gain+=elevs[i]-elevs[i-1];
+      const f=i/(elevs.length-1);
+      const gainF=totalGain>0?gain/totalGain:f;
+      const cumulative=r.score*(Math.pow(f,1.08)*.78+gainF*.22);
+      const lv=level(cumulative);
+      const x=i/(elevs.length-1)*W, nx=(i+1)/(elevs.length-1)*W;
+      ctx.fillStyle=lv.color;ctx.fillRect(x,y,Math.max(1,nx-x+1),h);
+    }
+    ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(0,H-15,70,9);
+    ctx.fillStyle='#fff';ctx.font='700 8px Arial';ctx.textAlign='left';ctx.fillText('予定負荷の進行',3,H-8);
+  }
+  function installDrawHook(){
+    if(typeof window.drawElevProfile!=='function'||window.drawElevProfile.__loadHook)return;
+    const old=window.drawElevProfile;
+    const wrapped=function(results){const ret=old.apply(this,arguments);try{drawLoadBand(el('elev-canvas'),results)}catch(e){}return ret};
+    wrapped.__loadHook=true;window.drawElevProfile=wrapped;
+  }
+  function hook(name){
+    const old=window[name];if(typeof old!=='function'||old.__loadUpdate)return;
+    const wrapped=function(){const ret=old.apply(this,arguments);setTimeout(update,0);return ret};wrapped.__loadUpdate=true;window[name]=wrapped;
+  }
+  document.addEventListener('DOMContentLoaded',function(){ensurePanel();installDrawHook();['calc','applyRunSettings','mcpSyncFromRoute','hardClearRoute','rppApplyRideModalToTop'].forEach(hook);setTimeout(update,300)});
+  window.updatePlannedLoad=update;
 })();
 </script>
 
