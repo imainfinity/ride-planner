@@ -504,8 +504,8 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
 
   <!-- タブ直下：時間セレクター -->
   <div id="time-selector-bar" style="display:flex;flex-wrap:wrap;gap:7px;align-items:center">
-    <button class="modebt" id="mcp-mode-start" onclick="setDefaultTimeMode('start-first')" style="flex:0 1 135px;font-size:11px;padding:7px 8px">🟢 スタートから計算</button>
-    <button class="modebt" id="mcp-mode-goal" onclick="setDefaultTimeMode('goal-first')" style="flex:0 1 135px;font-size:11px;padding:7px 8px">🔴 ゴール時間で逆算</button>
+    <button class="modebt" id="mcp-mode-start" onclick="setDefaultTimeMode('start-first')" style="flex:0 1 135px;font-size:11px;padding:7px 8px">🟢 現在からスタート</button>
+    <button class="modebt" id="mcp-mode-goal" onclick="setDefaultTimeMode('goal-first')" style="flex:0 1 135px;font-size:11px;padding:7px 8px">🔴 現在をゴールに逆算</button>
 
     <div class="time-chip">
       <div class="locked-label">Start</div>
@@ -1383,8 +1383,8 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
   <div class="pt">🚴 ライド設定（デフォルト値）</div>
   <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;padding:7px 10px;background:var(--bg2);border-radius:var(--rs)">
     <span style="font-size:10px;font-weight:600;color:var(--text2);white-space:nowrap">モード:</span>
-    <button class="modebt" id="mode-btn-start" onclick="setDefaultTimeMode('start-first')" style="flex:1;font-size:11px">🟢 スタートから計算</button>
-    <button class="modebt" id="mode-btn-goal"  onclick="setDefaultTimeMode('goal-first')"  style="flex:1;font-size:11px">🔴 ゴールから逆算</button>
+    <button class="modebt" id="mode-btn-start" onclick="setDefaultTimeMode('start-first')" style="flex:1;font-size:11px">🟢 現在からスタート</button>
+    <button class="modebt" id="mode-btn-goal"  onclick="setDefaultTimeMode('goal-first')"  style="flex:1;font-size:11px">🔴 現在をゴールに逆算</button>
   </div>
   <div id="goal-time-row" style="margin-bottom:10px">
     <div class="field"><label>デフォルトゴール時刻</label>
@@ -3801,35 +3801,58 @@ function setRunDefaultTimeMode(mode){
   try{ saveRunSettings(true); }catch(e){}
 }
 
+function _getCurrentTimeParts(){
+  const now=new Date();
+  return {
+    h:now.getHours(),
+    m:now.getMinutes(),
+    str:`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`
+  };
+}
+
 function setDefaultTimeMode(mode){
+  mode = mode==='goal-first' ? 'goal-first' : 'start-first';
   localStorage.setItem('rpp_time_mode', mode);
   _updateModeButtons(mode);
-  const p=_getSavedPref();
+
+  const now=_getCurrentTimeParts();
   if(mode==='goal-first'){
-    const goal=p.goalTime||'07:00';
-    if(typeof setDialFromString==='function') setDialFromString('end',goal);
+    // 現在時刻を到着目標として、所要時間からスタートを逆算する。
+    mcp.endH=now.h; mcp.endM=now.m;
+    if(typeof setDialFromString==='function') setDialFromString('end',now.str);
     if(typeof syncDialToHidden==='function') syncDialToHidden('end');
-    const [eh=7,em=0]=goal.split(':').map(Number);
-    mcp.endH=eh;mcp.endM=em;
-    if(typeof smartCalc==='function') smartCalc('end');
+    if(typeof mcpCalc==='function') mcpCalc('end');
+    else if(typeof smartCalc==='function') smartCalc('end');
   }else{
+    // 現在時刻をスタートとして、到着予定を順算する。
+    mcp.startH=now.h; mcp.startM=now.m;
+    mcp.endH=null; mcp.endM=null;
     if(typeof clearEndDial==='function') clearEndDial();
-    mcp.endH=null;mcp.endM=null;
-    if(typeof smartCalc==='function') smartCalc('start');
+    if(typeof setDialFromString==='function') setDialFromString('start',now.str);
+    if(typeof syncDialToHidden==='function') syncDialToHidden('start');
+    if(typeof mcpCalc==='function') mcpCalc('start');
+    else if(typeof smartCalc==='function') smartCalc('start');
   }
   saveUserPref(true);
 }
 function applyDefaultTimeMode(mode){
-  _updateModeButtons(mode || 'start-first');
   const selected=mode || localStorage.getItem('rpp_time_mode') || 'start-first';
+  _updateModeButtons(selected);
+  const now=_getCurrentTimeParts();
+
   if(selected==='goal-first'){
-    const pref=_getSavedPref();
-    const goalTime=pref.goalTime||'07:00';
-    if(typeof setDialFromString==='function') setDialFromString('end',goalTime);
+    mcp.endH=now.h; mcp.endM=now.m;
+    if(typeof setDialFromString==='function') setDialFromString('end',now.str);
     if(typeof syncDialToHidden==='function') syncDialToHidden('end');
-    if(typeof smartCalc==='function') smartCalc('end');
+    if(typeof mcpCalc==='function') mcpCalc('end');
+    else if(typeof smartCalc==='function') smartCalc('end');
   }else{
+    mcp.startH=now.h; mcp.startM=now.m;
+    mcp.endH=null; mcp.endM=null;
     if(typeof clearEndDial==='function') clearEndDial();
+    if(typeof setDialFromString==='function') setDialFromString('start',now.str);
+    if(typeof syncDialToHidden==='function') syncDialToHidden('start');
+    if(typeof mcpCalc==='function') mcpCalc('start');
   }
 }
 (function(){
@@ -6843,6 +6866,135 @@ function refreshLockedPanelValues(){
   };
 
   window.addEventListener('load',function(){setTimeout(paintRouteSource,0)});
+})();
+</script>
+
+
+<script>
+/* v8.67: Runモードも地図コースを正本として所要時間を算出 */
+(function(){
+  function el(id){ return document.getElementById(id); }
+  function n(v,d){ v=Number(v); return Number.isFinite(v)?v:d; }
+  function routeMetrics(){
+    var rd=window._routeData;
+    if(rd && n(rd.distKm,0)>0){
+      return {dist:n(rd.distKm,0), elev:Math.max(0,n(rd.gainM,0)), ready:true};
+    }
+    return {dist:0,elev:0,ready:false};
+  }
+  function activeMode(){
+    return localStorage.getItem('rpp_simulation_mode')==='run' ? 'run' : 'ride';
+  }
+  function setActiveMode(mode){
+    localStorage.setItem('rpp_simulation_mode',mode==='run'?'run':'ride');
+  }
+  function runPref(){
+    try{return Object.assign({paceMin:6,paceSec:0,weight:65,ratio:85,hrMax:185,hrRest:60,start:'08:00',goal:'07:00',mode:'pace',hrZone:2},JSON.parse(localStorage.getItem('rpp_run_pref')||'{}'));}
+    catch(e){return {paceMin:6,paceSec:0,weight:65,ratio:85,start:'08:00',goal:'07:00',mode:'pace',hrZone:2};}
+  }
+  function paintRunRouteFields(){
+    var r=routeMetrics();
+    var d=el('run-dist'), e=el('run-elev');
+    if(d){
+      d.type='hidden'; d.value=r.dist;
+      var box=el('run-route-dist-display');
+      if(!box){ box=document.createElement('div'); box.id='run-route-dist-display'; box.className='route-readonly-value'; d.parentNode.insertBefore(box,d); }
+      box.textContent=r.dist.toFixed(1)+' km';
+      box.classList.toggle('route-readonly-empty',!r.ready);
+      var lab=d.parentNode.querySelector('label'); if(lab) lab.textContent='地図コース距離';
+      var hint=d.parentNode.querySelector('.hint'); if(hint) hint.textContent=r.ready?'地図で作成したコースに自動連動':'コース未作成のため0 km';
+    }
+    if(e){
+      e.type='hidden'; e.value=Math.round(r.elev);
+      var box2=el('run-route-elev-display');
+      if(!box2){ box2=document.createElement('div'); box2.id='run-route-elev-display'; box2.className='route-readonly-value'; e.parentNode.insertBefore(box2,e); }
+      box2.textContent=Math.round(r.elev)+' m';
+      box2.classList.toggle('route-readonly-empty',!r.ready);
+      var lab2=e.parentNode.querySelector('label'); if(lab2) lab2.textContent='地図コース獲得標高';
+      var hint2=e.parentNode.querySelector('.hint'); if(hint2) hint2.textContent=r.ready?'地図で作成したコースに自動連動':'コース未作成のため0 m';
+    }
+    return r;
+  }
+  function runSpeed(p){
+    var min=n(p.paceMin,6), sec=n(p.paceSec,0);
+    var pace=(min*60+sec)/60;
+    if(!(pace>0)) pace=6;
+    if(p.mode==='hr' && typeof zonePaceFromBase==='function') pace=zonePaceFromBase(p.hrZone,pace);
+    return 60/pace;
+  }
+  function correctedRunSpeed(speed,dist,elev){
+    if(!(dist>0)) return speed;
+    var grade=Math.max(0,elev)/(dist*1000);
+    var penalty=Math.min(.45,grade*4.2);
+    return Math.max(3,speed*(1-penalty));
+  }
+  function fmt(mins){
+    mins=Math.max(0,n(mins,0)); var h=Math.floor(mins/60),m=Math.round(mins%60); if(m>=60){h++;m-=60;} return h+':'+String(m).padStart(2,'0');
+  }
+  function parseTime(v,dh,dm){ var a=String(v||'').split(':').map(Number); return {h:Number.isFinite(a[0])?a[0]:dh,m:Number.isFinite(a[1])?a[1]:dm}; }
+  function addMinutes(t,mins){ var x=((t.h*60+t.m+Math.round(mins))%1440+1440)%1440; return {h:Math.floor(x/60),m:x%60}; }
+  function txt(id,v){var x=el(id);if(x)x.textContent=v;}
+  function val(id,v){var x=el(id);if(x)x.value=v;}
+  function clock(prefix,t){txt(prefix+'-h',String(t.h).padStart(2,'0'));txt(prefix+'-m',String(t.m).padStart(2,'0'));}
+
+  window.applyRunSettings=function(silent){
+    setActiveMode('run');
+    var r=paintRunRouteFields(), p=runPref(), speed=runSpeed(p);
+    var ratio=n(p.ratio,85); if(!(ratio>0)) ratio=85;
+    var corrected=correctedRunSpeed(speed,r.dist,r.elev);
+    var movingMin=r.dist>0 ? r.dist/corrected*60 : 0;
+    var totalMin=movingMin/(ratio/100);
+    var mode=localStorage.getItem('rpp_time_mode')||'start-first';
+    var st=parseTime(p.start,8,0), gt=parseTime(p.goal,7,0);
+    if(mode==='goal-first') st=addMinutes(gt,-totalMin); else gt=addMinutes(st,totalMin);
+
+    if(typeof mcp==='object'){
+      mcp.dist=r.dist; mcp.elev=r.elev; mcp.spd=speed; mcp.source=r.ready?'route':'none';
+      mcp.startH=st.h;mcp.startM=st.m;mcp.endH=gt.h;mcp.endM=gt.m;
+    }
+    val('mcp-dist',r.dist);val('mcp-elev',Math.round(r.elev));val('mcp-spd',speed.toFixed(2));
+    val('r-dist',r.dist);val('r-elev',Math.round(r.elev));val('r-movespd',speed.toFixed(2));
+    val('r-weight',p.weight);val('r-ratio',ratio);
+    txt('mcp-dist-display',r.dist.toFixed(1)+' km');txt('mcp-elev-display',Math.round(r.elev)+' m');
+    txt('mcp-source',r.ready?'📍 地図コース連動':'🗺️ コース未作成');
+    txt('mcp-spd-display',speed.toFixed(1)+' km/h');txt('mcp-corrected-spd-display',corrected.toFixed(1)+' km/h');
+    txt('mcp-corrected-note',p.mode==='hr'?'Run 心拍Zone補正':'Run ペース・標高補正');
+    txt('mcp-total',fmt(totalMin));txt('mcp-time-note','Run '+fmt(movingMin)+' / Ratio込み');
+    txt('mcp-sb-total',fmt(totalMin));
+    clock('mcp-start',st);clock('mcp-end',gt);clock('mcp-sb-start',st);clock('mcp-sb-end',gt);
+    if(typeof buildRunHeartZones==='function') buildRunHeartZones();
+    var h=el('run-pref-saved'); if(h&&!silent){h.textContent=r.ready?'地図コースで再計算しました':'コース未作成：走力条件のみ保存';setTimeout(function(){h.textContent='';},1400);}
+    if(!silent&&typeof notify==='function') notify(r.ready?'地図コースをラン走力で計算しました':'先に地図でコースを作成してください');
+  };
+
+  var oldSwitch=window.switchSettingsTab;
+  window.switchSettingsTab=function(tab){
+    var ret=oldSwitch.apply(this,arguments); setActiveMode(tab==='run'?'run':'ride');
+    if(tab==='run'){setTimeout(function(){paintRunRouteFields();window.applyRunSettings(true);},0);}
+    return ret;
+  };
+  var oldLoad=window.loadRunSettingsUI;
+  window.loadRunSettingsUI=function(){var ret=oldLoad.apply(this,arguments);setTimeout(paintRunRouteFields,0);return ret;};
+  var oldSave=window.saveRunSettings;
+  window.saveRunSettings=function(liveApply){
+    paintRunRouteFields();
+    var ret=oldSave.call(this,false);
+    var r=routeMetrics();
+    try{var p=runPref();p.dist=r.dist;p.elev=Math.round(r.elev);localStorage.setItem('rpp_run_pref',JSON.stringify(p));}catch(e){}
+    if(liveApply) window.applyRunSettings(true);
+    return ret;
+  };
+  var oldSync=window.mcpSyncFromRoute;
+  window.mcpSyncFromRoute=function(){
+    if(typeof oldSync==='function') oldSync.apply(this,arguments);
+    paintRunRouteFields();
+    if(activeMode()==='run') window.applyRunSettings(true);
+  };
+  var oldClear=window.hardClearRoute;
+  window.hardClearRoute=function(){var ret=oldClear.apply(this,arguments);paintRunRouteFields();if(activeMode()==='run')window.applyRunSettings(true);return ret;};
+  var oldOpen=window.openSettingsModal;
+  window.openSettingsModal=function(){var ret=oldOpen.apply(this,arguments);setTimeout(function(){paintRunRouteFields();if(activeMode()==='run')window.applyRunSettings(true);},0);return ret;};
+  window.addEventListener('load',function(){setTimeout(paintRunRouteFields,0);});
 })();
 </script>
 
