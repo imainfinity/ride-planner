@@ -414,6 +414,10 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
  .flow-step-help{margin-left:0}
 }
 
+
+/* v8.66 地図コース基準シミュレーション */
+.route-readonly-value{font-size:18px;font-weight:800;padding:9px 10px;border:1.5px solid var(--blue);border-radius:var(--rs);background:var(--bluebg);color:var(--blue);font-variant-numeric:tabular-nums}
+.route-readonly-empty{border-color:var(--border2);background:var(--bg2);color:var(--text3)}
 </style>
 
 <script>
@@ -492,8 +496,8 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
   position:sticky;top:0;z-index:198;
 ">
   <!-- hidden state holders: JS互換用。固定パネル上にはテキストボックスを出さない -->
-  <input id="mcp-dist" type="hidden" value="50">
-  <input id="mcp-elev" type="hidden" value="300">
+  <input id="mcp-dist" type="hidden" value="0">
+  <input id="mcp-elev" type="hidden" value="0">
   <input id="mcp-spd" type="hidden" value="30">
   <input type="hidden" id="mcp-start-val" value="08:00">
   <input type="hidden" id="mcp-end-val" value="">
@@ -526,8 +530,8 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
 
   <!-- 固定操作パネル：表示専用 -->
   <div id="locked-course-panel" style="display:flex;flex-wrap:wrap;gap:6px;align-items:stretch">
-    <div class="locked-metric"><div class="locked-label">距離</div><div class="locked-value" id="mcp-dist-display">50.0 km</div><div class="locked-sub" id="mcp-source">🔒 設定値反映</div></div>
-    <div class="locked-metric"><div class="locked-label">獲得標高</div><div class="locked-value" id="mcp-elev-display">300 m</div><div class="locked-sub">設定/ルート反映</div></div>
+    <div class="locked-metric"><div class="locked-label">距離</div><div class="locked-value" id="mcp-dist-display">0.0 km</div><div class="locked-sub" id="mcp-source">🗺️ コース未作成</div></div>
+    <div class="locked-metric"><div class="locked-label">獲得標高</div><div class="locked-value" id="mcp-elev-display">0 m</div><div class="locked-sub">設定/ルート反映</div></div>
     <div class="locked-metric"><div class="locked-label">平地基準速度</div><div class="locked-value" id="mcp-spd-display">30.0 km/h</div><div class="locked-sub">平地巡航の基準</div></div>
     <div class="locked-metric"><div class="locked-label">補正後速度</div><div class="locked-value" id="mcp-corrected-spd-display">— km/h</div><div class="locked-sub" id="mcp-corrected-note">坂・風・体調反映</div></div>
     <div class="locked-metric"><div class="locked-label">所要時間</div><div class="locked-value" id="mcp-total">—</div><div class="locked-sub" id="mcp-time-note">Ratio込み</div></div>
@@ -2493,7 +2497,7 @@ function exportCSV(){
    設定モーダル
 ══════════════════════════════════════ */
 function _prefDefaults(){
-  return {dist:'50',elev:'300',spd:'30',weight:'65',ftp:'220',ratio:'85',wkg:'2.5',np:'',rideInputMode:'spd',start:'08:00',pref:'33.61,130.42',goalTime:'07:00'};
+  return {dist:'0',elev:'0',spd:'30',weight:'65',ftp:'220',ratio:'85',wkg:'2.5',np:'',rideInputMode:'spd',start:'08:00',pref:'33.61,130.42',goalTime:'07:00'};
 }
 function _getSavedPref(){
   try{return Object.assign(_prefDefaults(), JSON.parse(localStorage.getItem('rpp_user_pref')||'{}'));}
@@ -2572,7 +2576,7 @@ function openSettingsModal(){
           <button onclick="closeSettingsModal()" aria-label="閉じる" style="width:34px;height:34px;border:0.5px solid var(--border2);border-radius:50%;background:var(--bg);color:var(--text);font-size:24px;line-height:28px;cursor:pointer;font-family:inherit">×</button>
         </div>
         <div style="padding:20px 22px 22px">
-          <div class="ride-flow-intro"><b>地図でコースを作成した後、今回の走行条件を調整します。</b><span>通常は「基準速度」と「スタート時刻」だけ確認すれば完了です。</span></div>
+          <div class="ride-flow-intro"><b>地図で作成したコースを基準に、走力条件だけを調整します。</b><span>距離・標高は地図から自動取得します。ここでの再入力は不要です。</span></span></div>
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:18px;padding:9px;background:var(--bg2);border-radius:10px">
             <span style="font-size:12px;font-weight:600;color:var(--text2);white-space:nowrap">モード:</span>
             <button class="modebt" id="modal-mode-start" onclick="setDefaultTimeMode('start-first')" style="flex:1;font-size:13px;font-weight:700;padding:10px 8px">スタートから計算</button>
@@ -2585,10 +2589,10 @@ function openSettingsModal(){
             <button class="modebt" id="modal-ride-mode-pwr" onclick="setRideInputModeFromSettings('pwr')" style="flex:1;font-size:13px;font-weight:800;padding:10px 8px">⚡ パワー指定から</button>
           </div>
 
-          <div class="flow-step-title"><span>2</span>コース情報</div><div class="flow-step-help">地図でルートを作成すると距離・獲得標高は自動反映されます。手入力も可能です。</div>
+          <div class="flow-step-title"><span>2</span>地図コース</div><div class="flow-step-help">距離・獲得標高は地図で作ったルートに連動する読み取り専用値です。</div>
           <div class="g3" style="gap:10px;margin-bottom:12px">
-            <div class="field"><label>距離 (km)</label><input type="number" id="modal-dist" value="50" step="0.1" oninput="saveUserPref(true)"></div>
-            <div class="field"><label>獲得標高 (m)</label><input type="number" id="modal-elev" value="300" step="10" oninput="saveUserPref(true)"></div>
+            <div class="field"><label>地図コース距離</label><div id="modal-route-dist-display" class="route-readonly-value">0.0 km</div><input type="hidden" id="modal-dist" value="0"></div>
+            <div class="field"><label>地図コース獲得標高</label><div id="modal-route-elev-display" class="route-readonly-value">0 m</div><input type="hidden" id="modal-elev" value="0"></div>
             <div class="field" id="modal-spd-field"><label>平地基準速度 (km/h)</label><input type="number" id="modal-spd" value="30" step="0.5" oninput="saveUserPref(true)"><div class="hint">平地巡航の基準速度。0/空欄ならセルフ情報から推定</div></div>
           </div>
           <div class="g3" style="gap:10px;margin-bottom:12px">
@@ -6737,6 +6741,109 @@ function refreshLockedPanelValues(){
   });
 })();
 
+</script>
+
+
+<script>
+/* v8.66: 地図コースを唯一の距離・標高ソースにする */
+(function(){
+  function el(id){return document.getElementById(id)}
+  function num(v,d){v=Number(v);return Number.isFinite(v)?v:d}
+  function routeMetrics(){
+    const rd=window._routeData;
+    if(rd && num(rd.distKm,0)>0) return {dist:num(rd.distKm,0),elev:Math.max(0,num(rd.gainM,0)),ready:true};
+    return {dist:0,elev:0,ready:false};
+  }
+  function paintRouteSource(){
+    const r=routeMetrics();
+    if(typeof mcp==='object'){
+      mcp.dist=r.dist; mcp.elev=r.elev; mcp.source=r.ready?'route':'none';
+    }
+    [['mcp-dist','value',r.dist],['mcp-elev','value',Math.round(r.elev)],['r-dist','value',r.dist],['r-elev','value',Math.round(r.elev)],['modal-dist','value',r.dist],['modal-elev','value',Math.round(r.elev)]].forEach(function(a){const x=el(a[0]);if(x)x[a[1]]=a[2]});
+    if(el('mcp-dist-display')) el('mcp-dist-display').textContent=r.dist.toFixed(1)+' km';
+    if(el('mcp-elev-display')) el('mcp-elev-display').textContent=Math.round(r.elev)+' m';
+    if(el('mcp-source')) el('mcp-source').textContent=r.ready?'📍 地図コース連動':'🗺️ コース未作成';
+    if(el('modal-route-dist-display')){
+      el('modal-route-dist-display').textContent=r.dist.toFixed(1)+' km';
+      el('modal-route-dist-display').classList.toggle('route-readonly-empty',!r.ready);
+    }
+    if(el('modal-route-elev-display')){
+      el('modal-route-elev-display').textContent=Math.round(r.elev)+' m';
+      el('modal-route-elev-display').classList.toggle('route-readonly-empty',!r.ready);
+    }
+    return r;
+  }
+
+  const oldOpen=window.openSettingsModal;
+  window.openSettingsModal=function(){
+    oldOpen.apply(this,arguments);
+    paintRouteSource();
+    const intro=document.querySelector('#settings-modal .ride-flow-intro');
+    if(intro && !routeMetrics().ready){
+      intro.innerHTML='<b>先に地図上でコースを作成してください。</b><span>コース未作成のため距離・標高は0です。走力条件は先に保存できます。</span>';
+    }
+    try{ if(typeof updateCoursePreview==='function') updateCoursePreview(); }catch(e){}
+  };
+
+  // 保存対象から距離・標高を実質的に切り離し、常に地図値を格納する
+  const oldSave=window.saveUserPref;
+  window.saveUserPref=function(liveApply){
+    const r=paintRouteSource();
+    oldSave.call(this,false);
+    try{
+      const p=JSON.parse(localStorage.getItem('rpp_user_pref')||'{}');
+      p.dist=String(r.dist); p.elev=String(Math.round(r.elev));
+      localStorage.setItem('rpp_user_pref',JSON.stringify(p));
+    }catch(e){}
+    if(liveApply){
+      try{ window.rppApplyRideModalToTop(false); }catch(e){}
+    }
+  };
+
+  // 条件適用時も地図値を保持し、手動ソースへ戻さない
+  const oldApply=window.rppApplyRideModalToTop;
+  if(typeof oldApply==='function'){
+    window.rppApplyRideModalToTop=function(closeAfter){
+      paintRouteSource();
+      oldApply.call(this,false);
+      const r=paintRouteSource();
+      if(typeof mcp==='object') mcp.source=r.ready?'route':'none';
+      try{ if(typeof mcpCalc==='function') mcpCalc('route'); }catch(e){}
+      paintRouteSource();
+      if(closeAfter){try{closeSettingsModal();sw('ride')}catch(e){}}
+    };
+  }
+
+  // ルート同期後は条件補正も即時再計算
+  const oldRouteSync=window.mcpSyncFromRoute;
+  window.mcpSyncFromRoute=function(){
+    if(typeof oldRouteSync==='function') oldRouteSync.apply(this,arguments);
+    paintRouteSource();
+    try{ if(typeof window.rppApplyRideModalToTop==='function') window.rppApplyRideModalToTop(false); else if(typeof mcpCalc==='function') mcpCalc('route'); }catch(e){}
+  };
+
+  // コース削除時は距離・標高を必ず0へ戻す
+  const oldClear=window.hardClearRoute;
+  window.hardClearRoute=function(){
+    const ret=oldClear.apply(this,arguments);
+    window._routeData=null;
+    if(typeof mcp==='object'){mcp.dist=0;mcp.elev=0;mcp.source='none'}
+    paintRouteSource();
+    try{ if(typeof mcpCalc==='function') mcpCalc('route'); }catch(e){}
+    return ret;
+  };
+
+  // MCP表示ラベルを3状態にする
+  const oldFlush=window.mcpFlushAll;
+  window.mcpFlushAll=function(){
+    const ret=oldFlush.apply(this,arguments);
+    const r=paintRouteSource();
+    if(el('mcp-source')) el('mcp-source').textContent=r.ready?'📍 地図コース連動':'🗺️ コース未作成';
+    return ret;
+  };
+
+  window.addEventListener('load',function(){setTimeout(paintRouteSource,0)});
+})();
 </script>
 
 </body>
