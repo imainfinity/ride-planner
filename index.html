@@ -7301,5 +7301,114 @@ body.pc-mode .ride-settings-col{overflow-y:auto}
 })();
 </script>
 
+<style>
+/* v8.71 予定運動負荷：数値根拠モーダル */
+#mcp-planned-load{cursor:pointer;position:relative;transition:transform .14s,box-shadow .14s,border-color .14s}
+#mcp-planned-load:hover{transform:translateY(-1px);box-shadow:0 3px 10px rgba(0,0,0,.12);border-color:var(--border2)}
+#mcp-planned-load:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+#mcp-planned-load::after{content:'詳細 ›';position:absolute;right:7px;top:5px;font-size:8px;font-weight:800;color:var(--text3)}
+#load-detail-modal{position:fixed;inset:0;z-index:100020;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.52);backdrop-filter:blur(5px)}
+#load-detail-modal.on{display:flex}
+.load-detail-card{width:min(680px,100%);max-height:min(86vh,820px);overflow:auto;background:var(--bg);color:var(--text);border:1px solid var(--border2);border-radius:16px;box-shadow:0 16px 48px rgba(0,0,0,.35)}
+.load-detail-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:2}
+.load-detail-title{font-size:15px;font-weight:800}.load-detail-close{width:34px;height:34px;border:1px solid var(--border2);border-radius:50%;background:var(--bg2);color:var(--text);font-size:20px;cursor:pointer}
+.load-detail-body{padding:14px 16px 18px}.load-hero{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}.load-hero-box{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px}.load-hero-label{font-size:9px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.07em}.load-hero-value{font-size:24px;font-weight:800;margin-top:3px}.load-detail-section{margin-top:14px}.load-detail-section h3{font-size:11px;font-weight:800;margin-bottom:7px}.load-data-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}.load-data-row{display:flex;justify-content:space-between;gap:10px;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);font-size:11px}.load-data-row span{color:var(--text2)}.load-data-row b{font-variant-numeric:tabular-nums;text-align:right}.load-formula{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;line-height:1.6;background:var(--bg3);border-radius:9px;padding:10px;overflow-wrap:anywhere}.load-scale-row{display:grid;grid-template-columns:64px 1fr;gap:8px;align-items:center;font-size:10px;margin:5px 0}.load-scale-track{height:8px;background:var(--bg3);border-radius:999px;overflow:hidden}.load-scale-fill{height:100%;border-radius:999px;background:var(--acc)}.load-note{font-size:10px;line-height:1.55;color:var(--text2);background:var(--amberbg);border:1px solid var(--amber);border-radius:9px;padding:9px;margin-top:12px}
+@media(max-width:520px){#load-detail-modal{align-items:flex-end;padding:0}.load-detail-card{width:100%;max-height:91vh;border-radius:16px 16px 0 0}.load-data-grid{grid-template-columns:1fr}.load-hero-value{font-size:21px}}
+</style>
+<script>
+(function(){
+  function el(id){return document.getElementById(id)}
+  function n(v,d){v=Number(v);return Number.isFinite(v)?v:(d||0)}
+  function fmt(v,d){return n(v).toFixed(d==null?1:d)}
+  function mode(){return localStorage.getItem('rpp_simulation_mode')==='run'?'run':'ride'}
+  function ensureModal(){
+    if(el('load-detail-modal')) return;
+    var modal=document.createElement('div');
+    modal.id='load-detail-modal';modal.setAttribute('role','dialog');modal.setAttribute('aria-modal','true');modal.setAttribute('aria-label','予定運動負荷の数値根拠');
+    modal.innerHTML='<div class="load-detail-card"><div class="load-detail-head"><div><div class="load-detail-title">予定運動負荷の数値根拠</div><div class="hint">コースと設定条件から算出した計画用スコア</div></div><button type="button" class="load-detail-close" aria-label="閉じる">×</button></div><div class="load-detail-body" id="load-detail-content"></div></div>';
+    document.body.appendChild(modal);
+    modal.querySelector('.load-detail-close').addEventListener('click',close);
+    modal.addEventListener('click',function(e){if(e.target===modal)close()});
+    document.addEventListener('keydown',function(e){if(e.key==='Escape'&&modal.classList.contains('on'))close()});
+  }
+  function close(){el('load-detail-modal')?.classList.remove('on')}
+  function row(label,value){return '<div class="load-data-row"><span>'+label+'</span><b>'+value+'</b></div>'}
+  function currentDetails(){
+    var p=window._plannedLoad||{};
+    var rd=window._routeData||{};
+    var dist=n(p.dist,n(rd.distKm));
+    var elev=n(p.elev,n(rd.gainM));
+    var mins=Math.max(0,n(window._lastTotalMins));
+    var hours=mins/60;
+    var score=n(p.score);
+    var active=mode();
+    var data={active:active,dist:dist,elev:elev,mins:mins,hours:hours,score:score,source:p.source||'',grade:(p.level&&p.level.label)||el('planned-load-grade')?.textContent||'—',transition:el('planned-load-detail')?.textContent||'—'};
+    if(active==='ride'){
+      var power=(typeof window.inputMode!=='undefined'?window.inputMode:(typeof inputMode!=='undefined'?inputMode:''))==='pwr';
+      data.power=power;
+      if(power){
+        data.ftp=Math.max(1,n(el('r-ftp')?.value,220));
+        data.weight=Math.max(1,n(el('r-weight-pwr')?.value,65));
+        data.wkg=n(el('r-wkg')?.value,2.5);
+        var npRaw=n(el('r-np')?.value);
+        data.np=npRaw>0?npRaw:data.wkg*data.weight;
+        data.IF=Math.max(.35,Math.min(1.35,data.np/data.ftp));
+        data.calc=data.hours*data.IF*data.IF*100;
+      }else{
+        data.base=Math.max(8,n(el('r-movespd')?.value,25));
+        data.intensity=Math.max(.45,Math.min(1.15,data.base/30));
+        data.climb=1+Math.min(.35,data.elev/Math.max(1,data.dist)/35);
+        data.calc=data.hours*data.intensity*data.intensity*100*data.climb;
+      }
+    }else{
+      var pref={};try{pref=typeof _getRunSettings==='function'?_getRunSettings():JSON.parse(localStorage.getItem('rpp_run_pref')||'{}')}catch(e){}
+      data.runMode=pref.mode||'pace';
+      data.ratio=Math.max(.3,Math.min(1,n(pref.ratio,85)/100));
+      data.pace=((n(pref.paceMin,6)*60)+n(pref.paceSec,0))/60;
+      data.gradePenalty=1+Math.min(.40,(data.elev/Math.max(1,data.dist))/30);
+      data.netMin=data.dist*Math.max(2.5,data.pace)*data.gradePenalty;
+      data.totalMin=data.netMin/data.ratio;
+      if(data.runMode==='hr'){
+        data.zone=String(pref.hrZone||'Z2').toUpperCase();
+        data.IF=({Z1:.60,Z2:.70,Z3:.82,Z4:.95,Z5:1.08})[data.zone]||.70;
+      }else{
+        data.speed=60/Math.max(2.5,data.pace);
+        data.IF=Math.max(.55,Math.min(1.08,data.speed/12));
+      }
+      data.calc=(data.totalMin/60)*data.IF*data.IF*100*data.gradePenalty;
+    }
+    return data;
+  }
+  function render(){
+    var d=currentDetails(), score=Math.round(d.score), html='';
+    html+='<div class="load-hero"><div class="load-hero-box"><div class="load-hero-label">予定運動負荷</div><div class="load-hero-value">'+score+'</div></div><div class="load-hero-box"><div class="load-hero-label">判定</div><div class="load-hero-value" style="font-size:18px">'+d.grade+'</div></div></div>';
+    if(d.dist<=0){html+='<div class="load-note">有効なコースがないため、負荷スコアは0です。地図にコースを作成すると距離・標高・所要時間を使って再計算します。</div>';return html}
+    html+='<div class="load-detail-section"><h3>使用データ</h3><div class="load-data-grid">'+row('モード',d.active==='run'?'ラン':'ライド')+row('距離',fmt(d.dist,1)+' km')+row('獲得標高',Math.round(d.elev)+' m')+row('計算所要時間',Math.floor(d.mins/60)+'時間 '+Math.round(d.mins%60)+'分')+'</div></div>';
+    if(d.active==='ride'&&d.power){
+      html+='<div class="load-detail-section"><h3>パワー方式</h3><div class="load-data-grid">'+row('FTP',Math.round(d.ftp)+' W')+row('推定NP・有効パワー',Math.round(d.np)+' W')+row('IF',fmt(d.IF,2))+row('計算方式','TSS方式')+'</div></div>';
+      html+='<div class="load-detail-section"><h3>計算式</h3><div class="load-formula">負荷 = 時間 × IF² × 100<br>'+fmt(d.hours,2)+' × '+fmt(d.IF,2)+'² × 100 = '+fmt(d.calc,1)+'</div></div>';
+    }else if(d.active==='ride'){
+      html+='<div class="load-detail-section"><h3>速度・標高方式</h3><div class="load-data-grid">'+row('平地基準速度',fmt(d.base,1)+' km/h')+row('速度強度',fmt(d.intensity,3))+row('登坂係数',fmt(d.climb,3))+row('計算方式','速度・標高換算')+'</div></div>';
+      html+='<div class="load-detail-section"><h3>計算式</h3><div class="load-formula">負荷 = 時間 × 速度強度² × 100 × 登坂係数<br>'+fmt(d.hours,2)+' × '+fmt(d.intensity,3)+'² × 100 × '+fmt(d.climb,3)+' = '+fmt(d.calc,1)+'</div></div>';
+    }else{
+      html+='<div class="load-detail-section"><h3>ラン方式</h3><div class="load-data-grid">'+row('設定方式',d.runMode==='hr'?'心拍Zone '+d.zone:'ペース')+row('設定ペース',Math.floor(d.pace)+'分 '+Math.round((d.pace%1)*60)+'秒/km')+row('強度係数 IF',fmt(d.IF,2))+row('標高補正',fmt(d.gradePenalty,3))+row('実走比率',Math.round(d.ratio*100)+'%')+row('補正所要時間',Math.floor(d.totalMin/60)+'時間 '+Math.round(d.totalMin%60)+'分')+'</div></div>';
+      html+='<div class="load-detail-section"><h3>計算式</h3><div class="load-formula">負荷 = 補正時間 × 強度² × 100 × 標高補正<br>'+fmt(d.totalMin/60,2)+' × '+fmt(d.IF,2)+'² × 100 × '+fmt(d.gradePenalty,3)+' = '+fmt(d.calc,1)+'</div></div>';
+    }
+    html+='<div class="load-detail-section"><h3>判定基準</h3><div class="load-data-grid">'+row('0–30','回復・軽い')+row('31–60','適度')+row('61–100','しっかり')+row('101–150','高負荷')+row('151以上','非常に高負荷')+row('負荷進行',d.transition.replace(/^.*?\/\s*/,''))+'</div></div>';
+    html+='<div class="load-note">この値は医学的な疲労量ではありません。地図コースと設定走力から算出した予定運動負荷です。速度方式の値はTSSそのものではなく、同じ目盛りへ換算した推定値です。</div>';
+    return html;
+  }
+  function open(){ensureModal();el('load-detail-content').innerHTML=render();el('load-detail-modal').classList.add('on')}
+  function bind(){
+    ensureModal();var card=el('mcp-planned-load');if(!card||card.dataset.detailBound)return;
+    card.dataset.detailBound='1';card.setAttribute('role','button');card.setAttribute('tabindex','0');card.setAttribute('aria-label','予定運動負荷の数値根拠を表示');
+    card.addEventListener('click',open);card.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();open()}})
+  }
+  document.addEventListener('DOMContentLoaded',function(){setTimeout(bind,400)});
+  window.addEventListener('load',function(){setTimeout(bind,700)});
+  var obs=new MutationObserver(function(){bind()});obs.observe(document.documentElement,{childList:true,subtree:true});
+})();
+</script>
+
 </body>
 </html>
