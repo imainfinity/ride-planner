@@ -7549,5 +7549,81 @@ body.pc-mode .ride-settings-col{overflow-y:auto}
 })();
 </script>
 
+
+
+<script>
+/* v8.73: 強制経由・手動区間を含むルートでも上部所要時間を必ず同期 */
+(function(){
+  function el(id){ return document.getElementById(id); }
+  function finite(v){ v=Number(v); return Number.isFinite(v) ? v : 0; }
+  function fmtMins(mins){
+    mins=Math.max(0,finite(mins));
+    var h=Math.floor(mins/60), m=Math.round(mins%60);
+    if(m>=60){ h++; m-=60; }
+    return h+':'+String(m).padStart(2,'0');
+  }
+  function hasCourse(){
+    var rd=window._routeData;
+    return !!(rd && finite(rd.distKm)>0 && Array.isArray(window.waypoints) && window.waypoints.length>=2);
+  }
+  function syncDurationFromCalculation(){
+    if(!hasCourse()){
+      if(el('mcp-total')) el('mcp-total').textContent='0:00';
+      if(el('mcp-sb-total')) el('mcp-sb-total').textContent='0:00';
+      if(el('mcp-time-note')) el('mcp-time-note').textContent='コース未作成';
+      return;
+    }
+
+    /* calc() が確定した値を最優先。なければ物理モデルから再算出する。 */
+    var mins=finite(window._lastTotalMins);
+    if(!(mins>0) && typeof calcTotalMins==='function'){
+      try{ mins=finite(calcTotalMins()); }catch(e){}
+    }
+    if(!(mins>0) && typeof mcp==='object'){
+      var dist=finite(window._routeData?.distKm || mcp.dist);
+      var spd=finite(window._lastMoveSpd || mcp.spd);
+      var ratio=finite(el('r-ratio')?.value || 85)/100;
+      if(dist>0 && spd>0 && ratio>0) mins=dist/spd*60/ratio;
+    }
+    if(!(mins>0)) return;
+
+    window._lastTotalMins=mins;
+    var text=fmtMins(mins);
+    if(el('mcp-total')) el('mcp-total').textContent=text;
+    if(el('mcp-sb-total')) el('mcp-sb-total').textContent=text;
+    if(el('mcp-time-note')){
+      var ratioPct=Math.round(finite(el('r-ratio')?.value || 85));
+      el('mcp-time-note').textContent='Ratio '+ratioPct+'%込み';
+    }
+    if(el('msb-time')) el('msb-time').textContent=text;
+    if(el('rsp-time')) el('rsp-time').textContent=text;
+
+    try{ if(typeof updatePlannedLoad==='function') updatePlannedLoad(); }catch(e){}
+  }
+
+  function hookAfter(name, delay){
+    var old=window[name];
+    if(typeof old!=='function' || old.__durationSyncHook) return;
+    var wrapped=function(){
+      var ret=old.apply(this,arguments);
+      setTimeout(syncDurationFromCalculation,delay||0);
+      return ret;
+    };
+    wrapped.__durationSyncHook=true;
+    window[name]=wrapped;
+  }
+
+  function install(){
+    ['calc','mcpCalc','mcpSyncFromRoute','applyRunSettings','rppApplyRideModalToTop'].forEach(function(n){hookAfter(n,0)});
+    /* 標高API完了後と距離のみ取得時も二段階で同期 */
+    ['processElevation','applyDistOnly','mergeAndProcessRoutes'].forEach(function(n){hookAfter(n,40)});
+    setTimeout(syncDurationFromCalculation,100);
+  }
+  document.addEventListener('DOMContentLoaded',install);
+  window.addEventListener('load',function(){setTimeout(install,0);setTimeout(syncDurationFromCalculation,500)});
+  window.syncTopDuration=syncDurationFromCalculation;
+})();
+</script>
+
 </body>
 </html>
