@@ -536,7 +536,7 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
     <div class="locked-metric"><div class="locked-label">補正後速度</div><div class="locked-value" id="mcp-corrected-spd-display">— km/h</div><div class="locked-sub" id="mcp-corrected-note">坂・風・体調反映</div></div>
     <div class="locked-metric"><div class="locked-label">所要時間</div><div class="locked-value" id="mcp-total">—</div><div class="locked-sub" id="mcp-time-note">Ratio込み</div></div>
     <div class="locked-metric"><div class="locked-label">消費カロリー</div><div class="locked-value" id="mcp-calories">0 kcal</div><div class="locked-sub" id="mcp-calories-note">コース・走力連動</div></div>
-    <button type="button" class="locked-metric course-setting-tile" onclick="openSettingsModal()"><div class="locked-label">② ライド条件</div><div class="locked-value">条件を設定</div><div class="locked-sub">速度・時刻・天候</div></button>
+    <button type="button" class="locked-metric course-setting-tile" onclick="openSettingsModal()"><div class="locked-label">🚴‍♂️ 🏃 条件設定</div><div class="locked-value">条件を設定</div><div class="locked-sub">ライド・ラン共通</div></button>
   </div>
 </div>
 <div id="ride-flow-guide" class="ride-flow-guide"><b>① 地図をタップしてコース作成</b><span>→</span><b>② 上の「条件を設定」で速度・時刻を調整</b></div>
@@ -1998,10 +1998,18 @@ const FOOD_DATA=[
   {name:'ハンバーグ',  icon:'🍽️', unit:'定食',  kcal:680},
 ];
 
+function hasMappedCourse(){
+  try{
+    return Array.isArray(waypoints) && waypoints.length >= 2 && (+mcp.dist || 0) > 0;
+  }catch(e){
+    return false;
+  }
+}
+
 function updateTopCalorie(kcal, modeLabel){
   const el=document.getElementById('mcp-calories');
   const note=document.getElementById('mcp-calories-note');
-  const value=Math.max(0, Math.round(+kcal||0));
+  const value=hasMappedCourse() ? Math.max(0, Math.round(+kcal||0)) : 0;
   if(el) el.textContent=value.toLocaleString()+' kcal';
   if(note) note.textContent=value>0 ? ((modeLabel||'運動')+'・実走時間連動') : 'コース未作成';
 }
@@ -2014,7 +2022,7 @@ function calcCalorie(netMins, weight){
 }
 
 function renderCaloriePanel(netMins, weight){
-  const kcal = calcCalorie(netMins, weight);
+  const kcal = hasMappedCourse() ? calcCalorie(netMins, weight) : 0;
   if(!kcal || kcal <= 0){
     document.getElementById('calorie-panel').style.display = 'none';
     updateTopCalorie(0, 'Ride');
@@ -2358,7 +2366,7 @@ function loadPrefRunUI(){
 ══════════════════════════════════════ */
 function renderRunCaloriePanel(netMins, weight){
   const MET=9.8;
-  const kcal=Math.round(MET*weight*(netMins/60));
+  const kcal=hasMappedCourse() ? Math.round(MET*weight*(netMins/60)) : 0;
   if(!kcal||kcal<=0){
     document.getElementById('run-calorie-panel').style.display='none';
     updateTopCalorie(0, 'Run');
@@ -3793,20 +3801,18 @@ function setRunDefaultTimeMode(mode){
   localStorage.setItem('rpp_time_mode', mode);
   if(typeof _updateModeButtons === 'function') _updateModeButtons(mode);
 
-  const p = (typeof _getRunSettings === 'function') ? _getRunSettings() : {};
+  const now = _getCurrentTimeParts();
   if(mode === 'goal-first'){
-    const goal = (document.getElementById('run-goal')?.value || p.goal || '07:00');
-    const [eh=7, em=0] = goal.split(':').map(Number);
-    mcp.endH = eh; mcp.endM = em;
+    const goal = now.str;
+    mcp.endH = now.h; mcp.endM = now.m;
     if(typeof setDialFromString === 'function') setDialFromString('end', goal);
     if(typeof syncDialToHidden === 'function') syncDialToHidden('end');
     if(typeof smartCalc === 'function') smartCalc('end');
   }else{
     if(typeof clearEndDial === 'function') clearEndDial();
     mcp.endH = null; mcp.endM = null;
-    const start = (document.getElementById('run-start')?.value || p.start || '08:00');
-    const [sh=8, sm=0] = start.split(':').map(Number);
-    mcp.startH = sh; mcp.startM = sm;
+    const start = now.str;
+    mcp.startH = now.h; mcp.startM = now.m;
     if(typeof setDialFromString === 'function') setDialFromString('start', start);
     if(typeof syncDialToHidden === 'function') syncDialToHidden('start');
     if(typeof smartCalc === 'function') smartCalc('start');
@@ -5612,6 +5618,19 @@ function _mcpShowDial(type, h, m){
 /* ── MCP メイン計算エンジン ── */
 /* trigger: 'dist'|'spd'|'start'|'end'|'detail'|'route'|'force' */
 function mcpCalc(trigger){
+  // コース作成・再計算時は、保存時刻ではなく現在時刻を計算基準にする。
+  if(trigger === 'route'){
+    const now = _getCurrentTimeParts();
+    const timeMode = localStorage.getItem('rpp_time_mode') || 'start-first';
+    if(timeMode === 'goal-first'){
+      mcp.endH = now.h; mcp.endM = now.m;
+      window._mcpPredEndH = null; window._mcpPredEndM = null;
+    }else{
+      mcp.startH = now.h; mcp.startM = now.m;
+      mcp.endH = null; mcp.endM = null;
+      window._mcpPredEndH = null; window._mcpPredEndM = null;
+    }
+  }
   // ルートデータ優先
   const rd = window._routeData;
   if(rd && rd.distKm > 0){
@@ -6194,10 +6213,12 @@ function refreshLockedPanelValues(){
     }
     if(typeof mcp!=='undefined'){
       mcp.dist=r.dist; mcp.elev=r.elev; mcp.spd=r.flat; baseSpdValue=r.flat; mcp.source='manual';
-      const st=String(val('modal-start', p.start||'08:00')).split(':').map(Number); mcp.startH=st[0]||8; mcp.startM=st[1]||0;
+      const now=_getCurrentTimeParts();
       const mode=localStorage.getItem('rpp_time_mode')||'start-first';
       if(mode==='goal-first'){
-        const gt=String(val('modal-goal', p.goalTime||'07:00')).split(':').map(Number); mcp.endH=gt[0]||7; mcp.endM=gt[1]||0;
+        mcp.endH=now.h; mcp.endM=now.m;
+      }else{
+        mcp.startH=now.h; mcp.startM=now.m; mcp.endH=null; mcp.endM=null;
       }
     }
     setVal('mcp-dist', r.dist); setVal('mcp-elev', Math.round(r.elev)); setVal('mcp-spd', r.flat.toFixed(1));
@@ -6733,7 +6754,8 @@ function refreshLockedPanelValues(){
     var tripMin=rideMin/(ratio/100);
     if(typeof mcp==='object'){
       mcp.dist=dist; mcp.elev=elev; mcp.spd=spd; window.baseSpdValue=spd;
-      var st=timeParts(p.start||'08:00',8,0), gt=timeParts(p.goal||'07:00',7,0);
+      var nowParts=_getCurrentTimeParts();
+      var st={h:nowParts.h,m:nowParts.m}, gt={h:nowParts.h,m:nowParts.m};
       var mode=localStorage.getItem('rpp_time_mode')||'start-first';
       if(mode==='goal-first'){
         var start=addMin(gt,-tripMin); mcp.startH=start.h; mcp.startM=start.m; mcp.endH=gt.h; mcp.endM=gt.m;
@@ -6959,7 +6981,8 @@ function refreshLockedPanelValues(){
     var movingMin=r.dist>0 ? r.dist/corrected*60 : 0;
     var totalMin=movingMin/(ratio/100);
     var mode=localStorage.getItem('rpp_time_mode')||'start-first';
-    var st=parseTime(p.start,8,0), gt=parseTime(p.goal,7,0);
+    var nowParts=(typeof _getCurrentTimeParts==='function')?_getCurrentTimeParts():{h:new Date().getHours(),m:new Date().getMinutes()};
+    var st={h:nowParts.h,m:nowParts.m}, gt={h:nowParts.h,m:nowParts.m};
     if(mode==='goal-first') st=addMinutes(gt,-totalMin); else gt=addMinutes(st,totalMin);
 
     if(typeof mcp==='object'){
@@ -7148,6 +7171,24 @@ function refreshLockedPanelValues(){
   document.addEventListener('DOMContentLoaded',function(){ensurePanel();installDrawHook();['calc','applyRunSettings','mcpSyncFromRoute','hardClearRoute','rppApplyRideModalToTop'].forEach(hook);setTimeout(update,300)});
   window.updatePlannedLoad=update;
 })();
+</script>
+
+
+<script>
+window.addEventListener('load', function(){
+  setTimeout(function(){
+    if(!(Array.isArray(window.waypoints) && window.waypoints.length >= 2)){
+      var c=document.getElementById('mcp-calories');
+      var n=document.getElementById('mcp-calories-note');
+      if(c) c.textContent='0 kcal';
+      if(n) n.textContent='コース未作成';
+      var rp=document.getElementById('calorie-panel');
+      var rnp=document.getElementById('run-calorie-panel');
+      if(rp) rp.style.display='none';
+      if(rnp) rnp.style.display='none';
+    }
+  }, 50);
+});
 </script>
 
 </body>
