@@ -50,8 +50,8 @@ body.pc-mode .ride-settings-col{overflow-y:scroll;border-left:1px solid var(--bo
 body.pc-mode #drawer-toggle{display:none}
 body.pc-mode #drawer-content{display:block !important}
 /* PCモードではMCPバーを非表示（右カラムに統合） */
-body.pc-mode #mcp-bar{display:none !important}
-body.pc-mode #mcp-sidebar{display:block !important}
+body.pc-mode #mcp-bar{display:flex !important}
+body.pc-mode #mcp-sidebar{display:none !important}
 /* SPモードではMCPサイドバーを非表示 */
 body.sp-mode #mcp-sidebar{display:none !important}
 
@@ -204,7 +204,7 @@ input[type=number],input[type=text],input[type=time],select{
   #mcp-end-h,#mcp-end-m,#mcp-start-h,#mcp-start-m{font-size:15px;min-width:22px}
 }
 /* PC サイドバー sticky */
-body.pc-mode #mcp-sidebar{display:block !important}
+body.pc-mode #mcp-sidebar{display:none !important}
 body.pc-mode .ride-settings-col{padding-top:0}
 /* pp pill */
 .pp{background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--rs);padding:5px 8px;text-align:center}
@@ -629,7 +629,7 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
           <button onclick="manualSync()">🔄 再計算</button>
           <button class="fs-gpx" onclick="downloadGPX()">GPX保存</button>
           <button onclick="showSaveDialog()">💾 保存</button>
-          <button class="fs-course" onclick="openSettingsModal()">⚙ ライド条件</button>
+          <button class="fs-course" onclick="openSettingsModal()">🚴‍♂️🏃 条件設定</button>
           <button onclick="setRouteMode('cycle')">🚲 自転車</button>
           <button onclick="setRouteMode('road')">🛣 一般車道</button>
           <button onclick="setRouteMode('toll')">🚘 有料道路</button>
@@ -835,8 +835,8 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
     <div id="wp-list" style="max-height:150px;overflow-y:auto"></div>
   </div>
 
-  <!-- 日照タイムライン（常時表示・最上部） -->
-  <div class="panel" style="margin-bottom:9px">
+  <!-- 日照タイムライン（全モード共通・上部表示） -->
+  <div class="panel" id="daylight-panel" style="margin-bottom:9px">
     <!-- 行1：日付・地域（独立した行） -->
     <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px">
       <input type="date" id="dl-date" oninput="renderDaylight();updateAutoTempFromDate()"
@@ -7263,6 +7263,42 @@ window.addEventListener('load', function(){
     }
   }, 50);
 });
+</script>
+
+
+<style>
+/* ── PC/SP 共通操作仕様 ──
+   PC表示はレイアウトだけを広げ、操作定義はスマホ表示と共通にする。 */
+body.pc-mode #mcp-bar{display:flex!important}
+body.pc-mode #mcp-sidebar{display:none!important}
+body.pc-mode .ride-settings-col{overflow-y:auto}
+#daylight-panel{order:-10}
+@media(min-width:769px){
+  body.pc-mode #drawer-content{display:flex!important;flex-direction:column}
+  body.pc-mode #daylight-panel{position:relative;top:auto;z-index:auto}
+  body.pc-mode #dl-timeline-row{min-width:0!important}
+}
+</style>
+<script>
+(function(){
+  function unifyPcAndMobilePanels(){
+    var drawer=document.getElementById('drawer-content');
+    var daylight=document.getElementById('daylight-panel');
+    var summary=document.getElementById('route-summary-panel');
+    if(!drawer||!daylight)return;
+    /* 日照情報をルート概要の直後へ移動。PC/SPで同じDOM・同じ機能を使用する。 */
+    if(summary && summary.parentNode===drawer){
+      summary.insertAdjacentElement('afterend',daylight);
+    }else if(daylight.parentNode!==drawer){
+      drawer.insertBefore(daylight,drawer.firstChild);
+    }
+    /* 旧PC専用入力欄は値の正本を持たせず、完全に非表示。 */
+    var legacy=document.getElementById('mcp-sidebar');
+    if(legacy) legacy.style.display='none';
+  }
+  document.addEventListener('DOMContentLoaded',unifyPcAndMobilePanels);
+  window.addEventListener('load',function(){setTimeout(unifyPcAndMobilePanels,0)});
+})();
 </script>
 
 </body>
