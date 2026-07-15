@@ -486,7 +486,7 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
 <!-- GPS再取得ボタン（常時表示） -->
 <button id="gps-retry-btn" onclick="retryGPS()" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">📍</button>
 <header>
-  <h1>RIDE &amp; RUN Planner <span class="ver">v8.70 FLOW</span></h1>
+  <h1>RIDE &amp; RUN Planner <span class="ver">v8.71 ROUND</span></h1>
   <span class="sub">Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
@@ -4019,13 +4019,28 @@ function addForcedWaypoint(latLng){
   renderWpList();
 }
 
+function isNearStartPoint(latLng){
+  if(!latLng || waypoints.length<2 || !waypoints[0] || !google?.maps?.geometry?.spherical) return false;
+  const meters=google.maps.geometry.spherical.computeDistanceBetween(latLng,waypoints[0]);
+  // 地図上でスタート地点を再選択した操作を吸収する許容範囲。
+  // 山間部やスマホ操作でも選びやすいよう120m以内を同一点とみなす。
+  return Number.isFinite(meters) && meters<=120;
+}
+
 function addWaypoint(latLng){
   if(_routeCalculating) return; // 計算中は無視
+
+  // 既にコースがあり、スタート付近を再選択した場合は、
+  // 新しい通常地点ではなく「スタート地点をゴール」として閉じる。
+  const autoCloseToStart=isNearStartPoint(latLng);
+  if(autoCloseToStart){
+    latLng=waypoints[0]; // 誤差を残さず、完全に同じ座標で閉じる
+  }
 
   saveHistory();
   const idx=waypoints.length;
   waypoints.push(latLng);
-  waypointKinds.push('normal');
+  waypointKinds.push(autoCloseToStart?'goal':'normal');
 
   if(waypoints.length===1){
     // 1点目：マーカーのみ
@@ -4043,11 +4058,11 @@ function addWaypoint(latLng){
   } else {
     // 2点目以降：前の地点から道路スナップでルート計算
     _routeCalculating=true;
-    snapAndAddWaypoint(latLng, idx);
+    snapAndAddWaypoint(latLng, idx, autoCloseToStart);
   }
 }
 
-function snapAndAddWaypoint(latLng, idx){
+function snapAndAddWaypoint(latLng, idx, autoCloseToStart=false){
   // origin = 直前のwaypoint、destination = クリック地点
   const origin=waypoints[idx-1];
   const profile=getRouteProfile();
@@ -4063,19 +4078,38 @@ function snapAndAddWaypoint(latLng, idx){
   },(result, status)=>{
     _routeCalculating=false;
     if(status==='OK'){
-      // 道路上にスナップ：end_locationで地点を上書き
-      const snapped=result.routes[0].legs[0].end_location;
+      // 通常地点は道路上へスナップ。スタート再選択によるゴールは
+      // 完全にスタートと同じ座標を維持し、往復コースとして閉じる。
+      const snapped=autoCloseToStart?waypoints[0]:result.routes[0].legs[0].end_location;
       waypoints[idx]=snapped;
-      createMarker(snapped, idx);
-      // 全区間を再計算
+      if(autoCloseToStart){
+        goalFixed=true;
+        const rtEl=document.getElementById('r-roundtrip');
+        if(rtEl) rtEl.value='0'; // ルート自体に復路を含むため距離の二重化を防止
+        if(typeof updateRtLabel==='function') updateRtLabel();
+      }
+      // S/Gが同座標になるので、全マーカーを再描画してGを最前面へ出す。
+      markers.forEach(m=>m&&m.setMap(null));
+      markers=[];
+      waypoints.forEach((ll,i)=>createMarker(ll,i));
       calcRoute();
     } else {
-      // スナップ失敗：クリック地点そのままで追加
-      createMarker(latLng, idx);
+      // スナップ失敗でも、スタート再選択なら正確なスタート座標で閉じる。
+      if(autoCloseToStart){
+        waypoints[idx]=waypoints[0];
+        goalFixed=true;
+        const rtEl=document.getElementById('r-roundtrip');
+        if(rtEl) rtEl.value='0';
+        if(typeof updateRtLabel==='function') updateRtLabel();
+      }
+      markers.forEach(m=>m&&m.setMap(null));
+      markers=[];
+      waypoints.forEach((ll,i)=>createMarker(ll,i));
       calcRoute();
     }
     renderWpList();
     updateGoalFlagBtn();
+    if(autoCloseToStart && typeof showToast==='function') showToast('🏁 スタート地点をゴールに設定し、往復全体を計算します');
   });
 }
 
@@ -4154,11 +4188,13 @@ function removeWaypoint(idx){
   // 地点削除もUndo対象にする。削除前のコース状態を保存。
   saveHistory();
   const oldLength=waypoints.length;
+  const removedWasGoal = goalFixed && idx===oldLength-1;
   remapManualSegmentsForRemove(idx,oldLength);
   markers[idx]&&markers[idx].setMap(null);
   waypoints.splice(idx,1);
   waypointKinds.splice(idx,1);
   markers.splice(idx,1);
+  if(removedWasGoal || waypoints.length<2) goalFixed=false;
   // 全マーカーを再描画（ラベル更新）
   markers.forEach(m=>m.setMap(null));
   markers=[];
