@@ -418,6 +418,12 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
 /* v8.66 地図コース基準シミュレーション */
 .route-readonly-value{font-size:18px;font-weight:800;padding:9px 10px;border:1.5px solid var(--blue);border-radius:var(--rs);background:var(--bluebg);color:var(--blue);font-variant-numeric:tabular-nums}
 .route-readonly-empty{border-color:var(--border2);background:var(--bg2);color:var(--text3)}
+
+/* v8.71 モーダル時刻をトップMCPと共通化 */
+.modal-time-linked-card{text-align:center;min-width:0}
+.modal-time-linked-value{font-size:25px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--text);line-height:1.15;margin:3px 0}
+.modal-time-linked-value.goal{color:var(--amber)}
+@media(max-width:500px){.modal-time-linked-value{font-size:22px}}
 </style>
 
 <script>
@@ -2636,12 +2642,23 @@ function openSettingsModal(){
               <div class="field"><label>NP直接 (W)</label><input type="number" id="modal-np" step="1" placeholder="空欄=W/kgから" oninput="saveUserPref(true)"></div>
             </div>
           </div>
-          <div class="flow-step-title"><span>3</span>出発・到着時刻</div><div class="flow-step-help">先に「スタートから計算」か「ゴールから逆算」を選び、必要な時刻だけ設定します。</div>
-          <div class="g3" style="gap:10px;margin-bottom:14px">
-            <div class="field"><label>スタート時刻</label><input type="time" id="modal-start" value="08:00" oninput="saveUserPref(true)"><div class="hint">スタートから計算時の基準</div></div>
-            <div class="field"><label>ゴール時刻</label><input type="time" id="modal-goal" value="07:00" oninput="saveUserPref(true)"><div class="hint">ゴール時間で逆算時の基準</div></div>
-            <div class="field"><label>都道府県（日照・平均気温）</label><select id="modal-pref" onchange="saveUserPref(true);updateAutoTempFromDate()" style="font-size:13px;padding:7px 9px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text);width:100%"></select></div>
+          <div class="flow-step-title"><span>3</span>出発・到着時刻</div><div class="flow-step-help">トップ画面の時刻と完全連動します。ここで別の時刻を入力する必要はありません。</div>
+          <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin-bottom:12px;padding:10px;border:0.5px solid var(--border);border-radius:12px;background:var(--bg2)">
+            <div class="modal-time-linked-card">
+              <div class="locked-label">🟢 START</div>
+              <div class="modal-time-linked-value" id="modal-start-display">--:--</div>
+              <div class="hint">トップと連動</div>
+            </div>
+            <div style="font-size:18px;color:var(--text3)">→</div>
+            <div class="modal-time-linked-card">
+              <div class="locked-label">🔴 GOAL</div>
+              <div class="modal-time-linked-value goal" id="modal-goal-display">--:--</div>
+              <div class="hint">所要時間から自動算出</div>
+            </div>
           </div>
+          <input type="hidden" id="modal-start" value="08:00">
+          <input type="hidden" id="modal-goal" value="">
+          <div class="field" style="margin-bottom:14px"><label>都道府県（日照・平均気温）</label><select id="modal-pref" onchange="saveUserPref(true);updateAutoTempFromDate()" style="font-size:13px;padding:7px 9px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text);width:100%"></select></div>
 
           <div class="flow-step-title optional"><span>4</span>天候・体調 <small>任意</small></div><div class="flow-step-help">予想時間を細かく補正したい場合だけ変更します。</div>
           <div class="g3" style="gap:10px;margin-bottom:12px">
@@ -2671,6 +2688,7 @@ function openSettingsModal(){
   loadUserPrefUI();
   if(typeof ensureSettingsRideRunTabs==='function') ensureSettingsRideRunTabs();
   m.style.display='flex';
+  try{ mcpFlushAll(window._lastMcpTotalMins||0, window._lastMcpMoveSpd||0); }catch(e){}
 }
 
 function ensureSettingsRideRunTabs(){
@@ -2764,9 +2782,16 @@ function getRunSettingsPanelHtml(){
       <div id="run-zonebar" class="zone-cards"></div>
     </div>
 
-    <div class="g2" style="gap:10px;margin-bottom:14px">
-      <div class="field"><label>スタート時刻</label><input type="time" id="run-start" value="08:00" oninput="saveRunSettings(true)"><div class="hint">スタートから計算時の基準</div></div>
-      <div class="field"><label>ゴール時刻</label><input type="time" id="run-goal" value="07:00" oninput="saveRunSettings(true)"><div class="hint">ゴール時間で逆算時の基準</div></div>
+    <div style="margin:4px 0 14px">
+      <div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:6px">出発・到着時刻</div>
+      <div class="hint" style="margin-bottom:8px">トップ画面の時刻と完全連動します。</div>
+      <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;padding:10px;border:0.5px solid var(--border);border-radius:12px;background:var(--bg2)">
+        <div class="modal-time-linked-card"><div class="locked-label">🟢 START</div><div class="modal-time-linked-value" id="run-start-display">--:--</div><div class="hint">トップと連動</div></div>
+        <div style="font-size:18px;color:var(--text3)">→</div>
+        <div class="modal-time-linked-card"><div class="locked-label">🔴 GOAL</div><div class="modal-time-linked-value goal" id="run-goal-display">--:--</div><div class="hint">所要時間から自動算出</div></div>
+      </div>
+      <input type="hidden" id="run-start" value="08:00">
+      <input type="hidden" id="run-goal" value="">
     </div>
 
     <div style="display:flex;gap:10px;align-items:center;margin-top:8px">
@@ -5597,6 +5622,19 @@ function mcpFlushAll(totalMins, moveSpdEff){
     dialState.end = {h: null, m: null};
     updateDialDisplay('end');
   }
+
+  // モーダル内の時刻表示もトップMCPと同じ状態へ同期
+  const modalStartInput=document.getElementById('modal-start'); if(modalStartInput) modalStartInput.value=startStr;
+  const runStartInput=document.getElementById('run-start'); if(runStartInput) runStartInput.value=startStr;
+  const modalStartDisplay=document.getElementById('modal-start-display'); if(modalStartDisplay) modalStartDisplay.textContent=startStr;
+  const runStartDisplay=document.getElementById('run-start-display'); if(runStartDisplay) runStartDisplay.textContent=startStr;
+  let linkedGoal='--:--';
+  if(endIsSet){ linkedGoal=`${String(mcp.endH).padStart(2,'0')}:${String(mcp.endM).padStart(2,'0')}`; }
+  else if(window._mcpPredEndH !== undefined && window._mcpPredEndH !== null){ linkedGoal=`${String(window._mcpPredEndH).padStart(2,'0')}:${String(window._mcpPredEndM||0).padStart(2,'0')}`; }
+  const modalGoalInput=document.getElementById('modal-goal'); if(modalGoalInput) modalGoalInput.value=linkedGoal==='--:--'?'':linkedGoal;
+  const runGoalInput=document.getElementById('run-goal'); if(runGoalInput) runGoalInput.value=linkedGoal==='--:--'?'':linkedGoal;
+  const modalGoalDisplay=document.getElementById('modal-goal-display'); if(modalGoalDisplay) modalGoalDisplay.textContent=linkedGoal;
+  const runGoalDisplay=document.getElementById('run-goal-display'); if(runGoalDisplay) runGoalDisplay.textContent=linkedGoal;
 
   // ④ 黒帯バー（map-stats-bar）
   const bar = document.getElementById('map-stats-bar');
