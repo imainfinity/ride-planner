@@ -7625,5 +7625,76 @@ body.pc-mode .ride-settings-col{overflow-y:auto}
 })();
 </script>
 
+
+<script>
+/* v8.74: ルート確定後の所要時間を本計算から強制同期 */
+(function(){
+  var lastKey='';
+  var busy=false;
+  function el(id){return document.getElementById(id)}
+  function n(v,d){v=Number(v);return Number.isFinite(v)?v:(d||0)}
+  function fmt(mins){
+    mins=Math.max(0,n(mins));
+    var h=Math.floor(mins/60),m=Math.round(mins%60);
+    if(m>=60){h++;m-=60}
+    return h+':'+String(m).padStart(2,'0');
+  }
+  function routeReady(){
+    var r=window._routeData;
+    return !!(r && n(r.distKm)>0);
+  }
+  function write(mins,note){
+    if(!(mins>0)) return;
+    window._lastTotalMins=mins;
+    var t=fmt(mins);
+    ['mcp-total','mcp-sb-total','msb-time','rsp-time'].forEach(function(id){var x=el(id);if(x)x.textContent=t});
+    var nt=el('mcp-time-note');if(nt)nt.textContent=note||'Ratio込み';
+    try{if(typeof updatePlannedLoad==='function')updatePlannedLoad()}catch(e){}
+  }
+  function calculate(){
+    if(busy)return;
+    if(!routeReady()){
+      ['mcp-total','mcp-sb-total'].forEach(function(id){var x=el(id);if(x)x.textContent='0:00'});
+      return;
+    }
+    busy=true;
+    try{
+      var mode=localStorage.getItem('rpp_simulation_mode')==='run'?'run':'ride';
+      if(mode==='run' && typeof window.applyRunSettings==='function'){
+        window.applyRunSettings(true);
+        var txt=el('mcp-total')&&el('mcp-total').textContent;
+        if(txt && txt!=='—' && txt!=='0:00'){
+          var a=txt.split(':').map(Number);write(a[0]*60+a[1],'Run・Ratio込み');
+        }
+      }else{
+        if(typeof mcpSyncFromRoute==='function') mcpSyncFromRoute();
+        else if(typeof mcpCalc==='function') mcpCalc('route');
+        var mins=0;
+        try{if(typeof calcTotalMins==='function')mins=n(calcTotalMins())}catch(e){}
+        if(!(mins>0)){
+          var r=window._routeData||{};
+          var spd=n(window._lastMoveSpd)||n(el('mcp-corrected-spd-display')?.textContent)||n(el('mcp-spd')?.value,25);
+          var ratio=n(el('r-ratio')?.value,85)/100;
+          if(n(r.distKm)>0&&spd>0&&ratio>0)mins=n(r.distKm)/spd*60/ratio;
+        }
+        write(mins,'Ride・Ratio込み');
+      }
+    }finally{busy=false}
+  }
+  function watch(){
+    var r=window._routeData;
+    var key=r?[n(r.distKm).toFixed(4),n(r.gainM).toFixed(1),localStorage.getItem('rpp_simulation_mode')||'ride'].join('|'):'none';
+    if(key!==lastKey){lastKey=key;setTimeout(calculate,30);setTimeout(calculate,350)}
+  }
+  ['calcRoute','mergeAndProcessRoutes','processElevation','applyDistOnly','mcpSyncFromRoute'].forEach(function(name){
+    var old=window[name];if(typeof old!=='function'||old.__v874)return;
+    var w=function(){var ret=old.apply(this,arguments);setTimeout(calculate,30);setTimeout(calculate,400);return ret};w.__v874=true;window[name]=w;
+  });
+  document.addEventListener('DOMContentLoaded',function(){setInterval(watch,250);setTimeout(calculate,600)});
+  window.addEventListener('load',function(){setTimeout(calculate,800)});
+  window.forceDurationRecalc=calculate;
+})();
+</script>
+
 </body>
 </html>
