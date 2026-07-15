@@ -4145,6 +4145,7 @@ function renderWpList(){
 
 function calcRoute(){
   if(waypoints.length<2) return;
+  const routeRequestId=++window._routeCalcSeq;
   const modeEl=document.getElementById('route-mode');
   const avoidHW=modeEl&&modeEl.value==='avoid_hw';
 
@@ -4158,7 +4159,7 @@ function calcRoute(){
 
   function nextSeg(i){
     if(i>=segments.length){
-      mergeAndProcessRoutes(segResults);
+      mergeAndProcessRoutes(segResults,routeRequestId);
       return;
     }
     // レート制限回避：区間ごとに200ms間隔
@@ -4222,7 +4223,9 @@ function routeDist(route){
 }
 
 
-function mergeAndProcessRoutes(results){
+function mergeAndProcessRoutes(results,routeRequestId){
+  // Undo/Redoや地点変更後に、古い非同期計算結果で地図を上書きしない。
+  if(routeRequestId!==window._routeCalcSeq) return;
   let totalDist=0;
   const fullPath=[];
   const allLegs=[];
@@ -4271,6 +4274,7 @@ function mergeAndProcessRoutes(results){
     Array.from({length:N},(_,i)=>fullPath[Math.round(i*(fullPath.length-1)/(N-1))]);
 
   function fetchElev(attempt){
+    if(routeRequestId!==window._routeCalcSeq) return;
     elevationService.getElevationAlongPath(
       {path:sampled, samples:sampled.length},
       (elevResults,status)=>{
@@ -4666,39 +4670,36 @@ function redoRoute(){
 }
 
 function applyWaypointState(pts){
-  // 差分を最小限に更新（追加/削除した地点のみ反映）
-  const newLen=pts.length;
-  const oldLen=waypoints.length;
+  // Undo/Redoでは差分更新をしない。
+  // 地点配列・マーカー・ルート線を履歴の状態から完全に再構築する。
+  // 途中の地点を削除して戻した場合も、S→1→2…の順序と経路を正しく復元する。
+  window._routeCalcSeq=(window._routeCalcSeq||0)+1; // 実行中の古いルート計算を無効化
 
-  if(newLen<oldLen){
-    // 末尾から削除
-    for(let i=oldLen-1;i>=newLen;i--){
-      if(markers[i]){ markers[i].setMap(null); markers.splice(i,1); }
-      waypoints.splice(i,1);
-    }
-  } else if(newLen>oldLen){
-    // 末尾に追加
-    for(let i=oldLen;i<newLen;i++){
-      const ll=new google.maps.LatLng(pts[i].lat,pts[i].lng);
-      waypoints.push(ll);
-      createMarker(ll,i);
-    }
-  } else {
-    // 同数で位置が変わった場合（移動）
-    markers.forEach(m=>m&&m.setMap(null)); markers=[];
-    waypoints=pts.map(pt=>new google.maps.LatLng(pt.lat,pt.lng));
-    waypoints.forEach((ll,i)=>createMarker(ll,i));
+  if(window._mergedPolyline){
+    window._mergedPolyline.setMap(null);
+    window._mergedPolyline=null;
   }
+  try{ directionsRenderer.setDirections({routes:[]}); }catch(e){}
+
+  markers.forEach(m=>m&&m.setMap(null));
+  markers=[];
+  waypoints=(pts||[]).map(pt=>new google.maps.LatLng(Number(pt.lat),Number(pt.lng)));
+  waypoints.forEach((ll,i)=>createMarker(ll,i));
+
+  lastRoutePath=[];
+  lastRouteResult=null;
+  window._mergedLegDists=[];
 
   updateGoalFlagBtn();
-  if(waypoints.length>=2) calcRoute();
-  else if(waypoints.length<2){
-    directionsRenderer.setDirections({routes:[]});
+  renderWpList();
+
+  if(waypoints.length>=2){
+    calcRoute();
+  }else{
     document.getElementById('route-info').style.display='none';
-  const ew2=document.getElementById('elev-wrap'); if(ew2) ew2.style.display='none';
+    const ew2=document.getElementById('elev-wrap'); if(ew2) ew2.style.display='none';
     document.getElementById('map-stats-bar').style.display='none';
   }
-  renderWpList();
 }
 
 function restoreState(state){ applyWaypointState(state.waypoints||state); } // 後方互換
