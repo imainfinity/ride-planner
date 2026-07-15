@@ -630,10 +630,9 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
           <button class="fs-gpx" onclick="downloadGPX()">GPX保存</button>
           <button onclick="showSaveDialog()">💾 保存</button>
           <button class="fs-course" onclick="openSettingsModal()">⚙ ライド条件</button>
-          <select onchange="document.getElementById('route-mode').value=this.value;smartCalc('dist');if(waypoints.length>=2)calcRoute();this.blur()">
-            <option value="road">幹線優先</option>
-            <option value="avoid_hw">裏道優先</option>
-          </select>
+          <button onclick="setRouteMode('cycle')">🚲 自転車</button>
+          <button onclick="setRouteMode('road')">🛣 一般車道</button>
+          <button onclick="setRouteMode('toll')">🚘 有料道路</button>
         </div>
       </div>
       <div id="map-hover" style="display:none;position:absolute;bottom:60px;right:52px;background:rgba(0,0,0,0.82);color:#fff;border-radius:6px;padding:7px 10px;font-size:11px;line-height:1.6;pointer-events:none;z-index:20;text-align:right">
@@ -785,10 +784,13 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
     <button class="bp" onclick="downloadGPX()" title="作成したコースをGPXで保存" style="font-size:12px;padding:6px 12px;font-weight:800;background:var(--green);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.18)">💾 GPX保存</button>
     <button class="bs" onclick="showSaveDialog()"   style="font-size:11px;padding:4px 8px">💾</button>
     <button class="bp" onclick="manualSync()"       style="font-size:11px;padding:4px 10px">🔄</button>
-    <select id="route-mode" onchange="smartCalc('dist');if(waypoints.length>=2)calcRoute();" style="font-size:10px;padding:3px 5px;border:0.5px solid var(--border2);border-radius:var(--rs);background:var(--bg);color:var(--text)">
-      <option value="road">🟢 幹線優先</option>
-      <option value="avoid_hw">🟡 裏道優先</option>
-    </select>
+    <input type="hidden" id="route-mode" value="cycle">
+    <div style="display:flex;gap:3px;align-items:center;flex-wrap:wrap">
+      <button type="button" class="course-btn on" data-route-mode-btn="cycle" onclick="setRouteMode('cycle')">🚲 自転車</button>
+      <button type="button" class="course-btn" data-route-mode-btn="road" onclick="setRouteMode('road')">🛣 一般車道</button>
+      <button type="button" class="course-btn" data-route-mode-btn="toll" onclick="setRouteMode('toll')">🚘 有料道路</button>
+      <span id="route-mode-current" class="hint">自転車優先</span>
+    </div>
   </div>
 
   <!-- 📍 POI（オンデマンド・エリア指定方式） -->
@@ -3939,6 +3941,7 @@ function toggleGoal(){
 /* ── 地点追加（クリックで経由地を積む、ゴールは旗ボタンで確定） ── */
 /* ══ Strava風ルートスナップ実装 ══ */
 let _routeCalculating=false; // 計算中フラグ（連続クリック防止）
+window._routeCalcSeq=Number.isFinite(window._routeCalcSeq)?window._routeCalcSeq:0; // 初回計算をNaNにしない
 
 function addWaypoint(latLng){
   if(_routeCalculating) return; // 計算中は無視
@@ -3970,14 +3973,14 @@ function addWaypoint(latLng){
 function snapAndAddWaypoint(latLng, idx){
   // origin = 直前のwaypoint、destination = クリック地点
   const origin=waypoints[idx-1];
-  const modeEl=document.getElementById('route-mode');
-  const avoidHW=modeEl&&modeEl.value==='avoid_hw';
+  const profile=getRouteProfile();
 
   directionsService.route({
     origin,
     destination: latLng,
-    travelMode: google.maps.TravelMode.BICYCLING,
-    avoidHighways: avoidHW,
+    travelMode: profile.travelMode,
+    avoidHighways: profile.avoidHighways,
+    avoidTolls: profile.avoidTolls,
     avoidFerries: true,
     provideRouteAlternatives: false,
   },(result, status)=>{
@@ -4145,9 +4148,9 @@ function renderWpList(){
 
 function calcRoute(){
   if(waypoints.length<2) return;
+  if(!Number.isFinite(window._routeCalcSeq)) window._routeCalcSeq=0;
   const routeRequestId=++window._routeCalcSeq;
-  const modeEl=document.getElementById('route-mode');
-  const avoidHW=modeEl&&modeEl.value==='avoid_hw';
+  const profile=getRouteProfile();
 
   // 全区間を [wp0→wp1], [wp1→wp2], ... に分解して直列計算
   const segments=[];
@@ -4164,7 +4167,7 @@ function calcRoute(){
     }
     // レート制限回避：区間ごとに200ms間隔
     setTimeout(()=>{
-      calcSegment(segments[i][0], segments[i][1], avoidHW, (result)=>{
+      calcSegment(segments[i][0], segments[i][1], profile, (result)=>{
         segResults.push(result);
         nextSeg(i+1);
       });
@@ -4174,30 +4177,54 @@ function calcRoute(){
 }
 
 // 1区間を計算：BICYCLING優先、失敗時のみWALKING
-function calcSegment(origin, dest, avoidHW, callback){
-  // 第1優先: DRIVING avoidTolls（最短・安定）
+function getRouteProfile(){
+  const el=document.getElementById('route-mode');
+  const value=(el&&el.value)||'cycle';
+  if(value==='toll'){
+    return {value,travelMode:google.maps.TravelMode.DRIVING,avoidHighways:false,avoidTolls:false,label:'有料道路'};
+  }
+  if(value==='road'){
+    return {value,travelMode:google.maps.TravelMode.DRIVING,avoidHighways:true,avoidTolls:true,label:'一般車道'};
+  }
+  return {value:'cycle',travelMode:google.maps.TravelMode.BICYCLING,avoidHighways:false,avoidTolls:true,label:'自転車優先'};
+}
+
+function setRouteMode(value){
+  const el=document.getElementById('route-mode');
+  if(el) el.value=value;
+  document.querySelectorAll('[data-route-mode-btn]').forEach(btn=>{
+    btn.classList.toggle('on',btn.dataset.routeModeBtn===value);
+  });
+  const note=document.getElementById('route-mode-current');
+  const p=getRouteProfile();
+  if(note) note.textContent=p.label;
+  if(waypoints.length>=2) calcRoute();
+}
+
+// 1区間を計算。選択した道路方式を最優先し、取得不能時のみ安全な代替へフォールバック。
+function calcSegment(origin, dest, profile, callback){
   directionsService.route({
     origin, destination:dest,
-    travelMode:google.maps.TravelMode.DRIVING,
-    avoidHighways:avoidHW, avoidTolls:true, avoidFerries:true,
+    travelMode:profile.travelMode,
+    avoidHighways:profile.avoidHighways,
+    avoidTolls:profile.avoidTolls,
+    avoidFerries:true,
     provideRouteAlternatives:false,
   },(res,st)=>{
-    if(st==='OK'){ callback({routes:[res.routes[0]], mode:'driving'}); return; }
+    if(st==='OK'){ callback({routes:[res.routes[0]], mode:profile.value}); return; }
 
-    // 第2優先: BICYCLING
+    // 選択方式で取得できない場合は自転車ルート、最後に徒歩へフォールバック
     directionsService.route({
       origin, destination:dest,
       travelMode:google.maps.TravelMode.BICYCLING,
-      avoidHighways:false, avoidFerries:true,
+      avoidHighways:false, avoidTolls:true, avoidFerries:true,
       provideRouteAlternatives:false,
     },(res2,st2)=>{
       if(st2==='OK'){ callback({routes:[res2.routes[0]], mode:'alt'}); return; }
-
-      // 第3優先: WALKING（最終手段）
       directionsService.route({
         origin, destination:dest,
         travelMode:google.maps.TravelMode.WALKING,
-        avoidHighways:false, avoidFerries:true,
+        avoidHighways:false, avoidTolls:true, avoidFerries:true,
         provideRouteAlternatives:false,
       },(res3,st3)=>{
         if(st3==='OK'){ callback({routes:[res3.routes[0]], mode:'alt'}); return; }
