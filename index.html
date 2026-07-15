@@ -568,7 +568,9 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
 
       <!-- スマホ専用：地図上固定POIショートカットバー -->
       <div id="map-poi-floating" aria-label="POI shortcut buttons">
-        <button class="poi-float-btn cmd-danger" onclick="if(confirm('コースを削除しますか？')) hardClearRoute()" title="コース削除">🗑️<div>削除</div></button>
+        <button class="poi-float-btn cmd-danger" onclick="if(confirm('コースを完全に削除して初期状態へ戻しますか？')) hardClearRoute()" title="コース削除・初期化">🗑️<div>削除</div></button>
+        <button class="poi-float-btn" onclick="undoRoute()" title="直前の地点操作を戻す">↩️<div>戻る</div></button>
+        <button class="poi-float-btn" onclick="redoRoute()" title="戻した地点操作をやり直す">↪️<div>進む</div></button>
         <button class="poi-float-btn cmd-gpx" onclick="downloadGPX()" title="GPX保存">💾<div>GPX</div></button>
         <button class="poi-float-btn cmd-gpx" onclick="triggerGPXImport()" title="GPX読込">📂<div>読込</div></button>
         <div class="poi-float-sep" aria-hidden="true"></div>
@@ -4052,6 +4054,8 @@ function createMarker(latLng, idx){
 }
 
 function removeWaypoint(idx){
+  // 地点削除もUndo対象にする。削除前のコース状態を保存。
+  saveHistory();
   markers[idx]&&markers[idx].setMap(null);
   waypoints.splice(idx,1);
   markers.splice(idx,1);
@@ -4730,7 +4734,11 @@ function hardClearRoute(){
   // ④ localStorage の地図キャッシュも完全クリア
   ['rpp_route_cache'].forEach(k=>localStorage.removeItem(k));
   activePOIs.clear();
-  document.querySelectorAll('.poi-icon-btn,.poi-list-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.poi-icon-btn,.poi-list-btn,.poi-float-btn').forEach(b=>b.classList.remove('active'));
+
+  // 画面内に残った計算値・モーダル・一時状態も、ページ再読込と同等に完全初期化する。
+  // ルートキャッシュを先に削除しているため、再読込後に削除済みコースは復元されない。
+  window.setTimeout(()=>window.location.reload(), 60);
 }
 
 function clearRoute(){
