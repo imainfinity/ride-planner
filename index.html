@@ -571,6 +571,7 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
         <button class="poi-float-btn cmd-danger" onclick="if(confirm('コースを完全に削除して初期状態へ戻しますか？')) hardClearRoute()" title="コース削除・初期化">🗑️<div>削除</div></button>
         <button class="poi-float-btn" onclick="undoRoute()" title="直前の地点操作を戻す">↩️<div>戻る</div></button>
         <button class="poi-float-btn" onclick="redoRoute()" title="戻した地点操作をやり直す">↪️<div>進む</div></button>
+        <button class="poi-float-btn" id="force-waypoint-float" onclick="toggleForceWaypointMode()" title="通したい道路に強制経由点を追加">◆<div>経由</div></button>
         <button class="poi-float-btn cmd-gpx" onclick="downloadGPX()" title="GPX保存">💾<div>GPX</div></button>
         <button class="poi-float-btn cmd-gpx" onclick="triggerGPXImport()" title="GPX読込">📂<div>読込</div></button>
         <div class="poi-float-sep" aria-hidden="true"></div>
@@ -789,9 +790,12 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
       <button type="button" class="course-btn on" data-route-mode-btn="cycle" onclick="setRouteMode('cycle')">🚲 自転車</button>
       <button type="button" class="course-btn" data-route-mode-btn="road" onclick="setRouteMode('road')">🛣 一般車道</button>
       <button type="button" class="course-btn" data-route-mode-btn="toll" onclick="setRouteMode('toll')">🚘 有料道路</button>
+      <button type="button" class="course-btn" id="force-waypoint-btn" onclick="toggleForceWaypointMode()">◆ 強制経由</button>
       <span id="route-mode-current" class="hint">自転車優先</span>
+      <span id="route-edit-hint" class="hint" style="display:none;color:var(--amber);font-weight:700">地図上の通したい道路をクリック</span>
     </div>
   </div>
+  <div class="hint" style="margin:-2px 0 6px;line-height:1.45">迂回する場合：◆強制経由 → 通したい道路をクリック。まだ迂回する区間は地点リストの「自動」を押して ✏手動へ切替。</div>
 
   <!-- 📍 POI（オンデマンド・エリア指定方式） -->
   <div style="margin-bottom:6px">
@@ -3577,6 +3581,11 @@ function drawDistCanvas(tw, startH, endH, dist, moveSpd){
 let gmap=null, directionsService=null, directionsRenderer=null;
 let elevationService=null, geocoder=null, placesService=null;
 let waypoints=[], markers=[];
+// waypointKinds: normal=通常地点 / force=道路を通すための強制経由点
+let waypointKinds=[];
+// manualSegments: 区間開始インデックスをキーに、その区間だけ直線で結ぶ
+let manualSegments={};
+let _forceWaypointMode=false;
 let lastRouteResult=null, lastElevResults=null, lastRoutePath=null;
 let hoverPolyline=null; // ルート線上ホバー用の透明な太いライン
 
@@ -3764,7 +3773,8 @@ function initMap(){
     if(_poiSelectMode) return; // POIエリア選択中はwaypoint追加をロック
     if(sharedIW&&sharedIW.getMap()){sharedIW.close();return;}
     if(_routeCalculating) return;
-    addWaypoint(e.latLng);
+    if(_forceWaypointMode) addForcedWaypoint(e.latLng);
+    else addWaypoint(e.latLng);
   });
 
   // 右クリック → 確認ダイアログ（PC：既存地点間に挿入したい場合）
@@ -3943,12 +3953,79 @@ function toggleGoal(){
 let _routeCalculating=false; // 計算中フラグ（連続クリック防止）
 window._routeCalcSeq=Number.isFinite(window._routeCalcSeq)?window._routeCalcSeq:0; // 初回計算をNaNにしない
 
+function toggleForceWaypointMode(force){
+  _forceWaypointMode = (typeof force==='boolean') ? force : !_forceWaypointMode;
+  const btn=document.getElementById('force-waypoint-btn');
+  const fbtn=document.getElementById('force-waypoint-float');
+  const hint=document.getElementById('route-edit-hint');
+  if(btn) btn.classList.toggle('on',_forceWaypointMode);
+  if(fbtn) fbtn.classList.toggle('active',_forceWaypointMode);
+  if(hint) hint.style.display=_forceWaypointMode?'inline':'none';
+  if(gmap) gmap.setOptions({draggableCursor:_forceWaypointMode?'crosshair':null});
+  if(_forceWaypointMode && waypoints.length<2){
+    alert('先にスタートと次の地点を設定してください。強制経由点は既存区間の途中へ追加します。');
+    _forceWaypointMode=false;
+    if(btn) btn.classList.remove('on');
+    if(fbtn) fbtn.classList.remove('active');
+    if(hint) hint.style.display='none';
+  }
+}
+
+function pointToSegmentDistanceMeters(p,a,b){
+  // 小範囲用の局所平面近似。どの既存区間へ挿入するかの判定にのみ使用。
+  const lat0=(a.lat()+b.lat()+p.lat())/3*Math.PI/180;
+  const kx=111320*Math.cos(lat0), ky=110540;
+  const ax=a.lng()*kx, ay=a.lat()*ky;
+  const bx=b.lng()*kx, by=b.lat()*ky;
+  const px=p.lng()*kx, py=p.lat()*ky;
+  const dx=bx-ax, dy=by-ay;
+  const den=dx*dx+dy*dy;
+  const t=den?Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/den)):0;
+  return Math.hypot(px-(ax+t*dx),py-(ay+t*dy));
+}
+
+function nearestWaypointSegmentIndex(latLng){
+  let best=0, bestD=Infinity;
+  for(let i=0;i<waypoints.length-1;i++){
+    const d=pointToSegmentDistanceMeters(latLng,waypoints[i],waypoints[i+1]);
+    if(d<bestD){bestD=d;best=i;}
+  }
+  return best;
+}
+
+function shiftManualSegmentsForInsert(insertIdx){
+  const next={};
+  Object.keys(manualSegments).forEach(k=>{
+    const i=Number(k); if(!manualSegments[k]) return;
+    if(i<insertIdx-1) next[i]=true;
+    else if(i===insertIdx-1){next[i]=true;next[i+1]=true;}
+    else next[i+1]=true;
+  });
+  manualSegments=next;
+}
+
+function addForcedWaypoint(latLng){
+  if(waypoints.length<2){toggleForceWaypointMode(false);return;}
+  saveHistory();
+  const segIdx=nearestWaypointSegmentIndex(latLng);
+  const insertIdx=segIdx+1;
+  shiftManualSegmentsForInsert(insertIdx);
+  waypoints.splice(insertIdx,0,latLng);
+  waypointKinds.splice(insertIdx,0,'force');
+  markers.forEach(m=>m&&m.setMap(null)); markers=[];
+  waypoints.forEach((ll,i)=>createMarker(ll,i));
+  toggleForceWaypointMode(false); // 1回追加したら通常操作へ戻す
+  calcRoute();
+  renderWpList();
+}
+
 function addWaypoint(latLng){
   if(_routeCalculating) return; // 計算中は無視
 
   saveHistory();
   const idx=waypoints.length;
   waypoints.push(latLng);
+  waypointKinds.push('normal');
 
   if(waypoints.length===1){
     // 1点目：マーカーのみ
@@ -4005,10 +4082,12 @@ function snapAndAddWaypoint(latLng, idx){
 function createMarker(latLng, idx){
   const isFirst=idx===0;
   const isLast=goalFixed && idx===waypoints.length-1 && waypoints.length>1;
-  const color=isFirst?'#4ade80':isLast?'#f87171':'#378add';
-  const label=isFirst?'S':isLast?'G':String(idx);
+  const isForce=waypointKinds[idx]==='force';
+  const color=isFirst?'#4ade80':isLast?'#f87171':isForce?'#d97706':'#378add';
+  const label=isFirst?'S':isLast?'G':isForce?'◆':String(idx);
   const marker=new google.maps.Marker({
     position:latLng, map:gmap, draggable:true, zIndex:100,
+    title:isForce?'強制経由点':'地点 '+label,
     label:{text:label, color:'#fff', fontSize:'10px', fontWeight:'bold'},
     icon:{path:google.maps.SymbolPath.CIRCLE, scale:12,
           fillColor:color, fillOpacity:1, strokeColor:'#fff', strokeWeight:2}
@@ -4056,11 +4135,29 @@ function createMarker(latLng, idx){
   markers[idx]=marker;
 }
 
+function remapManualSegmentsForRemove(idx,oldLength){
+  const next={};
+  Object.keys(manualSegments).forEach(k=>{
+    const i=Number(k); if(!manualSegments[k]) return;
+    if(idx===0){ if(i>0) next[i-1]=true; }
+    else if(idx===oldLength-1){ if(i<idx-1) next[i]=true; }
+    else {
+      if(i<idx-1) next[i]=true;
+      else if(i===idx-1 || i===idx) next[idx-1]=true;
+      else if(i>idx) next[i-1]=true;
+    }
+  });
+  manualSegments=next;
+}
+
 function removeWaypoint(idx){
   // 地点削除もUndo対象にする。削除前のコース状態を保存。
   saveHistory();
+  const oldLength=waypoints.length;
+  remapManualSegmentsForRemove(idx,oldLength);
   markers[idx]&&markers[idx].setMap(null);
   waypoints.splice(idx,1);
+  waypointKinds.splice(idx,1);
   markers.splice(idx,1);
   // 全マーカーを再描画（ラベル更新）
   markers.forEach(m=>m.setMap(null));
@@ -4117,8 +4214,9 @@ function renderWpList(){
   list.innerHTML=waypoints.map((ll,i)=>{
     const isFirst=i===0;
     const isLast=goalFixed&&i===waypoints.length-1;
-    const color=isFirst?'#4ade80':isLast?'#f87171':'#60a5fa';
-    const lbl=isFirst?'S':isLast?'G':String(i);
+    const isForce=waypointKinds[i]==='force';
+    const color=isFirst?'#4ade80':isLast?'#f87171':isForce?'#d97706':'#60a5fa';
+    const lbl=isFirst?'S':isLast?'G':isForce?'◆'+i:String(i);
 
     if(i>0&&legDists[i-1]) cumDist+=legDists[i-1];
 
@@ -4132,12 +4230,14 @@ function renderWpList(){
     const gainStr=wpGains[i]!==null?(wpGains[i]>0?'+'+wpGains[i]+' m':'0 m'):'—';
     const distStr=i===0?'0 km':cumDist.toFixed(1)+' km';
 
-    return `<div class="wp-row">
+    const segManual=i>0 && !!manualSegments[i-1];
+    return `<div class="wp-row" style="grid-template-columns:10px 1fr 44px 40px 44px 42px 16px">
       <div style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0"></div>
       <div style="font-size:10px;font-weight:600">${lbl}</div>
       <div style="font-size:10px;color:var(--text2)">${distStr}</div>
       <div style="font-size:10px;font-weight:600;color:${isFirst?'#4ade80':isLast?'#f87171':'var(--text)'}">${timeStr}</div>
       <div style="font-size:10px;color:var(--text3)">${gainStr}</div>
+      ${i===0?'<span></span>':`<button onclick="toggleManualSegment(${i-1})" title="前の地点からこの地点までを自動／手動切替" style="padding:2px 3px;border:0.5px solid var(--border2);border-radius:4px;background:${segManual?'var(--amberbg)':'var(--bg)'};color:${segManual?'var(--amber)':'var(--text3)'};font-size:9px;cursor:pointer">${segManual?'✏手動':'自動'}</button>`}
       <button onclick="removeWaypoint(${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;padding:0;line-height:1">✕</button>
     </div>`;
   }).join('');
@@ -4155,7 +4255,7 @@ function calcRoute(){
   // 全区間を [wp0→wp1], [wp1→wp2], ... に分解して直列計算
   const segments=[];
   for(let i=0;i<waypoints.length-1;i++){
-    segments.push([waypoints[i], waypoints[i+1]]);
+    segments.push({origin:waypoints[i],dest:waypoints[i+1],index:i,manual:!!manualSegments[i]});
   }
 
   const segResults=[];
@@ -4167,10 +4267,10 @@ function calcRoute(){
     }
     // レート制限回避：区間ごとに200ms間隔
     setTimeout(()=>{
-      calcSegment(segments[i][0], segments[i][1], profile, (result)=>{
+      calcSegment(segments[i].origin, segments[i].dest, profile, (result)=>{
         segResults.push(result);
         nextSeg(i+1);
-      });
+      }, segments[i].manual);
     }, i===0 ? 0 : 200);
   }
   nextSeg(0);
@@ -4201,8 +4301,29 @@ function setRouteMode(value){
   if(waypoints.length>=2) calcRoute();
 }
 
+function toggleManualSegment(segIdx){
+  if(segIdx<0 || segIdx>=waypoints.length-1) return;
+  saveHistory();
+  if(manualSegments[segIdx]) delete manualSegments[segIdx];
+  else manualSegments[segIdx]=true;
+  calcRoute();
+  renderWpList();
+}
+
+function makeManualSegmentResult(origin,dest){
+  const meters=google.maps.geometry.spherical.computeDistanceBetween(origin,dest);
+  const leg={
+    start_location:origin,end_location:dest,
+    distance:{value:meters,text:(meters/1000).toFixed(1)+' km'},
+    duration:{value:0,text:'手動区間'},
+    steps:[{path:[origin,dest],distance:{value:meters}}]
+  };
+  return {routes:[{legs:[leg],overview_path:[origin,dest]}],mode:'manual'};
+}
+
 // 1区間を計算。選択した道路方式を最優先し、取得不能時のみ安全な代替へフォールバック。
-function calcSegment(origin, dest, profile, callback){
+function calcSegment(origin, dest, profile, callback, manual){
+  if(manual){callback(makeManualSegmentResult(origin,dest));return;}
   directionsService.route({
     origin, destination:dest,
     travelMode:profile.travelMode,
@@ -4291,8 +4412,12 @@ function mergeAndProcessRoutes(results,routeRequestId){
 
   // 迂回モード警告
   const hasAlt=results.some(r=>r&&r.mode==='alt');
+  const hasManual=results.some(r=>r&&r.mode==='manual');
   const warnEl=document.getElementById('route-mode-warn');
-  if(warnEl) warnEl.style.display=hasAlt?'block':'none';
+  if(warnEl){
+    warnEl.style.display=(hasAlt||hasManual)?'block':'none';
+    warnEl.textContent=hasManual?'※ ✏️手動区間を含みます。通行可否は利用者確認が必要です。':'※ 一部区間で迂回/歩行ルートを使用中';
+  }
 
   // 標高取得：最大150点に間引き（OVER_QUERY_LIMIT回避）
   if(fullPath.length<2){ applyDistOnly(distKm); return; }
@@ -4382,7 +4507,10 @@ function setupRouteDragOverlay(result){
     }
 
     // 経由地挿入 → 即再計算
+    saveHistory();
+    shiftManualSegmentsForInsert(insertIdx);
     waypoints.splice(insertIdx,0,clickLl);
+    waypointKinds.splice(insertIdx,0,'normal');
     markers.forEach(m=>m.setMap(null));
     markers=[];
     waypoints.forEach((ll,i)=>createMarker(ll,i));
@@ -4672,31 +4800,34 @@ const MAX_HISTORY=20;
 let historyStack=[];
 let redoStack=[];
 
+function captureRouteState(){
+  return {
+    waypoints:waypoints.map(ll=>({lat:ll.lat(),lng:ll.lng()})),
+    waypointKinds:[...waypointKinds],
+    manualSegments:{...manualSegments},
+    goalFixed:!!goalFixed
+  };
+}
+
 function saveHistory(){
-  // 追加前のwaypoints状態を保存（地点単位のスタック）
-  historyStack.push(waypoints.map(ll=>({lat:ll.lat(),lng:ll.lng()})));
+  historyStack.push(captureRouteState());
   if(historyStack.length>MAX_HISTORY) historyStack.shift();
   redoStack=[];
 }
 
 function undoRoute(){
   if(historyStack.length===0) return;
-  // 現在状態をRedoに積む
-  redoStack.push(waypoints.map(ll=>({lat:ll.lat(),lng:ll.lng()})));
-  // 1つ前の状態に戻す
-  const prev=historyStack.pop();
-  applyWaypointState(prev);
+  redoStack.push(captureRouteState());
+  applyWaypointState(historyStack.pop());
 }
 
 function redoRoute(){
   if(redoStack.length===0) return;
-  // 現在状態をUndoに積む
-  historyStack.push(waypoints.map(ll=>({lat:ll.lat(),lng:ll.lng()})));
-  const next=redoStack.pop();
-  applyWaypointState(next);
+  historyStack.push(captureRouteState());
+  applyWaypointState(redoStack.pop());
 }
 
-function applyWaypointState(pts){
+function applyWaypointState(state){
   // Undo/Redoでは差分更新をしない。
   // 地点配列・マーカー・ルート線を履歴の状態から完全に再構築する。
   // 途中の地点を削除して戻した場合も、S→1→2…の順序と経路を正しく復元する。
@@ -4710,7 +4841,12 @@ function applyWaypointState(pts){
 
   markers.forEach(m=>m&&m.setMap(null));
   markers=[];
-  waypoints=(pts||[]).map(pt=>new google.maps.LatLng(Number(pt.lat),Number(pt.lng)));
+  const pts=Array.isArray(state)?state:(state?.waypoints||[]);
+  waypoints=pts.map(pt=>new google.maps.LatLng(Number(pt.lat),Number(pt.lng)));
+  waypointKinds=Array.isArray(state?.waypointKinds)?[...state.waypointKinds]:waypoints.map(()=> 'normal');
+  while(waypointKinds.length<waypoints.length) waypointKinds.push('normal');
+  manualSegments=(state&&state.manualSegments)?{...state.manualSegments}:{};
+  if(state&&typeof state.goalFixed==='boolean') goalFixed=state.goalFixed;
   waypoints.forEach((ll,i)=>createMarker(ll,i));
 
   lastRoutePath=[];
@@ -4729,11 +4865,14 @@ function applyWaypointState(pts){
   }
 }
 
-function restoreState(state){ applyWaypointState(state.waypoints||state); } // 後方互換
+function restoreState(state){ applyWaypointState(state); } // 後方互換
 
 function hardClearRoute(){
   // Hard Clear：全内部変数を完全初期化
   waypoints=[];
+  waypointKinds=[];
+  manualSegments={};
+  toggleForceWaypointMode(false);
   markers.forEach(m=>m.setMap(null)); markers=[];
   poiMarkers.forEach(m=>m.setMap(null)); poiMarkers=[];
   if(window._dragOverlay){window._dragOverlay.setMap(null);window._dragOverlay=null;}
