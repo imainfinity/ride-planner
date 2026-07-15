@@ -4427,6 +4427,7 @@ function mergeAndProcessRoutes(results,routeRequestId){
 
   const distKm=(totalDist/1000).toFixed(1);
   lastRoutePath=fullPath;
+  window._routeDistanceIndex=null;
   lastRouteResult=results[0];
   window._mergedLegDists=allLegs.map(l=>l.distance.value/1000);
 
@@ -4492,6 +4493,7 @@ function processRoute(result){
   const distKm=(totalDist/1000).toFixed(1);
   const path=result.routes[0].overview_path;
   lastRoutePath=path;
+  window._routeDistanceIndex=null;
 
   // マーカー再描画（ズームなし）
   markers.forEach(m=>m.setMap(null));
@@ -4571,36 +4573,88 @@ function setupRouteDragOverlay(result){
   });
 }
 
+
+/* ══ 標高プロファイルと地図を実距離で同期 ══ */
+function buildRouteDistanceIndex(path){
+  if(!path||path.length<2) return {cum:[0],totalM:0};
+  const cum=[0];
+  let total=0;
+  for(let i=1;i<path.length;i++){
+    total+=google.maps.geometry.spherical.computeDistanceBetween(path[i-1],path[i]);
+    cum.push(total);
+  }
+  return {cum,totalM:total};
+}
+function ensureRouteDistanceIndex(){
+  if(!lastRoutePath||lastRoutePath.length<2) return {cum:[0],totalM:0};
+  if(!window._routeDistanceIndex || window._routeDistanceIndex.path!==lastRoutePath){
+    const idx=buildRouteDistanceIndex(lastRoutePath);
+    idx.path=lastRoutePath;
+    window._routeDistanceIndex=idx;
+  }
+  return window._routeDistanceIndex;
+}
+function routePointAtDistanceRatio(ratio){
+  const idx=ensureRouteDistanceIndex();
+  const path=lastRoutePath;
+  if(!path||!path.length) return null;
+  ratio=Math.max(0,Math.min(1,Number(ratio)||0));
+  if(idx.totalM<=0) return path[0];
+  const target=idx.totalM*ratio;
+  let lo=0,hi=idx.cum.length-1;
+  while(lo<hi){
+    const mid=Math.floor((lo+hi)/2);
+    if(idx.cum[mid]<target) lo=mid+1; else hi=mid;
+  }
+  const i=Math.max(1,lo);
+  const a=path[i-1], b=path[i];
+  const d0=idx.cum[i-1], d1=idx.cum[i];
+  const t=d1>d0?(target-d0)/(d1-d0):0;
+  return google.maps.geometry.spherical.interpolate(a,b,Math.max(0,Math.min(1,t)));
+}
+function routeDistanceRatioAtLatLng(ll){
+  const idx=ensureRouteDistanceIndex();
+  const path=lastRoutePath;
+  if(!path||path.length<2||idx.totalM<=0) return 0;
+  let bestRatio=0,bestDist=Infinity;
+  for(let i=1;i<path.length;i++){
+    const a=path[i-1], b=path[i];
+    const segM=Math.max(0.001,idx.cum[i]-idx.cum[i-1]);
+    const heading=google.maps.geometry.spherical.computeHeading(a,b);
+    const da=google.maps.geometry.spherical.computeDistanceBetween(a,ll);
+    const ha=google.maps.geometry.spherical.computeHeading(a,ll);
+    const along=Math.max(0,Math.min(segM,da*Math.cos((ha-heading)*Math.PI/180)));
+    const proj=google.maps.geometry.spherical.computeOffset(a,along,heading);
+    const d=google.maps.geometry.spherical.computeDistanceBetween(proj,ll);
+    if(d<bestDist){
+      bestDist=d;
+      bestRatio=(idx.cum[i-1]+along)/idx.totalM;
+    }
+  }
+  return Math.max(0,Math.min(1,bestRatio));
+}
+
 /* ── ルート上の任意地点の情報を返す ── */
 function getRouteInfoAtLatLng(ll){
   if(!lastRoutePath||!lastElevResults) return {km:0,elev:0,gain:0,grade:0};
-  const path=lastRoutePath;
-  // 最近傍パスインデックスを探す
-  let nearIdx=0, nearDist=Infinity;
-  path.forEach((pt,i)=>{
-    const d=google.maps.geometry.spherical.computeDistanceBetween(ll,pt);
-    if(d<nearDist){nearDist=d;nearIdx=i;}
-  });
-  const ratio=nearIdx/(path.length-1);
-  const elevIdx=Math.round(ratio*(lastElevResults.length-1));
+  const ratio=routeDistanceRatioAtLatLng(ll);
+  const idx=ensureRouteDistanceIndex();
+  const km=(idx.totalM*ratio)/1000;
+  const elevIdx=Math.max(0,Math.min(lastElevResults.length-1,Math.round(ratio*(lastElevResults.length-1))));
 
-  // スタートからの距離
-  let km=0;
-  for(let i=1;i<=nearIdx;i++){
-    km+=google.maps.geometry.spherical.computeDistanceBetween(path[i-1],path[i])/1000;
-  }
-  // 獲得標高累計
   let gain=0;
   for(let i=1;i<=elevIdx;i++){
     const diff=lastElevResults[i].elevation-lastElevResults[i-1].elevation;
-    if(diff>0) gain+=diff;
+    if(diff>1) gain+=diff;
   }
-  // 直近斜度
-  const e1=lastElevResults[Math.max(0,elevIdx-3)]?.elevation||0;
-  const e2=lastElevResults[Math.min(lastElevResults.length-1,elevIdx+3)]?.elevation||0;
-  const segKm=Math.max(0.001,km*6/(lastElevResults.length));
-  const grade=(e2-e1)/(segKm*1000)*100;
-  return {km, elev:lastElevResults[elevIdx]?.elevation||0, gain, grade};
+
+  const left=Math.max(0,elevIdx-3), right=Math.min(lastElevResults.length-1,elevIdx+3);
+  const e1=lastElevResults[left]?.elevation||0;
+  const e2=lastElevResults[right]?.elevation||0;
+  const sampleSpacingM=idx.totalM/Math.max(1,lastElevResults.length-1);
+  const gradeDistM=Math.max(1,(right-left)*sampleSpacingM);
+  const grade=(e2-e1)/gradeDistM*100;
+  return {km,elev:lastElevResults[elevIdx]?.elevation||0,gain,grade};
 }
 
 /* ── 標高プロファイルホバー ── */
@@ -4618,9 +4672,9 @@ function onElevHover(e){
   cur.style.display='block';
   cur.style.left=px+'px';
 
-  // 地図上にポイントマーカー
-  const pathIdx=Math.round(ratio*(lastRoutePath.length-1));
-  const ll=lastRoutePath[pathIdx];
+  // 地図上のポイントは配列番号ではなく、実走距離比率で対応させる
+  const ll=routePointAtDistanceRatio(ratio);
+  if(!ll) return;
   if(hoverPolyline) hoverPolyline.setMap(null);
   hoverPolyline=new google.maps.Marker({
     position:ll, map:gmap, zIndex:200,
@@ -4673,6 +4727,24 @@ function drawElevProfile(elevResults){
     i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
   });
   ctx.stroke();
+
+  // 地点位置を実距離比率で標高グラフ上に表示
+  if(Array.isArray(waypoints)&&waypoints.length&&lastRoutePath&&lastRoutePath.length>1){
+    ctx.save();
+    ctx.font='700 8px Helvetica Neue,Arial,sans-serif';
+    ctx.textAlign='center';
+    waypoints.forEach((wp,i)=>{
+      const r=routeDistanceRatioAtLatLng(wp);
+      const ei=Math.max(0,Math.min(elevs.length-1,Math.round(r*(elevs.length-1))));
+      const x=r*W;
+      const y=H-8-(elevs[ei]-minE)/range*(H-16);
+      ctx.fillStyle=i===0?'#22a06b':(i===waypoints.length-1&&window._roundTripGoal?'#d33b62':'#2f7ed8');
+      ctx.beginPath();ctx.arc(x,y,3.2,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle=dk?'#fff':'#111';
+      ctx.fillText(i===0?'S':(i===waypoints.length-1&&window._roundTripGoal?'G':String(i)),x,Math.max(8,y-5));
+    });
+    ctx.restore();
+  }
 
   // 最高・最低ラベル
   ctx.fillStyle=dk?'rgba(255,255,255,.6)':'rgba(0,0,0,.5)';
