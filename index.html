@@ -542,10 +542,10 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
     <div class="locked-metric"><div class="locked-label">補正後速度</div><div class="locked-value" id="mcp-corrected-spd-display">— km/h</div><div class="locked-sub" id="mcp-corrected-note">坂・風・体調反映</div></div>
     <div class="locked-metric"><div class="locked-label">所要時間</div><div class="locked-value" id="mcp-total">—</div><div class="locked-sub" id="mcp-time-note">Ratio込み</div></div>
     <div class="locked-metric"><div class="locked-label">消費カロリー</div><div class="locked-value" id="mcp-calories">0 kcal</div><div class="locked-sub" id="mcp-calories-note">コース・走力連動</div></div>
-    <button type="button" class="locked-metric course-setting-tile" onclick="openSettingsModal()"><div class="locked-label">🚴‍♂️ 🏃 条件設定</div><div class="locked-value">条件を設定</div><div class="locked-sub">ライド・ラン共通</div></button>
+    <button type="button" class="locked-metric course-setting-tile" onclick="openSettingsModal()" aria-label="条件設定"><div class="locked-value">🚴‍♂️ 🏃 条件設定</div></button>
   </div>
 </div>
-<div id="ride-flow-guide" class="ride-flow-guide"><b>① 地図をタップしてコース作成</b><span>→</span><b>② 上の「条件を設定」で速度・時刻を調整</b></div>
+<div id="ride-flow-guide" class="ride-flow-guide"><b>① 地図をタップしてコース作成</b><span>→</span><b>② 上の「条件設定」で速度・時刻を調整</b></div>
 
 <div class="app-body" id="app-body">
 
@@ -814,11 +814,16 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
     <div id="poi-area-prompt" style="display:none;background:var(--bluebg);border:1px solid var(--blue);border-radius:var(--rs);padding:7px 10px;margin-bottom:4px;font-size:11px;color:var(--blue);display:none">
       <div style="font-weight:700;margin-bottom:3px" id="poi-prompt-label">📍 地図上で探したいエリアをタップ</div>
       <div style="font-size:10px;color:var(--text2)">タップした地点の周辺 <select id="poi-radius-sel" style="font-size:10px;padding:1px 3px;border:0.5px solid var(--border2);border-radius:3px;background:var(--bg);color:var(--text)">
-        <option value="500">500m</option>
         <option value="1000" selected>1km</option>
         <option value="2000">2km</option>
         <option value="3000">3km</option>
+        <option value="4000">4km</option>
         <option value="5000">5km</option>
+        <option value="6000">6km</option>
+        <option value="7000">7km</option>
+        <option value="8000">8km</option>
+        <option value="9000">9km</option>
+        <option value="10000">10km</option>
       </select> を検索</div>
       <button onclick="cancelPOISelect()" style="margin-top:4px;padding:2px 8px;border:0.5px solid var(--border2);border-radius:3px;background:var(--bg);color:var(--text2);font-size:10px;cursor:pointer">キャンセル</button>
     </div>
@@ -7714,6 +7719,153 @@ body.pc-mode .ride-settings-col{overflow-y:auto}
     wrapped.__stableDurationHook=true;
     window[name]=wrapped;
   });
+})();
+</script>
+
+<style>
+/* v8.70: 地図上POI検索範囲コマンド */
+#poi-radius-map-command{
+  display:none;position:absolute;top:10px;left:50%;transform:translateX(-50%);
+  z-index:40;align-items:center;gap:7px;padding:7px 10px;border-radius:11px;
+  background:rgba(20,20,20,.88);color:#fff;box-shadow:0 3px 14px rgba(0,0,0,.3);
+  backdrop-filter:blur(8px);font-size:11px;font-weight:800;white-space:nowrap
+}
+#poi-radius-map-command.on{display:flex}
+#poi-radius-map-command select{
+  min-width:78px;padding:6px 8px;border:1px solid rgba(255,255,255,.35);border-radius:7px;
+  background:#fff;color:#222;font:700 12px inherit;cursor:pointer
+}
+@media(max-width:500px){#poi-radius-map-command{top:8px;padding:6px 8px;font-size:10px}}
+</style>
+<script>
+/* v8.70: 選択したエクササイズをルート編集後も保持 / POI範囲を地図上で選択 */
+(function(){
+  function activityMode(){
+    return localStorage.getItem('rpp_activity_lock') ||
+      (localStorage.getItem('rpp_simulation_mode')==='run' ? 'run' : 'ride');
+  }
+  function lockActivity(mode){
+    mode=mode==='run'?'run':'ride';
+    localStorage.setItem('rpp_activity_lock',mode);
+    localStorage.setItem('rpp_simulation_mode',mode);
+    return mode;
+  }
+
+  /* モーダルで明示選択したモードだけが運動種別を変更できる。 */
+  var originalSwitchSettingsTab=window.switchSettingsTab;
+  if(typeof originalSwitchSettingsTab==='function'){
+    window.switchSettingsTab=function(tab){
+      var mode=lockActivity(tab);
+      var result=originalSwitchSettingsTab.apply(this,arguments);
+      lockActivity(mode);
+      return result;
+    };
+  }
+  var originalApplyRun=window.applyRunSettings;
+  if(typeof originalApplyRun==='function'){
+    window.applyRunSettings=function(){
+      lockActivity('run');
+      var result=originalApplyRun.apply(this,arguments);
+      var duration=document.getElementById('mcp-total')?.textContent || '';
+      var parts=duration.split(':').map(Number);
+      if(parts.length===2 && Number.isFinite(parts[0]) && Number.isFinite(parts[1])){
+        window._lastTotalMins=parts[0]*60+parts[1];
+      }
+      return result;
+    };
+  }
+  var originalApplyRide=window.rppApplyRideModalToTop;
+  if(typeof originalApplyRide==='function'){
+    window.rppApplyRideModalToTop=function(closeAfter){
+      /* ルート同期からの内部呼出しでは運動種別を変更しない。 */
+      var selected=activityMode();
+      var result=originalApplyRide.apply(this,arguments);
+      lockActivity(selected);
+      return result;
+    };
+  }
+
+  /* ルート修正後は固定中の運動種別で最後に再計算する。 */
+  var originalRouteSync=window.mcpSyncFromRoute;
+  if(typeof originalRouteSync==='function'){
+    window.mcpSyncFromRoute=function(){
+      var selected=activityMode();
+      var result=originalRouteSync.apply(this,arguments);
+      lockActivity(selected);
+      if(selected==='run' && typeof window.applyRunSettings==='function'){
+        window.applyRunSettings(true);
+      }
+      return result;
+    };
+  }
+  var originalStableSync=window.rppStableDurationSync;
+  if(typeof originalStableSync==='function'){
+    window.rppStableDurationSync=function(){
+      if(activityMode()==='run' && typeof window.applyRunSettings==='function'){
+        window.applyRunSettings(true);
+        return;
+      }
+      return originalStableSync.apply(this,arguments);
+    };
+  }
+
+  function ensurePoiRadiusCommand(){
+    if(document.getElementById('poi-radius-map-command')) return;
+    var map=document.getElementById('gmap');
+    if(!map || !map.parentElement) return;
+    var host=map.parentElement;
+    if(getComputedStyle(host).position==='static') host.style.position='relative';
+    var command=document.createElement('div');
+    command.id='poi-radius-map-command';
+    command.innerHTML='<span>📍 POI範囲</span><select id="poi-radius-map-select" aria-label="POI検索範囲"></select><span>地図をタップ</span>';
+    var select=command.querySelector('select');
+    for(var km=1;km<=10;km++){
+      var option=document.createElement('option');
+      option.value=String(km*1000); option.textContent=km+' km';
+      select.appendChild(option);
+    }
+    var base=document.getElementById('poi-radius-sel');
+    var stored=localStorage.getItem('rpp_poi_radius') || (base&&base.value) || '1000';
+    select.value=String(Math.max(1000,Math.min(10000,Number(stored)||1000)));
+    if(base) base.value=select.value;
+    select.addEventListener('change',function(){
+      if(base) base.value=select.value;
+      localStorage.setItem('rpp_poi_radius',select.value);
+    });
+    host.appendChild(command);
+  }
+  function showPoiRadius(show){
+    ensurePoiRadiusCommand();
+    document.getElementById('poi-radius-map-command')?.classList.toggle('on',!!show);
+  }
+  var originalSelectPoi=window.selectPOICategory;
+  if(typeof originalSelectPoi==='function'){
+    window.selectPOICategory=function(){
+      var result=originalSelectPoi.apply(this,arguments);
+      var prompt=document.getElementById('poi-area-prompt');
+      showPoiRadius(!!prompt && prompt.style.display!=='none');
+      return result;
+    };
+  }
+  var originalCancelPoi=window.cancelPOISelect;
+  if(typeof originalCancelPoi==='function'){
+    window.cancelPOISelect=function(){
+      var result=originalCancelPoi.apply(this,arguments);
+      showPoiRadius(false);
+      return result;
+    };
+  }
+  var originalExecutePoi=window.executePOISearch;
+  if(typeof originalExecutePoi==='function'){
+    window.executePOISearch=function(){
+      var mapSelect=document.getElementById('poi-radius-map-select');
+      var base=document.getElementById('poi-radius-sel');
+      if(mapSelect&&base) base.value=mapSelect.value;
+      showPoiRadius(false);
+      return originalExecutePoi.apply(this,arguments);
+    };
+  }
+  document.addEventListener('DOMContentLoaded',ensurePoiRadiusCommand);
 })();
 </script>
 
