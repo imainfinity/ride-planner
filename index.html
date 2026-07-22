@@ -2159,7 +2159,7 @@ function setRunCourse(type){
 function runDialAdj(type,part,delta){
   const s=runDialState[type];
   if(type==='end'&&s.h===null){s.h=(runDialState.start.h+1)%24;s.m=runDialState.start.m;}
-  if(part==='h') s.h=(((s.h||0)+delta)%24+24)%24;
+  if(part==='h'){s.h=(((s.h||0)+delta)%24+24)%24;s.m=0;}
   else s.m=Math.round(((((s.m||0)+delta)%60)+60)%60/10)*10%60;
   updateRunDial(type);
   syncRunDial(type);
@@ -2718,7 +2718,7 @@ function ensureSettingsRideRunTabs(){
     const tabs=document.createElement('div');
     tabs.id='settings-subtabs';
     tabs.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:14px;padding:7px;background:var(--bg2);border-radius:12px;position:sticky;top:70px;z-index:2';
-    tabs.innerHTML='<button type="button" class="modebt on" id="settings-tab-ride" onclick="switchSettingsTab(\'ride\')" style="font-size:13px;font-weight:900;padding:10px 8px">🚴 ライド設定</button><button type="button" class="modebt" id="settings-tab-run" onclick="switchSettingsTab(\'run\')" style="font-size:13px;font-weight:900;padding:10px 8px">🏃 ラン設定</button>';
+    tabs.innerHTML='<button type="button" class="modebt on" id="settings-tab-ride" onclick="selectExerciseMode(\'ride\')" style="font-size:13px;font-weight:900;padding:10px 8px">🚴 ライド設定</button><button type="button" class="modebt" id="settings-tab-run" onclick="selectExerciseMode(\'run\')" style="font-size:13px;font-weight:900;padding:10px 8px">🏃 ラン設定</button>';
 
     const ride=document.createElement('div');
     ride.id='settings-ride-panel';
@@ -6080,13 +6080,13 @@ function mcpChange(field){
 /* ── MCP ダイヤル操作 ── */
 function mcpDialAdj(type, part, delta){
   if(type === 'start'){
-    if(part === 'h') mcp.startH = ((mcp.startH + delta) % 24 + 24) % 24;
+    if(part === 'h'){mcp.startH = ((mcp.startH + delta) % 24 + 24) % 24;mcp.startM=0;}
     else             mcp.startM = ((Math.round(mcp.startM / 5) * 5 + delta) % 60 + 60) % 60;
     mcpCalc('start');
   } else {
     // 到着ダイヤル操作時は endH/M を確定させる
     if(mcp.endH === null){ mcp.endH = (mcp.startH + 1) % 24; mcp.endM = mcp.startM; }
-    if(part === 'h') mcp.endH = ((mcp.endH + delta) % 24 + 24) % 24;
+    if(part === 'h'){mcp.endH = ((mcp.endH + delta) % 24 + 24) % 24;mcp.endM=0;}
     else             mcp.endM = ((Math.round(mcp.endM / 5) * 5 + delta) % 60 + 60) % 60;
     const ew = document.getElementById('dial-end-wrap');
     if(ew) ew.style.opacity = '1';
@@ -7738,38 +7738,38 @@ body.pc-mode .ride-settings-col{overflow-y:auto}
 @media(max-width:500px){#poi-radius-map-command{top:8px;padding:6px 8px;font-size:10px}}
 </style>
 <script>
-/* v8.70: 選択したエクササイズをルート編集後も保持 / POI範囲を地図上で選択 */
+/* v8.71: エクササイズ変更トリガーをユーザー操作だけに限定 / POI範囲を地図上で選択 */
 (function(){
   function activityMode(){
-    return localStorage.getItem('rpp_activity_lock') ||
-      (localStorage.getItem('rpp_simulation_mode')==='run' ? 'run' : 'ride');
+    var saved=localStorage.getItem('rpp_exercise_mode');
+    return saved==='run'?'run':'ride';
   }
-  function lockActivity(mode){
+  function persistActivity(mode){
     mode=mode==='run'?'run':'ride';
-    localStorage.setItem('rpp_activity_lock',mode);
+    localStorage.setItem('rpp_exercise_mode',mode);
     localStorage.setItem('rpp_simulation_mode',mode);
     return mode;
   }
+  /* 新しい定義：この関数をユーザーが押した時だけ種別を変更する。初期値はライド。 */
+  window.selectExerciseMode=function(mode){
+    mode=persistActivity(mode);
+    if(typeof window.switchSettingsTab==='function') window.switchSettingsTab(mode);
+    if(mode==='run' && typeof window.applyRunSettings==='function') window.applyRunSettings(true);
+    if(mode==='ride' && typeof window.rppApplyRideModalToTop==='function') window.rppApplyRideModalToTop(false);
+  };
+  if(!localStorage.getItem('rpp_exercise_mode')) persistActivity('ride');
 
-  /* モーダルで明示選択したモードだけが運動種別を変更できる。 */
-  var originalSwitchSettingsTab=window.switchSettingsTab;
-  if(typeof originalSwitchSettingsTab==='function'){
-    window.switchSettingsTab=function(tab){
-      var mode=lockActivity(tab);
-      var result=originalSwitchSettingsTab.apply(this,arguments);
-      lockActivity(mode);
-      return result;
-    };
-  }
+  /* 計算関数は呼ばれても種別を変更できない。常に明示選択値を復元する。 */
   var originalApplyRun=window.applyRunSettings;
   if(typeof originalApplyRun==='function'){
     window.applyRunSettings=function(){
-      lockActivity('run');
+      var selected=activityMode();
       var result=originalApplyRun.apply(this,arguments);
-      var duration=document.getElementById('mcp-total')?.textContent || '';
-      var parts=duration.split(':').map(Number);
-      if(parts.length===2 && Number.isFinite(parts[0]) && Number.isFinite(parts[1])){
-        window._lastTotalMins=parts[0]*60+parts[1];
+      persistActivity(selected);
+      if(selected==='run'){
+        var duration=document.getElementById('mcp-total')?.textContent || '';
+        var parts=duration.split(':').map(Number);
+        if(parts.length===2 && Number.isFinite(parts[0]) && Number.isFinite(parts[1])) window._lastTotalMins=parts[0]*60+parts[1];
       }
       return result;
     };
@@ -7780,7 +7780,7 @@ body.pc-mode .ride-settings-col{overflow-y:auto}
       /* ルート同期からの内部呼出しでは運動種別を変更しない。 */
       var selected=activityMode();
       var result=originalApplyRide.apply(this,arguments);
-      lockActivity(selected);
+      persistActivity(selected);
       return result;
     };
   }
@@ -7791,7 +7791,7 @@ body.pc-mode .ride-settings-col{overflow-y:auto}
     window.mcpSyncFromRoute=function(){
       var selected=activityMode();
       var result=originalRouteSync.apply(this,arguments);
-      lockActivity(selected);
+      persistActivity(selected);
       if(selected==='run' && typeof window.applyRunSettings==='function'){
         window.applyRunSettings(true);
       }
@@ -7806,6 +7806,35 @@ body.pc-mode .ride-settings-col{overflow-y:auto}
         return;
       }
       return originalStableSync.apply(this,arguments);
+    };
+  }
+
+  /* 既存の非同期ライド再計算より後で、固定中の種別を必ず最終反映する。 */
+  ['processElevation','applyDistOnly'].forEach(function(name){
+    var original=window[name];
+    if(typeof original!=='function') return;
+    window[name]=function(){
+      var result=original.apply(this,arguments);
+      requestAnimationFrame(function(){
+        var selected=activityMode();
+        persistActivity(selected);
+        if(selected==='run' && typeof window.applyRunSettings==='function') window.applyRunSettings(true);
+        else if(selected==='ride' && typeof window.rppApplyRideModalToTop==='function') window.rppApplyRideModalToTop(false);
+      });
+      return result;
+    };
+  });
+
+  document.addEventListener('DOMContentLoaded',function(){
+    persistActivity(activityMode());
+    if(typeof window.switchSettingsTab==='function') window.switchSettingsTab(activityMode());
+  });
+  var originalOpenSettings=window.openSettingsModal;
+  if(typeof originalOpenSettings==='function'){
+    window.openSettingsModal=function(){
+      var result=originalOpenSettings.apply(this,arguments);
+      if(typeof window.switchSettingsTab==='function') window.switchSettingsTab(activityMode());
+      return result;
     };
   }
 
