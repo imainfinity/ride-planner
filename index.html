@@ -7764,24 +7764,45 @@ body.pc-mode .ride-settings-col{overflow-y:auto}
   if(typeof originalApplyRun==='function'){
     window.applyRunSettings=function(){
       var selected=activityMode();
+      /* ライド選択中に内部処理から呼ばれても、ラン計算は一切発動させない。 */
+      if(selected!=='run'){
+        persistActivity('ride');
+        return;
+      }
       var result=originalApplyRun.apply(this,arguments);
       persistActivity(selected);
-      if(selected==='run'){
-        var duration=document.getElementById('mcp-total')?.textContent || '';
-        var parts=duration.split(':').map(Number);
-        if(parts.length===2 && Number.isFinite(parts[0]) && Number.isFinite(parts[1])) window._lastTotalMins=parts[0]*60+parts[1];
-      }
+      var duration=document.getElementById('mcp-total')?.textContent || '';
+      var parts=duration.split(':').map(Number);
+      if(parts.length===2 && Number.isFinite(parts[0]) && Number.isFinite(parts[1])) window._lastTotalMins=parts[0]*60+parts[1];
       return result;
     };
   }
   var originalApplyRide=window.rppApplyRideModalToTop;
   if(typeof originalApplyRide==='function'){
     window.rppApplyRideModalToTop=function(closeAfter){
-      /* ルート同期からの内部呼出しでは運動種別を変更しない。 */
       var selected=activityMode();
+      /* ラン選択中は旧ライド計算を開始させない。遅延表示による上書きも発生しない。 */
+      if(selected==='run'){
+        if(typeof window.applyRunSettings==='function') window.applyRunSettings(true);
+        if(closeAfter && typeof window.closeSettingsModal==='function') window.closeSettingsModal();
+        persistActivity('run');
+        return;
+      }
       var result=originalApplyRide.apply(this,arguments);
-      persistActivity(selected);
+      persistActivity('ride');
       return result;
+    };
+  }
+
+  /* 共通ライド計算入口も遮断。ラン選択中の地点追加・時刻変更はラン計算へ振り分ける。 */
+  var originalMcpCalc=window.mcpCalc;
+  if(typeof originalMcpCalc==='function'){
+    window.mcpCalc=function(){
+      if(activityMode()==='run'){
+        if(typeof window.applyRunSettings==='function') window.applyRunSettings(true);
+        return;
+      }
+      return originalMcpCalc.apply(this,arguments);
     };
   }
 
