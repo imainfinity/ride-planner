@@ -6654,14 +6654,27 @@ function refreshLockedPanelValues(){
     const body=document.getElementById('settings-modal')?.firstElementChild?.children?.[1];
     if(!body) return;
     const tabs=el('settings-subtabs');
+    if(tabs && !el('settings-tab-walk')){
+      const w=document.createElement('button');
+      w.type='button'; w.className='modebt'; w.id='settings-tab-walk';
+      w.setAttribute('onclick',"selectExerciseMode('walk')");
+      w.style.cssText='font-size:13px;font-weight:900;padding:10px 8px';
+      w.textContent='🚶 ウォーク設定';
+      tabs.appendChild(w);
+    }
     if(tabs && !el('settings-tab-self')){
-      tabs.style.gridTemplateColumns='1fr 1fr 1fr';
       const b=document.createElement('button');
       b.type='button'; b.className='modebt'; b.id='settings-tab-self';
       b.setAttribute('onclick',"switchSettingsTab('self')");
       b.style.cssText='font-size:13px;font-weight:900;padding:10px 8px';
       b.textContent='👤 セルフ情報';
       tabs.appendChild(b);
+    }
+    if(tabs) tabs.style.gridTemplateColumns='repeat(4,1fr)';
+    if(!el('settings-walk-panel')){
+      const walk=document.createElement('div'); walk.id='settings-walk-panel'; walk.style.display='none';
+      walk.innerHTML=typeof getWalkSettingsPanelHtml==='function'?getWalkSettingsPanelHtml():'';
+      body.appendChild(walk);
     }
     if(!el('settings-self-panel')){
       const self=document.createElement('div'); self.id='settings-self-panel'; self.style.display='none'; self.innerHTML=selfPanelHtml(); body.appendChild(self);
@@ -6675,17 +6688,20 @@ function refreshLockedPanelValues(){
 
   const _origSwitch = window.switchSettingsTab;
   window.switchSettingsTab=function(tab){
-    tab = (tab==='run'||tab==='self') ? tab : 'ride';
+    tab = (tab==='run'||tab==='walk'||tab==='self') ? tab : 'ride';
     localStorage.setItem('rpp_settings_active_tab', tab);
-    const ride=el('settings-ride-panel'), run=el('settings-run-panel'), self=el('settings-self-panel');
-    const bRide=el('settings-tab-ride'), bRun=el('settings-tab-run'), bSelf=el('settings-tab-self');
+    const ride=el('settings-ride-panel'), run=el('settings-run-panel'), walk=el('settings-walk-panel'), self=el('settings-self-panel');
+    const bRide=el('settings-tab-ride'), bRun=el('settings-tab-run'), bWalk=el('settings-tab-walk'), bSelf=el('settings-tab-self');
     if(ride) ride.style.display=tab==='ride'?'':'none';
     if(run) run.style.display=tab==='run'?'':'none';
+    if(walk) walk.style.display=tab==='walk'?'':'none';
     if(self) self.style.display=tab==='self'?'':'none';
     if(bRide) bRide.classList.toggle('on',tab==='ride');
     if(bRun) bRun.classList.toggle('on',tab==='run');
+    if(bWalk) bWalk.classList.toggle('on',tab==='walk');
     if(bSelf) bSelf.classList.toggle('on',tab==='self');
     if(tab==='run' && typeof loadRunSettingsUI==='function') loadRunSettingsUI();
+    if(tab==='walk' && typeof loadWalkSettingsUI==='function') loadWalkSettingsUI();
     if(tab==='self') loadSelfSettingsUI();
     if(tab==='ride') updateCoursePreview();
   };
@@ -7742,10 +7758,10 @@ body.pc-mode .ride-settings-col{overflow-y:auto}
 (function(){
   function activityMode(){
     var saved=localStorage.getItem('rpp_exercise_mode');
-    return saved==='run'?'run':'ride';
+    return saved==='run'||saved==='walk'?saved:'ride';
   }
   function persistActivity(mode){
-    mode=mode==='run'?'run':'ride';
+    mode=mode==='run'||mode==='walk'?mode:'ride';
     localStorage.setItem('rpp_exercise_mode',mode);
     localStorage.setItem('rpp_simulation_mode',mode);
     return mode;
@@ -7755,6 +7771,7 @@ body.pc-mode .ride-settings-col{overflow-y:auto}
     mode=persistActivity(mode);
     if(typeof window.switchSettingsTab==='function') window.switchSettingsTab(mode);
     if(mode==='run' && typeof window.applyRunSettings==='function') window.applyRunSettings(true);
+    if(mode==='walk' && typeof window.applyWalkSettings==='function') window.applyWalkSettings(true);
     if(mode==='ride' && typeof window.rppApplyRideModalToTop==='function') window.rppApplyRideModalToTop(false);
   };
   if(!localStorage.getItem('rpp_exercise_mode')) persistActivity('ride');
@@ -7766,7 +7783,7 @@ body.pc-mode .ride-settings-col{overflow-y:auto}
       var selected=activityMode();
       /* ライド選択中に内部処理から呼ばれても、ラン計算は一切発動させない。 */
       if(selected!=='run'){
-        persistActivity('ride');
+        persistActivity(selected);
         return;
       }
       var result=originalApplyRun.apply(this,arguments);
@@ -7788,6 +7805,12 @@ body.pc-mode .ride-settings-col{overflow-y:auto}
         persistActivity('run');
         return;
       }
+      if(selected==='walk'){
+        if(typeof window.applyWalkSettings==='function') window.applyWalkSettings(true);
+        if(closeAfter && typeof window.closeSettingsModal==='function') window.closeSettingsModal();
+        persistActivity('walk');
+        return;
+      }
       var result=originalApplyRide.apply(this,arguments);
       persistActivity('ride');
       return result;
@@ -7800,6 +7823,10 @@ body.pc-mode .ride-settings-col{overflow-y:auto}
     window.mcpCalc=function(){
       if(activityMode()==='run'){
         if(typeof window.applyRunSettings==='function') window.applyRunSettings(true);
+        return;
+      }
+      if(activityMode()==='walk'){
+        if(typeof window.applyWalkSettings==='function') window.applyWalkSettings(true);
         return;
       }
       return originalMcpCalc.apply(this,arguments);
@@ -7816,6 +7843,7 @@ body.pc-mode .ride-settings-col{overflow-y:auto}
       if(selected==='run' && typeof window.applyRunSettings==='function'){
         window.applyRunSettings(true);
       }
+      if(selected==='walk' && typeof window.applyWalkSettings==='function') window.applyWalkSettings(true);
       return result;
     };
   }
@@ -7824,6 +7852,10 @@ body.pc-mode .ride-settings-col{overflow-y:auto}
     window.rppStableDurationSync=function(){
       if(activityMode()==='run' && typeof window.applyRunSettings==='function'){
         window.applyRunSettings(true);
+        return;
+      }
+      if(activityMode()==='walk' && typeof window.applyWalkSettings==='function'){
+        window.applyWalkSettings(true);
         return;
       }
       return originalStableSync.apply(this,arguments);
@@ -7840,6 +7872,7 @@ body.pc-mode .ride-settings-col{overflow-y:auto}
         var selected=activityMode();
         persistActivity(selected);
         if(selected==='run' && typeof window.applyRunSettings==='function') window.applyRunSettings(true);
+        else if(selected==='walk' && typeof window.applyWalkSettings==='function') window.applyWalkSettings(true);
         else if(selected==='ride' && typeof window.rppApplyRideModalToTop==='function') window.rppApplyRideModalToTop(false);
       });
       return result;
@@ -7916,6 +7949,124 @@ body.pc-mode .ride-settings-col{overflow-y:auto}
     };
   }
   document.addEventListener('DOMContentLoaded',ensurePoiRadiusCommand);
+})();
+</script>
+
+<style>
+/* v8.72: 初回の主モード選択 */
+#exercise-main-chooser{position:fixed;inset:0;z-index:200000;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(0,0,0,.58);backdrop-filter:blur(7px)}
+#exercise-main-chooser.on{display:flex}
+.exercise-chooser-card{width:min(620px,96vw);padding:22px;border-radius:18px;background:var(--bg);color:var(--text);box-shadow:0 18px 60px rgba(0,0,0,.38)}
+.exercise-chooser-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:16px}
+.exercise-chooser-btn{padding:18px 8px;border:1.5px solid var(--border2);border-radius:13px;background:var(--bg2);color:var(--text);cursor:pointer;font-family:inherit;text-align:center}
+.exercise-chooser-btn:hover{border-color:var(--acc);transform:translateY(-1px)}
+.exercise-chooser-btn b{display:block;font-size:15px;margin:5px 0}.exercise-chooser-btn span{font-size:10px;color:var(--text2)}
+@media(max-width:520px){.exercise-chooser-grid{grid-template-columns:1fr}.exercise-chooser-btn{padding:12px}}
+.walk-style-card{padding:12px 8px;border:1.5px solid var(--border2);border-radius:11px;background:var(--bg);color:var(--text);cursor:pointer;font-family:inherit;text-align:center}
+.walk-style-card.on{border-color:var(--acc);background:var(--bluebg);box-shadow:0 2px 8px rgba(0,0,0,.1)}
+.walk-style-card b{display:block;font-size:13px}.walk-style-card span{display:block;font-size:10px;color:var(--text2);margin-top:3px}
+</style>
+<script>
+/* v8.72: Walk計算エンジン + 初回主モード選択 */
+(function(){
+  var WALK_PROFILES={
+    shopping:{label:'買い物歩行（ゆっくり）',speed:2.5,met:2.3,note:'店内・観光・立ち止まりを含む歩き方'},
+    normal:{label:'普通歩行',speed:4.5,met:3.3,note:'日常的な無理のない徒歩'},
+    brisk:{label:'速歩（運動）',speed:6.0,met:4.8,note:'運動を目的としたテンポの速い歩行'}
+  };
+  function walkPref(){
+    try{return Object.assign({style:'normal',weight:65},JSON.parse(localStorage.getItem('rpp_walk_pref')||'{}'));}
+    catch(e){return {style:'normal',weight:65};}
+  }
+  function saveWalkPref(p){localStorage.setItem('rpp_walk_pref',JSON.stringify(p));}
+  function el(id){return document.getElementById(id)}
+  function text(id,v){var x=el(id);if(x)x.textContent=v}
+  function value(id,v){var x=el(id);if(x)x.value=v}
+  function n(v,d){v=Number(v);return Number.isFinite(v)?v:d}
+  function fmt(mins){mins=Math.max(0,n(mins,0));var h=Math.floor(mins/60),m=Math.round(mins%60);if(m>=60){h++;m-=60}return h+':'+String(m).padStart(2,'0')}
+  function addTime(h,m,delta){var t=((h*60+m+Math.round(delta))%1440+1440)%1440;return {h:Math.floor(t/60),m:t%60}}
+  function clock(prefix,t){text(prefix+'-h',String(t.h).padStart(2,'0'));text(prefix+'-m',String(t.m).padStart(2,'0'))}
+
+  window.getWalkSettingsPanelHtml=function(){
+    return '<div class="ride-flow-intro"><b>地図のコースを徒歩条件で計算します。</b><span>距離・獲得標高は地図から自動取得します。</span></div>'+
+      '<div class="flow-step-title"><span>1</span>歩き方</div><div class="flow-step-help">実際の用途に近い歩行速度を選択してください。</div>'+
+      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:15px">'+
+      '<button type="button" class="walk-style-card" data-walk-style="shopping" onclick="selectWalkStyle(\'shopping\')"><b>🛍️ 買い物歩行</b><span>ゆっくり・2.5 km/h</span></button>'+
+      '<button type="button" class="walk-style-card" data-walk-style="normal" onclick="selectWalkStyle(\'normal\')"><b>🚶 普通歩行</b><span>標準・4.5 km/h</span></button>'+
+      '<button type="button" class="walk-style-card" data-walk-style="brisk" onclick="selectWalkStyle(\'brisk\')"><b>🚶‍♂️ 速歩</b><span>運動・6.0 km/h</span></button></div>'+
+      '<div class="g3" style="gap:10px;margin-bottom:14px">'+
+      '<div class="field"><label>地図コース距離</label><div id="walk-route-dist" class="route-readonly-value">0.0 km</div></div>'+
+      '<div class="field"><label>獲得標高</label><div id="walk-route-elev" class="route-readonly-value">0 m</div></div>'+
+      '<div class="field"><label>体重 (kg)</label><input type="number" id="walk-weight" value="65" step="0.5" oninput="saveWalkSettings(true)"></div></div>'+
+      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">'+
+      '<div class="card" style="text-align:center"><div class="hint">基準速度</div><div id="walk-base-speed" style="font-size:18px;font-weight:900">4.5 km/h</div></div>'+
+      '<div class="card" style="text-align:center"><div class="hint">坂補正後</div><div id="walk-corrected-speed" style="font-size:18px;font-weight:900">—</div></div>'+
+      '<div class="card" style="text-align:center"><div class="hint">所要時間</div><div id="walk-duration" style="font-size:18px;font-weight:900">—</div></div></div>'+
+      '<button type="button" class="bp" onclick="applyWalkSettings(false);closeSettingsModal()" style="width:100%;padding:11px;font-weight:900">このウォーク条件を適用</button>';
+  };
+  window.loadWalkSettingsUI=function(){
+    var p=walkPref(),rd=window._routeData||{},profile=WALK_PROFILES[p.style]||WALK_PROFILES.normal;
+    value('walk-weight',p.weight);text('walk-route-dist',n(rd.distKm,0).toFixed(1)+' km');text('walk-route-elev',Math.round(n(rd.gainM,0))+' m');
+    document.querySelectorAll('[data-walk-style]').forEach(function(b){b.classList.toggle('on',b.dataset.walkStyle===p.style)});
+    text('walk-base-speed',profile.speed.toFixed(1)+' km/h');
+    window.applyWalkSettings(true);
+  };
+  window.saveWalkSettings=function(live){var p=walkPref();p.weight=n(valueOf('walk-weight'),p.weight);saveWalkPref(p);if(live)window.applyWalkSettings(true)};
+  function valueOf(id){var x=el(id);return x?x.value:''}
+  window.selectWalkStyle=function(style){
+    var p=walkPref();p.style=WALK_PROFILES[style]?style:'normal';p.weight=n(valueOf('walk-weight'),p.weight);saveWalkPref(p);
+    document.querySelectorAll('[data-walk-style]').forEach(function(b){b.classList.toggle('on',b.dataset.walkStyle===p.style)});
+    window.applyWalkSettings(true);
+  };
+  window.applyWalkSettings=function(silent){
+    if(localStorage.getItem('rpp_exercise_mode')!=='walk') return;
+    var p=walkPref(),profile=WALK_PROFILES[p.style]||WALK_PROFILES.normal,rd=window._routeData||{};
+    var dist=Math.max(0,n(rd.distKm,0)),elev=Math.max(0,n(rd.gainM,0)),grade=dist>0?elev/(dist*1000):0;
+    var corrected=Math.max(1.5,profile.speed*(1-Math.min(.42,grade*5.2)));
+    var mins=dist>0?dist/corrected*60:0;
+    var mode=localStorage.getItem('rpp_time_mode')||'start-first';
+    var now=new Date(),sh=n(window.mcp&&mcp.startH,now.getHours()),sm=n(window.mcp&&mcp.startM,now.getMinutes());
+    var eh=n(window.mcp&&mcp.endH,now.getHours()),em=n(window.mcp&&mcp.endM,now.getMinutes()),start,end;
+    if(mode==='goal-first'){end={h:eh,m:em};start=addTime(end.h,end.m,-mins)}else{start={h:sh,m:sm};end=addTime(start.h,start.m,mins)}
+    var kcal=Math.round(profile.met*n(p.weight,65)*(mins/60));
+    if(typeof window.mcp==='object'){mcp.dist=dist;mcp.elev=elev;mcp.spd=profile.speed;mcp.source=dist>0?'route':'none';mcp.startH=start.h;mcp.startM=start.m;mcp.endH=end.h;mcp.endM=end.m}
+    value('mcp-dist',dist);value('mcp-elev',Math.round(elev));value('mcp-spd',profile.speed.toFixed(1));
+    text('mcp-dist-display',dist.toFixed(1)+' km');text('mcp-elev-display',Math.round(elev)+' m');
+    text('mcp-spd-display',profile.speed.toFixed(1)+' km/h');text('mcp-corrected-spd-display',corrected.toFixed(1)+' km/h');
+    text('mcp-corrected-note','Walk 坂道補正');text('mcp-total',fmt(mins));text('mcp-sb-total',fmt(mins));text('mcp-time-note','Walk・'+profile.label);
+    text('mcp-calories',kcal.toLocaleString()+' kcal');text('mcp-calories-note','歩行METs・体重連動');
+    text('mcp-source',dist>0?'📍 地図コース連動':'🗺️ コース未作成');
+    clock('mcp-start',start);clock('mcp-end',end);clock('mcp-sb-start',start);clock('mcp-sb-end',end);
+    text('walk-route-dist',dist.toFixed(1)+' km');text('walk-route-elev',Math.round(elev)+' m');text('walk-base-speed',profile.speed.toFixed(1)+' km/h');text('walk-corrected-speed',corrected.toFixed(1)+' km/h');text('walk-duration',fmt(mins));
+    window._lastTotalMins=mins;
+  };
+
+  function showChooser(){
+    var chooser=el('exercise-main-chooser');
+    if(!chooser){
+      chooser=document.createElement('div');chooser.id='exercise-main-chooser';
+      chooser.innerHTML='<div class="exercise-chooser-card"><div style="font-size:19px;font-weight:900">主に何のコースを作りますか？</div><div style="font-size:12px;color:var(--text2);margin-top:5px">最初の計算モードを選択してください。後から条件設定でいつでも切り替えられます。</div><div class="exercise-chooser-grid">'+
+        '<button class="exercise-chooser-btn" onclick="choosePrimaryExercise(\'ride\')"><div style="font-size:28px">🚴</div><b>ライド</b><span>自転車の速度・パワーで計算</span></button>'+
+        '<button class="exercise-chooser-btn" onclick="choosePrimaryExercise(\'run\')"><div style="font-size:28px">🏃</div><b>ラン</b><span>ランニングペースで計算</span></button>'+
+        '<button class="exercise-chooser-btn" onclick="choosePrimaryExercise(\'walk\')"><div style="font-size:28px">🚶</div><b>ウォーク</b><span>買い物歩行・普通歩行・速歩</span></button></div></div>';
+      document.body.appendChild(chooser);
+    }
+    chooser.classList.add('on');
+  }
+  var baseSelect=window.selectExerciseMode;
+  window.selectExerciseMode=function(mode){
+    mode=mode==='run'||mode==='walk'?mode:'ride';
+    localStorage.setItem('rpp_primary_exercise_v3',mode);
+    return baseSelect.call(this,mode);
+  };
+  window.choosePrimaryExercise=function(mode){
+    window.selectExerciseMode(mode);
+    el('exercise-main-chooser')?.classList.remove('on');
+  };
+  document.addEventListener('DOMContentLoaded',function(){
+    if(!localStorage.getItem('rpp_primary_exercise_v3')) showChooser();
+    else window.selectExerciseMode(localStorage.getItem('rpp_primary_exercise_v3'));
+  });
 })();
 </script>
 
