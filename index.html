@@ -6074,7 +6074,7 @@ function mcpFlushAll(totalMins, moveSpdEff){
     document.getElementById('r-end').value = endStr;
     document.getElementById('mcp-end-val').value = endStr;
   } else if(window._mcpPredEndH !== undefined && window._mcpPredEndH !== null){
-    // v8.77: START起点でも予測GOALを全UIへ即時同期する。
+    // v8.78: START起点でも予測GOALを全UIへ即時同期する。
     // endH/endM は null のままなので「GOAL固定」にはしないが、表示・下流計算値は常に最新にする。
     const predEndStr = `${String(window._mcpPredEndH).padStart(2,'0')}:${String(window._mcpPredEndM||0).padStart(2,'0')}`;
     setDialFromString('end', predEndStr);
@@ -6188,7 +6188,7 @@ function mcpCalc(trigger){
   const netMins   = effDist / moveSpd * 60;
   const totalMins = netMins / ratio;
 
-  // ── v8.77 時刻の双方向リアルタイム解決 ──
+  // ── v8.78 時刻の双方向リアルタイム解決 ──
   // STARTを触ったらSTART固定→GOAL順算、GOALを触ったらGOAL固定→START逆算。
   // 距離・LAP・速度・標高など他条件の変更時は、最後に選ばれた起点を維持する。
   const normClock = (mins) => {
@@ -6259,6 +6259,7 @@ function mcpDialAdj(type, part, delta){
     if(typeof _updateModeButtons==='function') _updateModeButtons('start-first');
     if(part === 'h'){
       mcp.startH = ((mcp.startH + delta) % 24 + 24) % 24;
+      mcp.startM = 0; // 時ダイヤル操作時は分を00へ戻す
     } else {
       const total = mcp.startH*60 + mcp.startM + delta;
       const mod = ((total % 1440) + 1440) % 1440;
@@ -6282,6 +6283,7 @@ function mcpDialAdj(type, part, delta){
     }
     if(part === 'h'){
       mcp.endH = ((mcp.endH + delta) % 24 + 24) % 24;
+      mcp.endM = 0; // 時ダイヤル操作時は分を00へ戻す
     } else {
       const total = mcp.endH*60 + mcp.endM + delta;
       const mod = ((total % 1440) + 1440) % 1440;
@@ -8468,7 +8470,7 @@ body.pc-mode .ride-settings-col{overflow-y:auto}
 </script>
 
 \n<script>
-/* v8.77: START/GOAL双方向リアルタイム同期。START操作=GOAL順算、GOAL操作=START逆算。LAP/速度/距離変更も選択中の起点を維持。 */
+/* v8.78: START/GOAL双方向リアルタイム同期。START操作=GOAL順算、GOAL操作=START逆算。LAP/速度/距離変更も選択中の起点を維持。 */
 </script>
 
 <script>
