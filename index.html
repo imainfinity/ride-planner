@@ -5188,40 +5188,157 @@ function readGPXFile(file){
   reader.onerror=()=>alert('GPXファイルを読み込めませんでした');
   reader.readAsText(file);
 }
+function _resetRouteForGPXImport(){
+  // GPX読込専用の軽量クリア。hardClearRoute() はページreloadを行うため使用しない。
+  window._routeCalcSeq=(window._routeCalcSeq||0)+1;
+  waypoints=[]; waypointKinds=[]; manualSegments={};
+  markers.forEach(m=>m&&m.setMap(null)); markers=[];
+  if(window._dragOverlay){window._dragOverlay.setMap(null);window._dragOverlay=null;}
+  if(hoverPolyline){hoverPolyline.setMap(null);hoverPolyline=null;}
+  if(window._mergedPolyline){window._mergedPolyline.setMap(null);window._mergedPolyline=null;}
+  try{ directionsRenderer.setDirections({routes:[]}); }catch(e){}
+  lastElevResults=null; lastRoutePath=[]; lastRouteResult=null;
+  window._routeDistanceIndex=null; window._mergedLegDists=[];
+  window._routeData=null;
+  goalFixed=false;
+  historyStack=[]; redoStack=[];
+}
+
+function _gpxPathDistanceMeters(path){
+  let m=0;
+  for(let i=1;i<path.length;i++){
+    m+=google.maps.geometry.spherical.computeDistanceBetween(path[i-1],path[i]);
+  }
+  return m;
+}
+
+function _sampleArray(arr,maxN){
+  if(arr.length<=maxN) return arr.slice();
+  return Array.from({length:maxN},(_,i)=>arr[Math.round(i*(arr.length-1)/(maxN-1))]);
+}
+
+function _applyGPXMetrics(gpxPts, path, filename){
+  const totalM=_gpxPathDistanceMeters(path);
+  const distKm=totalM/1000;
+  let gain=0, maxElev=-Infinity, maxGrade=0;
+  let haveElev=false;
+  const DEADBAND=1.0;
+  for(let i=0;i<gpxPts.length;i++){
+    const e=gpxPts[i].ele;
+    if(Number.isFinite(e)){haveElev=true;maxElev=Math.max(maxElev,e);}
+    if(i===0) continue;
+    const e0=gpxPts[i-1].ele, e1=gpxPts[i].ele;
+    if(Number.isFinite(e0)&&Number.isFinite(e1)){
+      const de=e1-e0;
+      if(de>DEADBAND) gain+=de;
+      const a=new google.maps.LatLng(gpxPts[i-1].lat,gpxPts[i-1].lng);
+      const b=new google.maps.LatLng(gpxPts[i].lat,gpxPts[i].lng);
+      const dm=google.maps.geometry.spherical.computeDistanceBetween(a,b);
+      // 極短区間のGPSノイズは最大勾配判定から除外
+      if(dm>=12){ maxGrade=Math.max(maxGrade,Math.abs(de)/dm*100); }
+    }
+  }
+  const gainM=Math.round(gain);
+  const avgGrade=totalM>0 ? gainM/totalM*100 : 0;
+  const bearing=path.length>1?calcBearing(path[0].lat(),path[0].lng(),path[path.length-1].lat(),path[path.length-1].lng()):0;
+  const profile=maxGrade<3?'🟢 平坦メイン':maxGrade<8?'🟡 丘陵ルート':maxGrade<15?'🟠 山岳ルート':'🔴 激坂含む';
+
+  window._routeData={distKm, gainM, bearing, maxGrade, avgGrade, source:'gpx', filename:filename||''};
+  lastRoutePath=path;
+  window._routeDistanceIndex=null;
+
+  // GPXの標高をそのままプロファイルへ。描画負荷を抑えるため最大180点。
+  if(haveElev){
+    const elevPts=_sampleArray(gpxPts.filter(p=>Number.isFinite(p.ele)),180);
+    lastElevResults=elevPts.map(p=>({elevation:p.ele,location:new google.maps.LatLng(p.lat,p.lng)}));
+    try{ drawElevProfile(lastElevResults); }catch(e){}
+  }
+
+  const distText=distKm.toFixed(1)+' km';
+  const gainText=haveElev?gainM+' m':'—';
+  const avgText=haveElev?avgGrade.toFixed(1)+'%':'—';
+  const maxGradeText=haveElev?maxGrade.toFixed(1)+'%':'—';
+
+  const routeInfo=document.getElementById('route-info'); if(routeInfo) routeInfo.style.display='block';
+  const ew=document.getElementById('elev-wrap'); if(ew) ew.style.display='block';
+  const bar=document.getElementById('map-stats-bar');
+  if(bar){bar.style.display='block';document.body.style.paddingTop=(bar.offsetHeight||48)+'px';}
+  const setT=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+  setT('ri-dist',distText); setT('ri-elev',gainText); setT('ri-avggrade',avgText); setT('ri-maxgrade',maxGradeText);
+  setT('ri-maxelev',haveElev&&Number.isFinite(maxElev)?Math.round(maxElev)+' m':'—');
+  setT('ri-bearing',bearingToLabel(bearing)); setT('ri-profile',profile);
+  setT('msb-dist',distText); setT('msb-elev',gainText); setT('msb-avggrade',avgText); setT('msb-grade',maxGradeText);
+
+  // planner / modal / MCPへ即時反映
+  const rd=document.getElementById('r-dist'); if(rd) rd.value=distKm.toFixed(2);
+  const re=document.getElementById('r-elev'); if(re) re.value=haveElev?gainM:0;
+  const md=document.getElementById('modal-dist'); if(md) md.value=distKm.toFixed(2);
+  const me=document.getElementById('modal-elev'); if(me) me.value=haveElev?gainM:0;
+  rideDeg=bearing; syncToHidden(); renderCompass();
+  try{ mcpSyncFromRoute(); }catch(e){ console.warn('GPX MCP sync',e); }
+  try{ updateMapStatsBar(distKm.toFixed(1),haveElev?gainM:0,haveElev?maxGrade:0,haveElev?avgGrade:0); }catch(e){}
+  try{ renderWpList(); updateGoalFlagBtn(); }catch(e){}
+}
+
 function importGPXText(txt, filename){
   if(!gmap || !window.google || !google.maps){alert('マップ初期化後にGPXを読み込んでください');return;}
   let xml;
   try{ xml=new DOMParser().parseFromString(txt,'application/xml'); }catch(e){ alert('GPX形式を解析できませんでした'); return; }
   if(xml.querySelector('parsererror')){ alert('GPX形式が不正です'); return; }
-  let nodes=[...xml.querySelectorAll('trkpt')];
-  if(nodes.length<2) nodes=[...xml.querySelectorAll('rtept')];
-  if(nodes.length<2) nodes=[...xml.querySelectorAll('wpt')];
-  const pts=nodes.map(n=>({lat:parseFloat(n.getAttribute('lat')),lng:parseFloat(n.getAttribute('lon')),ele:parseFloat(n.querySelector('ele')?.textContent||'')}))
-                 .filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lng));
-  const gpxElevCount=pts.filter(p=>Number.isFinite(p.ele)).length;
+
+  // namespace付きGPXでも localName で確実に拾う
+  const all=[...xml.getElementsByTagName('*')];
+  let nodes=all.filter(n=>n.localName==='trkpt');
+  if(nodes.length<2) nodes=all.filter(n=>n.localName==='rtept');
+  if(nodes.length<2) nodes=all.filter(n=>n.localName==='wpt');
+  const pts=nodes.map(n=>{
+    const eleNode=[...n.children].find(c=>c.localName==='ele');
+    return {lat:parseFloat(n.getAttribute('lat')),lng:parseFloat(n.getAttribute('lon')),ele:eleNode?parseFloat(eleNode.textContent):NaN};
+  }).filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lng));
+
   if(pts.length<2){alert('GPX内に有効な地点が2点以上ありません');return;}
   if(waypoints.length && !confirm('現在のコースを削除して、GPXコースを読み込みますか？')) return;
-  const maxPts=23;
-  const sampled=[];
-  if(pts.length<=maxPts){ sampled.push(...pts); }
-  else{
-    for(let i=0;i<maxPts;i++){
-      const idx=Math.round(i*(pts.length-1)/(maxPts-1));
-      sampled.push(pts[idx]);
-    }
-  }
-  hardClearRoute();
-  waypoints=sampled.map(p=>new google.maps.LatLng(p.lat,p.lng));
-  goalFixed=waypoints.length>1;
-  markers.forEach(m=>m.setMap(null)); markers=[];
+
+  _resetRouteForGPXImport();
+
+  // GPX形状はGoogle Directionsで引き直さず、そのまま地図へ描画する。
+  // 表示負荷だけ抑えるため最大1200点へ間引く。
+  const drawPts=_sampleArray(pts,1200);
+  const path=drawPts.map(p=>new google.maps.LatLng(p.lat,p.lng));
+  window._mergedPolyline=new google.maps.Polyline({
+    path, strokeColor:'#e24b4a', strokeWeight:4, strokeOpacity:0.88, map:gmap
+  });
+
+  // 編集用マーカーだけ最大21点。GPX本体の形状・距離計算は全点を使用。
+  const markerPts=_sampleArray(pts,21);
+  waypoints=markerPts.map(p=>new google.maps.LatLng(p.lat,p.lng));
+  waypointKinds=waypoints.map((_,i)=>i===waypoints.length-1?'goal':'normal');
+  goalFixed=true;
   waypoints.forEach((ll,i)=>createMarker(ll,i));
-  renderWpList();
-  updateGoalFlagBtn();
+
   const bounds=new google.maps.LatLngBounds();
-  waypoints.forEach(ll=>bounds.extend(ll));
-  try{ gmap.fitBounds(bounds); }catch(e){}
-  calcRoute();
-  alert(`GPXを読み込みました（${pts.length}地点${gpxElevCount?` / 標高データ ${gpxElevCount}点`:''}）。マーカーをドラッグして編集できます。`);
+  path.forEach(ll=>bounds.extend(ll));
+  try{gmap.fitBounds(bounds);}catch(e){}
+
+  _applyGPXMetrics(pts,path,filename);
+
+  // 標高を持たないGPXだけGoogle Elevationを1回取得。Directions再計算はしない。
+  const elevCount=pts.reduce((n,p)=>n+(Number.isFinite(p.ele)?1:0),0);
+  if(elevCount<2 && elevationService){
+    const samplePath=_sampleArray(path,120);
+    elevationService.getElevationAlongPath({path:samplePath,samples:samplePath.length},(res,status)=>{
+      if(status==='OK'&&res&&res.length>=2){
+        lastElevResults=res;
+        // 距離と形状はGPXを維持し、標高情報のみ補完
+        const distKm=_gpxPathDistanceMeters(path)/1000;
+        processElevation(res,distKm.toFixed(2),path);
+        window._routeData.source='gpx'; window._routeData.filename=filename||'';
+      }
+    });
+  }
+
+  const source=document.getElementById('mcp-source');
+  if(source) source.textContent='📂 GPX: '+(filename||'読み込み');
 }
 
 /* ── ベアリング ── */
