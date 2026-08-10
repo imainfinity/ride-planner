@@ -3913,6 +3913,7 @@ function _getCurrentTimeParts(){
 function setDefaultTimeMode(mode){
   mode = mode==='goal-first' ? 'goal-first' : 'start-first';
   localStorage.setItem('rpp_time_mode', mode);
+  window.__rppTimeAnchor = (mode==='goal-first'?'end':'start');
   _updateModeButtons(mode);
 
   const now=_getCurrentTimeParts();
@@ -3937,6 +3938,7 @@ function setDefaultTimeMode(mode){
 }
 function applyDefaultTimeMode(mode){
   const selected=mode || localStorage.getItem('rpp_time_mode') || 'start-first';
+  window.__rppTimeAnchor = (selected==='goal-first'?'end':'start');
   _updateModeButtons(selected);
   const now=_getCurrentTimeParts();
 
@@ -5183,7 +5185,10 @@ function searchPlace(opts={}){
 function downloadGPX(){
   if(!lastRoutePath||lastRoutePath.length===0){alert('ルートを描いてください');return;}
   const now=new Date();
-  const name=`ride_${now.toISOString().slice(0,10)}`;
+  const pad2=n=>String(n).padStart(2,'0');
+  const localDate=`${now.getFullYear()}-${pad2(now.getMonth()+1)}-${pad2(now.getDate())}`;
+  const localTime=`${pad2(now.getHours())}${pad2(now.getMinutes())}`;
+  const name=`ride_${localDate}_${localTime}`;
   let trkpts=lastRoutePath.map((ll,i)=>{
     const elev=lastElevResults?lastElevResults[Math.round(i/(lastRoutePath.length-1)*(lastElevResults.length-1))]?.elevation||0:0;
     return `    <trkpt lat="${ll.lat().toFixed(7)}" lon="${ll.lng().toFixed(7)}"><ele>${elev.toFixed(1)}</ele></trkpt>`;
@@ -6068,6 +6073,13 @@ function mcpFlushAll(totalMins, moveSpdEff){
     setDialFromString('end', endStr);
     document.getElementById('r-end').value = endStr;
     document.getElementById('mcp-end-val').value = endStr;
+  } else if(window._mcpPredEndH !== undefined && window._mcpPredEndH !== null){
+    // v8.77: START起点でも予測GOALを全UIへ即時同期する。
+    // endH/endM は null のままなので「GOAL固定」にはしないが、表示・下流計算値は常に最新にする。
+    const predEndStr = `${String(window._mcpPredEndH).padStart(2,'0')}:${String(window._mcpPredEndM||0).padStart(2,'0')}`;
+    setDialFromString('end', predEndStr);
+    document.getElementById('r-end').value = predEndStr;
+    document.getElementById('mcp-end-val').value = predEndStr;
   } else {
     document.getElementById('r-end').value = '';
     document.getElementById('mcp-end-val').value = '';
@@ -6096,6 +6108,9 @@ function mcpFlushAll(totalMins, moveSpdEff){
     if(endIsSet){
       const endStr2 = `${String(mcp.endH).padStart(2,'0')}:${String(mcp.endM).padStart(2,'0')}`;
       document.getElementById('msb-arrive').textContent = endStr2;
+    } else if(window._mcpPredEndH !== undefined && window._mcpPredEndH !== null){
+      const predEndStr2 = `${String(window._mcpPredEndH).padStart(2,'0')}:${String(window._mcpPredEndM||0).padStart(2,'0')}`;
+      document.getElementById('msb-arrive').textContent = predEndStr2;
     }
   }
 }
@@ -6173,42 +6188,42 @@ function mcpCalc(trigger){
   const netMins   = effDist / moveSpd * 60;
   const totalMins = netMins / ratio;
 
-  // ── 時刻の双方向解決 ──
-  if(trigger === 'end' && mcp.endH !== null){
+  // ── v8.77 時刻の双方向リアルタイム解決 ──
+  // STARTを触ったらSTART固定→GOAL順算、GOALを触ったらGOAL固定→START逆算。
+  // 距離・LAP・速度・標高など他条件の変更時は、最後に選ばれた起点を維持する。
+  const normClock = (mins) => {
+    mins = Math.round(mins);
+    const day = Math.floor(mins / 1440);
+    const mod = ((mins % 1440) + 1440) % 1440;
+    return {h:Math.floor(mod/60), m:mod%60, day};
+  };
+
+  if(trigger === 'start'){
+    window.__rppTimeAnchor = 'start';
+    localStorage.setItem('rpp_time_mode','start-first');
+    mcp.endH = null; mcp.endM = null; // START操作でGOAL固定を解除
+  } else if(trigger === 'end'){
+    window.__rppTimeAnchor = 'end';
+    localStorage.setItem('rpp_time_mode','goal-first');
+  }
+
+  const savedMode = localStorage.getItem('rpp_time_mode') || 'start-first';
+  const anchor = window.__rppTimeAnchor || (savedMode === 'goal-first' ? 'end' : 'start');
+  const durationMins = Number.isFinite(totalMins) ? totalMins : 0;
+
+  if(anchor === 'end' && mcp.endH !== null){
+    // GOAL固定 → 所要時間分だけSTARTを減算
     window._mcpPredEndH = null; window._mcpPredEndM = null;
-    // 到着固定 → スタート逆算
-    const endTotal = mcp.endH + mcp.endM / 60;
-    let   startH2  = endTotal - totalMins / 60;
-    if(startH2 < 0) startH2 += 24;
-    mcp.startH = Math.floor(((startH2 % 24) + 24) % 24);
-    mcp.startM = Math.round((((startH2 % 24) + 24) % 24 % 1) * 60) % 60;
-  } else if(mcp.endH !== null && trigger !== 'start'){
-    window._mcpPredEndH = null; window._mcpPredEndM = null;
-    // 到着設定済み & スタート以外のトリガー → 到着固定でスタート逆算
-    const endTotal = mcp.endH + mcp.endM / 60;
-    let   startH2  = endTotal - totalMins / 60;
-    if(startH2 < 0) startH2 += 24;
-    mcp.startH = Math.floor(((startH2 % 24) + 24) % 24);
-    mcp.startM = Math.round((((startH2 % 24) + 24) % 24 % 1) * 60) % 60;
+    const endAbs = mcp.endH * 60 + mcp.endM;
+    const st = normClock(endAbs - durationMins);
+    mcp.startH = st.h; mcp.startM = st.m;
   } else {
-    // スタート固定 → 到着順算（endHはMCPが管理しているので上書きしない; 表示だけ計算）
-    const startTotal = mcp.startH + mcp.startM / 60;
-    const endTotal2  = startTotal + totalMins / 60;
-    // endが未設定か、或いはstartトリガーの場合のみ到着を計算して表示
-    if(mcp.endH === null || trigger === 'start'){
-      // 到着は「表示専用」としてMCPに反映（未設定状態は維持）
-      const eH = Math.floor(endTotal2 % 24);
-      const eM = Math.round((endTotal2 % 1) * 60) % 60;
-      window._mcpPredEndH = eH; window._mcpPredEndM = eM;
-      // ★表示はするが mcp.endH/M は null のまま（ユーザーが触るまで固定しない）
-      document.getElementById('mcp-end-h').textContent = String(eH).padStart(2,'0');
-      document.getElementById('mcp-end-m').textContent = String(eM).padStart(2,'0');
-      // サブUI（ダイヤル）に反映
-      const endStr = `${String(eH).padStart(2,'0')}:${String(eM).padStart(2,'0')}`;
-      setDialFromString('end', endStr);
-      document.getElementById('r-end').value = endStr;
-      document.getElementById('mcp-end-val').value = endStr;
-    }
+    // START固定 → 所要時間分だけGOALを加算
+    // GOALは予測値として保持し、STARTを動かすたびに即時更新する。
+    const startAbs = mcp.startH * 60 + mcp.startM;
+    const en = normClock(startAbs + durationMins);
+    window._mcpPredEndH = en.h; window._mcpPredEndM = en.m;
+    mcp.endH = null; mcp.endM = null;
   }
 
   // 全サブUIに一斉書き込み
@@ -6238,14 +6253,40 @@ function mcpChange(field){
 /* ── MCP ダイヤル操作 ── */
 function mcpDialAdj(type, part, delta){
   if(type === 'start'){
-    if(part === 'h'){mcp.startH = ((mcp.startH + delta) % 24 + 24) % 24;mcp.startM=0;}
-    else             mcp.startM = ((Math.round(mcp.startM / 5) * 5 + delta) % 60 + 60) % 60;
+    // STARTを触った瞬間にSTART起点へ切替。GOALは所要時間からリアルタイム順算。
+    window.__rppTimeAnchor = 'start';
+    localStorage.setItem('rpp_time_mode','start-first');
+    if(typeof _updateModeButtons==='function') _updateModeButtons('start-first');
+    if(part === 'h'){
+      mcp.startH = ((mcp.startH + delta) % 24 + 24) % 24;
+    } else {
+      const total = mcp.startH*60 + mcp.startM + delta;
+      const mod = ((total % 1440) + 1440) % 1440;
+      mcp.startH = Math.floor(mod/60); mcp.startM = mod%60;
+    }
+    mcp.endH = null; mcp.endM = null;
     mcpCalc('start');
   } else {
-    // 到着ダイヤル操作時は endH/M を確定させる
-    if(mcp.endH === null){ mcp.endH = (mcp.startH + 1) % 24; mcp.endM = mcp.startM; }
-    if(part === 'h'){mcp.endH = ((mcp.endH + delta) % 24 + 24) % 24;mcp.endM=0;}
-    else             mcp.endM = ((Math.round(mcp.endM / 5) * 5 + delta) % 60 + 60) % 60;
+    // GOALを触った瞬間にGOAL起点へ切替。STARTは所要時間からリアルタイム逆算。
+    window.__rppTimeAnchor = 'end';
+    localStorage.setItem('rpp_time_mode','goal-first');
+    if(typeof _updateModeButtons==='function') _updateModeButtons('goal-first');
+    // 未固定なら、画面に出ている予測GOALをそのまま起点として採用する。
+    if(mcp.endH === null){
+      if(window._mcpPredEndH !== undefined && window._mcpPredEndH !== null){
+        mcp.endH = window._mcpPredEndH; mcp.endM = window._mcpPredEndM || 0;
+      } else {
+        const fallback = (mcp.startH*60 + mcp.startM + 60) % 1440;
+        mcp.endH = Math.floor(fallback/60); mcp.endM = fallback%60;
+      }
+    }
+    if(part === 'h'){
+      mcp.endH = ((mcp.endH + delta) % 24 + 24) % 24;
+    } else {
+      const total = mcp.endH*60 + mcp.endM + delta;
+      const mod = ((total % 1440) + 1440) % 1440;
+      mcp.endH = Math.floor(mod/60); mcp.endM = mod%60;
+    }
     const ew = document.getElementById('dial-end-wrap');
     if(ew) ew.style.opacity = '1';
     mcpCalc('end');
@@ -8427,6 +8468,10 @@ body.pc-mode .ride-settings-col{overflow-y:auto}
 </script>
 
 \n<script>
+/* v8.77: START/GOAL双方向リアルタイム同期。START操作=GOAL順算、GOAL操作=START逆算。LAP/速度/距離変更も選択中の起点を維持。 */
+</script>
+
+<script>
 /* v8.74: 同一コース LAP 1-10 累積シミュレーション */
 (function(){
   if(window.__rppLapV874) return; window.__rppLapV874=true;
