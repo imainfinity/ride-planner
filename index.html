@@ -434,6 +434,17 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
 .lap-meta .locked-label{color:var(--blue)}
 .lap-meta .locked-sub{display:block!important}
 @media(max-width:520px){.lap-control{min-width:0!important;padding:4px!important}.lap-dial{grid-template-rows:16px 25px 16px;min-width:36px}.lap-dial button{width:30px;height:16px}.lap-dial .lap-value{font-size:18px}.lap-meta .locked-sub{font-size:7px!important}}
+
+/* ── v8.75: 常時表示 LAP ダイヤル ── */
+.lap-top-control{display:flex;align-items:center;gap:7px;padding:7px 9px;background:var(--bluebg);border:1px solid var(--blue);border-radius:9px;min-height:48px}
+.lap-top-title{font-size:11px;font-weight:800;color:var(--blue);white-space:nowrap}
+.lap-top-btn{width:34px;height:34px;border:1px solid var(--blue);border-radius:8px;background:var(--bg);color:var(--blue);font-size:21px;font-weight:800;cursor:pointer;line-height:1}
+.lap-top-dial{min-width:54px;height:38px;display:flex;align-items:baseline;justify-content:center;gap:3px;background:var(--bg);border:1.5px solid var(--blue);border-radius:9px;color:var(--blue)}
+.lap-top-dial span{font-size:25px;font-weight:900;font-variant-numeric:tabular-nums;line-height:36px}.lap-top-dial small{font-size:8px;font-weight:800}
+.lap-top-select{width:74px!important;min-width:74px;padding:7px 6px!important;border:1px solid var(--blue)!important;color:var(--blue)!important;font-weight:800!important;background:var(--bg)!important}
+.lap-top-result{display:flex;flex-direction:column;gap:1px;min-width:120px}.lap-top-result b{font-size:13px;color:var(--text)}.lap-top-result span{font-size:9px;color:var(--text2);white-space:nowrap}
+@media(max-width:520px){.lap-top-control{display:grid;grid-template-columns:auto 32px 52px 32px 68px;gap:4px;padding:5px 6px}.lap-top-title{grid-column:1 / -1;font-size:10px}.lap-top-btn{width:32px;height:30px;font-size:18px}.lap-top-dial{height:32px;min-width:50px}.lap-top-dial span{font-size:21px;line-height:30px}.lap-top-select{width:68px!important;min-width:68px!important;padding:5px 4px!important}.lap-top-result{grid-column:1 / -1;min-width:0;flex-direction:row;gap:8px;align-items:center}.lap-top-result span{white-space:normal}}
+
 </style>
 
 <script>
@@ -496,7 +507,7 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
 <!-- GPS再取得ボタン（常時表示） -->
 <button id="gps-retry-btn" onclick="retryGPS()" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">📍</button>
 <header>
-  <h1>RIDE &amp; RUN Planner <span class="ver">v8.74 LAP 1-10</span></h1>
+  <h1>RIDE &amp; RUN Planner <span class="ver">v8.75 LAP DIAL</span></h1>
   <span class="sub">Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
@@ -544,6 +555,19 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
 
   </div>
 
+  <!-- v8.75: 周回シミュレーションを常時見える独立操作として配置 -->
+  <div id="lap-control" class="lap-top-control" title="同じコースを繰り返した場合の累積結果を表示">
+    <div class="lap-top-title">🔁 周回シミュレーション</div>
+    <button type="button" class="lap-top-btn" onclick="adjustLapCount(-1)" aria-label="周回数を減らす">−</button>
+    <div class="lap-top-dial"><span id="lap-count-display">1</span><small>LAP</small></div>
+    <button type="button" class="lap-top-btn" onclick="adjustLapCount(1)" aria-label="周回数を増やす">＋</button>
+    <select id="lap-count-select" class="lap-top-select" aria-label="周回数 1から10" onchange="setLapCount(this.value)">
+      <option value="1">1周</option><option value="2">2周</option><option value="3">3周</option><option value="4">4周</option><option value="5">5周</option>
+      <option value="6">6周</option><option value="7">7周</option><option value="8">8周</option><option value="9">9周</option><option value="10">10周</option>
+    </select>
+    <div class="lap-top-result"><b id="lap-total-label">1周</b><span id="lap-base-label">コース作成後に累積表示</span></div>
+  </div>
+
   <!-- 固定操作パネル：表示専用 -->
   <div id="locked-course-panel" style="display:flex;flex-wrap:wrap;gap:6px;align-items:stretch">
     <div class="locked-metric"><div class="locked-label">距離</div><div class="locked-value" id="mcp-dist-display">0.0 km</div><div class="locked-sub" id="mcp-source">🗺️ コース未作成</div></div>
@@ -552,14 +576,6 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
     <div class="locked-metric"><div class="locked-label">補正後速度</div><div class="locked-value" id="mcp-corrected-spd-display">— km/h</div><div class="locked-sub" id="mcp-corrected-note">坂・風・体調反映</div></div>
     <div class="locked-metric"><div class="locked-label">所要時間</div><div class="locked-value" id="mcp-total">—</div><div class="locked-sub" id="mcp-time-note">Ratio込み</div></div>
     <div class="locked-metric"><div class="locked-label">消費カロリー</div><div class="locked-value" id="mcp-calories">0 kcal</div><div class="locked-sub" id="mcp-calories-note">コース・走力連動</div></div>
-    <div class="locked-metric lap-control" id="lap-control" title="同じコースを繰り返した場合の累積結果を表示">
-      <div class="lap-dial">
-        <button type="button" onclick="adjustLapCount(1)" aria-label="周回数を増やす">▲</button>
-        <div class="lap-value" id="lap-count-display">1</div>
-        <button type="button" onclick="adjustLapCount(-1)" aria-label="周回数を減らす">▼</button>
-      </div>
-      <div class="lap-meta"><div class="locked-label">LAP</div><div class="locked-value" id="lap-total-label">1周</div><div class="locked-sub">1〜10周・累積計算</div></div>
-    </div>
     <button type="button" class="locked-metric course-setting-tile" onclick="openSettingsModal()" aria-label="条件設定"><div class="locked-value">🚴‍♂️ 🏃 条件設定</div></button>
     <button type="button" class="locked-metric course-setting-tile" onclick="triggerGPXImport()" aria-label="GPX読込"><div class="locked-value">📂 GPX読込</div><div class="locked-sub">コースデータを読み込む</div></button>
   </div>
@@ -8438,6 +8454,8 @@ body.pc-mode .ride-settings-col{overflow-y:auto}
   function paintLapUI(lap,metrics){
     var x=el('lap-count-display'); if(x)x.textContent=lap;
     x=el('lap-total-label'); if(x)x.textContent=lap+'周';
+    x=el('lap-count-select'); if(x && String(x.value)!==String(lap)) x.value=String(lap);
+    x=el('lap-base-label'); if(x)x.textContent=(metrics&&metrics.baseDist>0)?('1周 '+metrics.baseDist.toFixed(1)+' km → 合計 '+metrics.dist.toFixed(1)+' km'):'コース作成後に累積表示';
     var src=el('mcp-source'); if(src && metrics && metrics.dist>0) src.textContent='🔁 '+lap+' LAP（1周 '+metrics.baseDist.toFixed(1)+' km）';
     if(metrics){
       ['ri-dist','msb-dist','fsp-dist'].forEach(function(id){var q=el(id);if(q)q.textContent=metrics.dist.toFixed(1)+' km'});
