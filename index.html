@@ -6480,13 +6480,35 @@ function refreshLockedPanelValues(){
       wkg=num(val('modal-wkg', ftp/wt), ftp/wt);
       power=np>0 ? np : wkg*wt;
       wkg=power/wt;
-      // 平地表示はPower換算。ただし登坂補正は同じコースの基準走力からの上積みで計算する。
-      // これでZ1 < Z2 < Z3 < Z4 < Z5が成立し、Z5で逆に遅くなる異常を防ぐ。
-      const baselineWkg=Math.max(1.8, ftp/wt);
+      // v8.74 Power mode:
+      // FTP/Wkgを「基準走力」としてZ2をマイナス補正する旧方式を廃止。
+      // 選択したPowerそのものから平地速度を求め、コースの獲得標高/km・風・路面で補正する。
+      // 例: 75kg / 144W(Z2) / 51km / 693m → 無風標準でおよそ24〜25km/h。
       const powerFlat=18 + Math.pow(Math.max(power,1)/wt,0.82)*7.3;
-      flat=Math.max(baseFlat, powerFlat);
-      const powerBonus=(wkg-baselineWkg)*9.0;
-      corrected=Math.max(4, Math.min(flat*0.96, baseCorrected + powerBonus));
+      flat=Math.max(12, Math.min(55, powerFlat));
+
+      const gainPerKm=dist>0 ? elev/dist : 0; // m/km
+      // 登坂集中度は「同じ獲得標高でも坂がまとまっているほど平均速度が落ちる」係数。
+      const climbRate={gentle:0.0105, normal:0.0140, hard:0.0175}[focus]||0.0140;
+      const terrainPenalty=Math.min(0.34, Math.max(0, gainPerKm*climbRate));
+
+      // 風は既存UIの方向・風速があれば利用。無ければニュートラル。
+      let headKmh=0;
+      try{
+        const ws=num(el('r-wsp')?.value,0);
+        const wd=num(el('r-wdir')?.value, typeof windDeg!=='undefined'?windDeg:0);
+        const rd=num(el('r-rdir')?.value, typeof rideDeg!=='undefined'?rideDeg:0);
+        const rel=((wd-rd)+360)%360;
+        headKmh=(-ws*Math.cos(rel*Math.PI/180))*3.6;
+      }catch(e){}
+      const windFactor=headKmh>=0
+        ? 1-Math.min(0.24, headKmh*0.010)
+        : 1+Math.min(0.10, Math.abs(headKmh)*0.005);
+
+      const conditionFactor=Math.max(0.82, Math.min(1.04, weather*cond));
+      corrected=flat*(1-terrainPenalty)*windFactor*conditionFactor;
+      // Power modeの実走想定速度。Z1でも旧式のように一桁へ崩壊させない。
+      corrected=Math.max(Math.min(flat*0.62,18), Math.min(flat*1.08, corrected));
       drop=Math.max(0, flat-corrected);
       modeLabel='power';
     }
@@ -6508,7 +6530,7 @@ function refreshLockedPanelValues(){
     txt('modal-speed-drop-preview', r.mode==='power' ? ('+'+(r.corrected-r.baseCorrected).toFixed(1)+' km/h') : ('-'+r.drop.toFixed(1)+' km/h'));
     txt('modal-time-preview', fmtD(r.mins));
     txt('modal-correction-detail', r.mode==='power'
-      ? `Power ${Math.round(r.power)}W / ${r.wkg.toFixed(2)}W/kg / 同条件の基準走力 ${r.baseCorrected.toFixed(1)}km/h から +${(r.corrected-r.baseCorrected).toFixed(1)}km/h`
+      ? `Power ${Math.round(r.power)}W / ${r.wkg.toFixed(2)}W/kg / Power平地換算 ${r.flat.toFixed(1)}km/h → 地形・風補正 ${r.corrected.toFixed(1)}km/h`
       : `獲得標高 ${Math.round(r.elev)}m / 斜度 ${r.grade.toFixed(1)}% / 体重 ${r.wt.toFixed(1)}kg / 推定低下 -${r.drop.toFixed(1)} km/h`);
     txt('modal-flat-speed-hint', r.mode==='power' ? ('Power換算 '+r.flat.toFixed(1)+' km/h') : (r.flat.toFixed(1)+' km/h を使用'));
     const dropLabel=el('modal-speed-drop-preview')?.previousElementSibling;
