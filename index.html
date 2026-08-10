@@ -543,6 +543,7 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
     <div class="locked-metric"><div class="locked-label">所要時間</div><div class="locked-value" id="mcp-total">—</div><div class="locked-sub" id="mcp-time-note">Ratio込み</div></div>
     <div class="locked-metric"><div class="locked-label">消費カロリー</div><div class="locked-value" id="mcp-calories">0 kcal</div><div class="locked-sub" id="mcp-calories-note">コース・走力連動</div></div>
     <button type="button" class="locked-metric course-setting-tile" onclick="openSettingsModal()" aria-label="条件設定"><div class="locked-value">🚴‍♂️ 🏃 条件設定</div></button>
+    <button type="button" class="locked-metric course-setting-tile" onclick="triggerGPXImport()" aria-label="GPX読込"><div class="locked-value">📂 GPX読込</div><div class="locked-sub">コースデータを読み込む</div></button>
   </div>
 </div>
 <div id="ride-flow-guide" class="ride-flow-guide"><b>① 地図をタップしてコース作成</b><span>→</span><b>② 上の「条件設定」で速度・時刻を調整</b></div>
@@ -591,6 +592,7 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
         <div style="background:rgba(10,10,10,0.93);backdrop-filter:blur(8px);padding:7px 12px;box-shadow:0 2px 12px rgba(0,0,0,0.5);display:flex;flex-wrap:wrap;gap:0;align-items:center;justify-content:space-around">
           <div class="msb-cell"><div class="msb-label">距離</div><div class="msb-val" id="msb-dist">—</div></div>
           <div class="msb-cell"><div class="msb-label">獲得標高</div><div class="msb-val" id="msb-elev">—</div></div>
+          <div class="msb-cell"><div class="msb-label">平均勾配</div><div class="msb-val" id="msb-avggrade">—</div></div>
           <div class="msb-cell"><div class="msb-label">最大斜度</div><div class="msb-val" id="msb-grade">—</div></div>
           <div class="msb-cell"><div class="msb-label">予想時間</div><div class="msb-val" id="msb-time" style="color:#4ade80">—</div></div>
           <div class="msb-cell"><div class="msb-label">🟢 スタート</div><div class="msb-val" id="msb-start" style="color:#4ade80">—</div></div>
@@ -660,6 +662,7 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
             <div class="ri-chip"><span class="ri-cl">獲得標高</span><span class="ri-cv" id="ri-elev">—</span></div>
             <div class="ri-chip"><span class="ri-cl">最高標高</span><span class="ri-cv" id="ri-maxelev">—</span></div>
             <div class="ri-chip"><span class="ri-cl">特性</span><span class="ri-cv" id="ri-profile">—</span></div>
+            <div class="ri-chip"><span class="ri-cl">平均勾配</span><span class="ri-cv" id="ri-avggrade">—</span></div>
             <div class="ri-chip"><span class="ri-cl">最大斜度</span><span class="ri-cv" id="ri-maxgrade">—</span></div>
             <div class="ri-chip"><span class="ri-cl">方向</span><span class="ri-cv" style="font-size:10px" id="ri-bearing">—</span></div>
           </div>
@@ -4786,6 +4789,8 @@ function processElevation(elevResults,distKm,path){
     if(g>5) steepSegs++;
   }
   const gainM=Math.round(gain);
+  // 平均勾配 = 獲得標高 ÷ 総走行距離。ループコースでも0%にならない「平均登坂負荷」の表示。
+  const avgGrade=(+distKm)>0 ? (gainM/((+distKm)*1000)*100) : 0;
   const steepPct=steepSegs/filtered.length*100;
   const profile=maxGrade<3&&steepPct<5?'🟢 平坦メイン':
                 maxGrade<8&&steepPct<20?'🟡 丘陵ルート':
@@ -4802,16 +4807,18 @@ function processElevation(elevResults,distKm,path){
     bar.style.display='block'; document.body.style.paddingTop=(bar.offsetHeight||48)+'px';
     document.getElementById('msb-dist').textContent=(+distKm).toFixed(1)+' km';
     document.getElementById('msb-elev').textContent=gainM+' m';
+    const ag=document.getElementById('msb-avggrade'); if(ag) ag.textContent=avgGrade.toFixed(1)+'%';
     document.getElementById('msb-grade').textContent=maxGrade.toFixed(1)+'%';
   }
   document.getElementById('ri-maxelev').textContent=Math.round(maxElev)+' m';
   document.getElementById('ri-bearing').textContent=bearingToLabel(bearing);
   document.getElementById('ri-profile').textContent=profile;
+  const riAvg=document.getElementById('ri-avggrade'); if(riAvg) riAvg.textContent=avgGrade.toFixed(1)+'%';
   document.getElementById('ri-maxgrade').textContent=maxGrade.toFixed(1)+'%';
 
   const filteredElevResults=elevResults.map((e,i)=>({elevation:filtered[i]!=null?filtered[i]:e.elevation,location:e.location}));
   drawElevProfile(filteredElevResults);
-  window._routeData={distKm:+distKm, gainM, bearing, maxGrade};
+  window._routeData={distKm:+distKm, gainM, bearing, maxGrade, avgGrade};
 
   // 入力欄もルートデータで上書き（常にルートが正）
   document.getElementById('r-dist').value=distKm;
@@ -4823,19 +4830,19 @@ function processElevation(elevResults,distKm,path){
   rideDeg=bearing; syncToHidden(); renderCompass();
   // ★ MCP経由で全UI同期（競合防止）
   mcpSyncFromRoute();
-  updateMapStatsBar(distKm, gainM, maxGrade);
+  updateMapStatsBar(distKm, gainM, maxGrade, avgGrade);
 }
 
 function applyDistOnly(distKm){
   document.getElementById('route-info').style.display='block';
   const ew=document.getElementById('elev-wrap'); if(ew) ew.style.display='block';
   document.getElementById('ri-dist').textContent=distKm+' km';
-  ['ri-elev','ri-maxelev','ri-bearing','ri-profile','ri-maxgrade'].forEach(id=>{
+  ['ri-elev','ri-maxelev','ri-bearing','ri-profile','ri-avggrade','ri-maxgrade'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.textContent='—';
   });
-  window._routeData={distKm:+distKm,gainM:0,bearing:0,maxGrade:0};
+  window._routeData={distKm:+distKm,gainM:0,bearing:0,maxGrade:0,avgGrade:0};
   mcpSyncFromRoute();
-  updateMapStatsBar(distKm, 0, 0);
+  updateMapStatsBar(distKm, 0, 0, 0);
 }
 
 /* ══ ルートデータをUIに強制同期 ══ */
@@ -4864,12 +4871,17 @@ function syncStartTimeToBar(){
 }
 
 /* ── マップ上フローティングバー更新 ── */
-function updateMapStatsBar(distKm, gainM, maxGrade){
+function updateMapStatsBar(distKm, gainM, maxGrade, avgGrade){
   const bar=document.getElementById('map-stats-bar');
   if(!bar) return;
   bar.style.display='block'; document.body.style.paddingTop=(bar.offsetHeight||48)+'px';
   document.getElementById('msb-dist').textContent=(+distKm).toFixed(1)+' km';
   document.getElementById('msb-elev').textContent=(+gainM).toFixed(0)+' m';
+  const ag=document.getElementById('msb-avggrade');
+  if(ag){
+    const g=Number.isFinite(+avgGrade)?+avgGrade:((+distKm)>0?(+gainM)/((+distKm)*1000)*100:0);
+    ag.textContent=g.toFixed(1)+'%';
+  }
   document.getElementById('msb-grade').textContent=(+maxGrade).toFixed(1)+'%';
   const _s=dialState.start;
   const startStr=`${String(_s.h!=null?_s.h:8).padStart(2,'0')}:${String(_s.m!=null?_s.m:0).padStart(2,'0')}`;
@@ -5184,8 +5196,9 @@ function importGPXText(txt, filename){
   let nodes=[...xml.querySelectorAll('trkpt')];
   if(nodes.length<2) nodes=[...xml.querySelectorAll('rtept')];
   if(nodes.length<2) nodes=[...xml.querySelectorAll('wpt')];
-  const pts=nodes.map(n=>({lat:parseFloat(n.getAttribute('lat')),lng:parseFloat(n.getAttribute('lon'))}))
+  const pts=nodes.map(n=>({lat:parseFloat(n.getAttribute('lat')),lng:parseFloat(n.getAttribute('lon')),ele:parseFloat(n.querySelector('ele')?.textContent||'')}))
                  .filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lng));
+  const gpxElevCount=pts.filter(p=>Number.isFinite(p.ele)).length;
   if(pts.length<2){alert('GPX内に有効な地点が2点以上ありません');return;}
   if(waypoints.length && !confirm('現在のコースを削除して、GPXコースを読み込みますか？')) return;
   const maxPts=23;
@@ -5208,7 +5221,7 @@ function importGPXText(txt, filename){
   waypoints.forEach(ll=>bounds.extend(ll));
   try{ gmap.fitBounds(bounds); }catch(e){}
   calcRoute();
-  alert('GPXを読み込みました。マーカーをドラッグして編集できます。');
+  alert(`GPXを読み込みました（${pts.length}地点${gpxElevCount?` / 標高データ ${gpxElevCount}点`:''}）。マーカーをドラッグして編集できます。`);
 }
 
 /* ── ベアリング ── */
