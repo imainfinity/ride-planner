@@ -534,7 +534,7 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
 <!-- GPS再取得ボタン（常時表示） -->
 <button id="gps-retry-btn" onclick="retryGPS()" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">📍</button>
 <header>
-  <h1>RIDE &amp; RUN Planner <span class="ver">v8.79 MOBILE LAP</span></h1>
+  <h1>RIDE &amp; RUN Planner <span class="ver">v8.80 MOBILE LAP</span></h1>
   <span class="sub">Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
@@ -8571,6 +8571,162 @@ body.pc-mode .ride-settings-col{overflow-y:auto}
     return ret;
   };
   window.addEventListener('load',function(){window.__rppLapCount=getLap();setTimeout(recalcAll,80)});
+})();
+</script>
+
+
+<script>
+/* ── v8.80: Mobile Safari再読込対策 / コース自動保存・自動復元 ── */
+(function(){
+  if(window.__rppRoutePersistV880) return;
+  window.__rppRoutePersistV880=true;
+
+  const CACHE_KEY='rpp_route_cache';
+  let restoring=false;
+  let saveTimer=0;
+
+  function serializeRoute(){
+    try{
+      if(!Array.isArray(window.waypoints)) return null;
+      return {
+        version:1,
+        savedAt:Date.now(),
+        waypoints:window.waypoints.map(ll=>({lat:Number(ll.lat()),lng:Number(ll.lng())})),
+        waypointKinds:Array.isArray(window.waypointKinds)?[...window.waypointKinds]:[],
+        manualSegments:(window.manualSegments&&typeof window.manualSegments==='object')?{...window.manualSegments}:{},
+        goalFixed:!!window.goalFixed,
+        routeMode:(document.getElementById('route-mode')||{}).value||'cycle',
+        roundTrip:(document.getElementById('r-roundtrip')||{}).value||'0'
+      };
+    }catch(e){ return null; }
+  }
+
+  function saveRouteNow(){
+    if(restoring) return;
+    clearTimeout(saveTimer);
+    try{
+      const state=serializeRoute();
+      if(!state) return;
+      // 1地点だけでも保存。完全削除時はhardClearRouteが明示的にremoveItemする。
+      if(state.waypoints.length){
+        localStorage.setItem(CACHE_KEY,JSON.stringify(state));
+      }
+    }catch(e){}
+  }
+
+  function queueSave(){
+    clearTimeout(saveTimer);
+    saveTimer=setTimeout(saveRouteNow,80);
+  }
+
+  function restoreRoute(){
+    if(restoring) return false;
+    let state=null;
+    try{ state=JSON.parse(localStorage.getItem(CACHE_KEY)||'null'); }catch(e){}
+    if(!state || !Array.isArray(state.waypoints) || !state.waypoints.length) return false;
+    if(!window.google || !google.maps || !window.gmap) return false;
+
+    restoring=true;
+    try{
+      const mode=document.getElementById('route-mode');
+      if(mode && state.routeMode) mode.value=state.routeMode;
+      const rt=document.getElementById('r-roundtrip');
+      if(rt && state.roundTrip!=null) rt.value=String(state.roundTrip);
+
+      if(typeof window.applyWaypointState==='function'){
+        window.applyWaypointState(state);
+      }else{
+        window.waypoints=state.waypoints.map(p=>new google.maps.LatLng(Number(p.lat),Number(p.lng)));
+        window.waypointKinds=Array.isArray(state.waypointKinds)?[...state.waypointKinds]:window.waypoints.map(()=> 'normal');
+        window.manualSegments=state.manualSegments?{...state.manualSegments}:{};
+        window.goalFixed=!!state.goalFixed;
+        if(Array.isArray(window.markers)){
+          window.markers.forEach(m=>m&&m.setMap&&m.setMap(null));
+          window.markers=[];
+        }
+        if(typeof window.createMarker==='function') window.waypoints.forEach((ll,i)=>window.createMarker(ll,i));
+        if(typeof window.renderWpList==='function') window.renderWpList();
+        if(typeof window.updateGoalFlagBtn==='function') window.updateGoalFlagBtn();
+        if(window.waypoints.length>=2 && typeof window.calcRoute==='function') window.calcRoute();
+      }
+      if(typeof window.updateRtLabel==='function') window.updateRtLabel();
+
+      // 復元地点が画面外なら全地点が見える範囲へ。1地点なら中心だけ戻す。
+      try{
+        if(state.waypoints.length===1){
+          window.gmap.setCenter(state.waypoints[0]);
+        }else{
+          const b=new google.maps.LatLngBounds();
+          state.waypoints.forEach(p=>b.extend(p));
+          window.gmap.fitBounds(b,40);
+        }
+      }catch(e){}
+      return true;
+    }finally{
+      setTimeout(()=>{restoring=false;},500);
+    }
+  }
+
+  // initMap完了直後に、Safariが破棄した画面のコースを復元する。
+  const originalInit=window.initMap;
+  if(typeof originalInit==='function'){
+    window.initMap=function(){
+      const ret=originalInit.apply(this,arguments);
+      setTimeout(restoreRoute,120);
+      return ret;
+    };
+  }
+
+  // コース変更の正本となる処理をフック。スナップ・ドラッグ・削除・Undo/Redoも保存される。
+  ['calcRoute','renderWpList','updateGoalFlagBtn'].forEach(name=>{
+    const old=window[name];
+    if(typeof old!=='function' || old.__rppPersistHook) return;
+    const wrapped=function(){
+      const ret=old.apply(this,arguments);
+      queueSave();
+      return ret;
+    };
+    wrapped.__rppPersistHook=true;
+    window[name]=wrapped;
+  });
+
+  // 1地点目はcalcRouteが走らないのでaddWaypointも保存対象。
+  const oldAdd=window.addWaypoint;
+  if(typeof oldAdd==='function'){
+    window.addWaypoint=function(){
+      const ret=oldAdd.apply(this,arguments);
+      queueSave();
+      return ret;
+    };
+  }
+
+  // 強制経由点も同様。
+  const oldForce=window.addForcedWaypoint;
+  if(typeof oldForce==='function'){
+    window.addForcedWaypoint=function(){
+      const ret=oldForce.apply(this,arguments);
+      queueSave();
+      return ret;
+    };
+  }
+
+  // iOS Safariがメモリ解放する直前、バックグラウンド移行時にも同期保存。
+  window.addEventListener('pagehide',saveRouteNow,{capture:true});
+  document.addEventListener('visibilitychange',function(){
+    if(document.visibilityState==='hidden') saveRouteNow();
+  },{capture:true});
+
+  // BFCacheから戻った場合も表示状態だけ復元確認。既存コースがあれば触らない。
+  window.addEventListener('pageshow',function(){
+    setTimeout(function(){
+      try{
+        if((!Array.isArray(window.waypoints)||window.waypoints.length===0) && window.gmap) restoreRoute();
+      }catch(e){}
+    },120);
+  });
+
+  window.rppSaveRouteCache=saveRouteNow;
+  window.rppRestoreRouteCache=restoreRoute;
 })();
 </script>
 </body>
