@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RIDE & RUN Planner v8.83 RIVER & MOUNTAIN</title>
+<title>RIDE & RUN Planner v8.84 NATURE CONTINUE</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -472,7 +472,7 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
   .lap-top-select{width:76px!important;min-width:76px!important;font-size:12px!important}
 }
 
-/* ── v8.83: 河川・山フローティングパネル ── */
+/* ── v8.84: 河川・山フローティングパネル ── */
 .river-mode-btn,.mountain-mode-btn{flex:0 0 auto;font-weight:800!important;white-space:nowrap}
 .river-mode-btn{color:var(--blue)!important;border-color:var(--blue)!important}
 .mountain-mode-btn{color:#378a4a!important;border-color:#4f9a61!important}
@@ -576,7 +576,7 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
 <!-- GPS再取得ボタン（常時表示） -->
 <button id="gps-retry-btn" onclick="retryGPS()" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">📍</button>
 <header>
-  <h1>RIDE &amp; RUN Planner <span class="ver">v8.83 RIVER &amp; MOUNTAIN</span></h1>
+  <h1>RIDE &amp; RUN Planner <span class="ver">v8.84 NATURE CONTINUE</span></h1>
   <span class="sub">Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
@@ -3923,7 +3923,7 @@ function initMap(){
 
   gmap.addListener('click',(e)=>{
     if(_mapDragged) return;
-    if(window.__natureModeActive) return;
+    if(window.__natureMapClickLocked) return;
     if(_poiSelectMode) return; // POIエリア選択中はwaypoint追加をロック
     if(sharedIW&&sharedIW.getMap()){sharedIW.close();return;}
     if(_routeCalculating) return;
@@ -3934,7 +3934,7 @@ function initMap(){
   // 右クリック → 確認ダイアログ（PC：既存地点間に挿入したい場合）
   // 右クリック → 即時地点追加
   gmap.addListener('rightclick',(e)=>{
-    if(window.__natureModeActive) return;
+    if(window.__natureMapClickLocked) return;
     if(_poiSelectMode) return; // POIエリア選択中はwaypoint追加をロック
     addWaypoint(e.latLng);
   });
@@ -9036,13 +9036,14 @@ function toggleRiverModeLegacy(force){
 }
 </script>
 <script>
-/* ── v8.83 河川・山のフローティング探索／目的地ルーティング ── */
+/* ── v8.84 河川・山のフローティング探索／目的地ルーティング ── */
 let _natureMode='river';
 let _mountainOverlays=[];
 let _mountainRequestToken=0;
 let _currentRiverEndpoints=null;
 let _currentMountain=null;
 window.__natureModeActive=false;
+window.__natureMapClickLocked=false;
 
 function setNaturePanelSummary(text){
   const el=document.getElementById('nature-panel-summary');
@@ -9054,6 +9055,9 @@ function setNaturePanelCollapsed(collapsed){
   const button=document.getElementById('nature-collapse-btn');
   if(!bar) return;
   bar.classList.toggle('collapsed',!!collapsed);
+  // パネルを畳んだら地図クリックを通常の経由地点追加へ戻す。
+  // 河川・山のオーバーレイと選択状態はそのまま保持する。
+  window.__natureMapClickLocked=window.__natureModeActive&&!collapsed;
   if(button){
     button.textContent=collapsed?'+':'−';
     button.title=collapsed?'展開する':'折りたたむ';
@@ -9084,6 +9088,7 @@ function clearMountainOverlay(){
 function closeNatureMode(){
   window.__natureModeActive=false;
   window.__riverModeActive=false;
+  window.__natureMapClickLocked=false;
   clearRiverOverlay();
   clearMountainOverlay();
   const bar=document.getElementById('river-control-bar');
@@ -9098,6 +9103,7 @@ function switchNatureMode(mode){
   _natureMode=mode==='mountain'?'mountain':'river';
   window.__natureModeActive=true;
   window.__riverModeActive=_natureMode==='river';
+  window.__natureMapClickLocked=true;
   const bar=document.getElementById('river-control-bar');
   if(bar) bar.classList.add('on');
   setNaturePanelCollapsed(false);
@@ -9277,9 +9283,9 @@ function replaceRouteWithNaturalDestination(start,destination,label){
   renderWpList();
   updateGoalFlagBtn();
   calcRoute();
-  setNaturePanelSummary(label);
+  setNaturePanelSummary('✓ '+label+'｜地図タップで延長');
   setNaturePanelCollapsed(true);
-  natureMessage('🧭 '+label+'に近い道路を目的地に設定しました');
+  natureMessage('🧭 '+label+'を設定しました。地図をタップしてコースを延長できます');
 }
 
 function routeToNaturalTarget(target,label){
