@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RIDE & RUN Planner v8.84 NATURE CONTINUE</title>
+<title>RIDE & RUN Planner v8.85 LAP DEFAULT 1</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -576,7 +576,7 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
 <!-- GPS再取得ボタン（常時表示） -->
 <button id="gps-retry-btn" onclick="retryGPS()" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">📍</button>
 <header>
-  <h1>RIDE &amp; RUN Planner <span class="ver">v8.84 NATURE CONTINUE</span></h1>
+  <h1>RIDE &amp; RUN Planner <span class="ver">v8.85 LAP DEFAULT 1</span></h1>
   <span class="sub">Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
@@ -8593,6 +8593,14 @@ body.pc-mode .ride-settings-col{overflow-y:auto}
 /* v8.74: 同一コース LAP 1-10 累積シミュレーション */
 (function(){
   if(window.__rppLapV874) return; window.__rppLapV874=true;
+  // v8.85 migration: earlier builds could leave the test value "10" in storage.
+  // Reset exactly once after this update; later user-selected LAP values remain persistent.
+  var LAP_DEFAULT_MIGRATION='rpp_lap_default_v885';
+  if(localStorage.getItem(LAP_DEFAULT_MIGRATION)!=='done'){
+    localStorage.setItem('rpp_lap_count','1');
+    localStorage.setItem(LAP_DEFAULT_MIGRATION,'done');
+    window.__rppLapCount=1;
+  }
   function el(id){return document.getElementById(id)}
   function n(v,d){v=parseFloat(v);return Number.isFinite(v)?v:d}
   function clamp(v){return Math.max(1,Math.min(10,Math.round(n(v,1))))}
