@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RIDE & RUN Planner v8.88 GPS GOAL STATE</title>
+<title>RIDE & RUN Planner v8.89 MOBILE FOLD</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -514,6 +514,48 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
   .river-info{font-size:10px;padding:6px 8px}
 }
 
+/* ── v8.89: Mobile上部パネルの個別折りたたみ ── */
+.mobile-fold-toggle{appearance:none;border:0;background:transparent;color:inherit;font-family:inherit;cursor:default}
+.mobile-fold-icon,.mobile-fold-summary,.metrics-fold-toggle{display:none}
+
+body.sp-mode .mobile-fold-toggle{cursor:pointer;touch-action:manipulation}
+body.sp-mode .lap-top-title{
+  width:100%;display:flex;align-items:center;gap:7px;text-align:left;padding:0;
+}
+body.sp-mode .lap-top-title .mobile-fold-label{flex:0 0 auto}
+body.sp-mode .mobile-fold-summary{
+  display:block;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;color:var(--text2);font-size:9px;font-weight:700;
+}
+body.sp-mode .mobile-fold-icon{
+  display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;
+  width:25px;height:25px;border:1px solid currentColor;border-radius:7px;
+  font-size:16px;font-weight:900;line-height:1;
+}
+body.sp-mode #lap-control.mobile-collapsed{
+  display:flex!important;align-items:center!important;min-height:38px!important;
+  padding:6px 9px!important;
+}
+body.sp-mode #lap-control.mobile-collapsed>:not(.lap-top-title){display:none!important}
+
+.metrics-panel-shell{min-width:0}
+body.sp-mode .metrics-fold-toggle{
+  width:100%;min-height:36px;padding:5px 9px;display:flex;align-items:center;gap:7px;
+  border:1px solid var(--border2);border-radius:8px;background:var(--bg2);
+  color:var(--text);text-align:left;font-family:inherit;font-weight:800;cursor:pointer;
+  touch-action:manipulation;
+}
+body.sp-mode .metrics-fold-label{flex:0 0 auto;color:var(--text2);font-size:10px}
+body.sp-mode .metrics-fold-toggle .mobile-fold-summary{font-size:9px}
+body.sp-mode #metrics-panel-shell.mobile-collapsed #locked-course-panel{display:none!important}
+body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{margin-bottom:4px}
+
+@media(max-width:380px){
+  body.sp-mode .mobile-fold-summary{font-size:8px}
+  body.sp-mode .lap-top-title .mobile-fold-label,
+  body.sp-mode .metrics-fold-label{font-size:9px}
+}
+
 </style>
 
 <script>
@@ -576,7 +618,7 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
 <!-- GPS再取得ボタン（常時表示） -->
 <button id="gps-retry-btn" onclick="retryGPS()" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">📍</button>
 <header>
-  <h1>RIDE &amp; RUN Planner <span class="ver">v8.88 GPS GOAL STATE</span></h1>
+  <h1>RIDE &amp; RUN Planner <span class="ver">v8.89 MOBILE FOLD</span></h1>
   <span class="sub">Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
@@ -626,7 +668,11 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
 
   <!-- v8.75: 周回シミュレーションを常時見える独立操作として配置 -->
   <div id="lap-control" class="lap-top-control" title="同じコースを繰り返した場合の累積結果を表示">
-    <div class="lap-top-title">🔁 周回シミュレーション</div>
+    <button type="button" class="lap-top-title mobile-fold-toggle" onclick="toggleMobileTopPanel('lap')" aria-controls="lap-count-select lap-total-label" aria-expanded="true">
+      <span class="mobile-fold-label">🔁 周回シミュレーション</span>
+      <span id="lap-fold-summary" class="mobile-fold-summary">1 LAP・コース未作成</span>
+      <span id="lap-fold-icon" class="mobile-fold-icon" aria-hidden="true">−</span>
+    </button>
     <button type="button" class="lap-top-btn" onclick="adjustLapCount(-1)" aria-label="周回数を減らす">−</button>
     <div class="lap-top-dial"><span id="lap-count-display">1</span><small>LAP</small></div>
     <button type="button" class="lap-top-btn" onclick="adjustLapCount(1)" aria-label="周回数を増やす">＋</button>
@@ -637,16 +683,23 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
     <div class="lap-top-result"><b id="lap-total-label">1周</b><span id="lap-base-label">コース作成後に累積表示</span></div>
   </div>
 
-  <!-- 固定操作パネル：表示専用 -->
-  <div id="locked-course-panel" style="display:flex;flex-wrap:wrap;gap:6px;align-items:stretch">
-    <div class="locked-metric"><div class="locked-label">距離</div><div class="locked-value" id="mcp-dist-display">0.0 km</div><div class="locked-sub" id="mcp-source">🗺️ コース未作成</div></div>
-    <div class="locked-metric"><div class="locked-label">獲得標高</div><div class="locked-value" id="mcp-elev-display">0 m</div><div class="locked-sub">設定/ルート反映</div></div>
-    <div class="locked-metric"><div class="locked-label">平地基準速度</div><div class="locked-value" id="mcp-spd-display">30.0 km/h</div><div class="locked-sub">平地巡航の基準</div></div>
-    <div class="locked-metric"><div class="locked-label">補正後速度</div><div class="locked-value" id="mcp-corrected-spd-display">— km/h</div><div class="locked-sub" id="mcp-corrected-note">坂・風・体調反映</div></div>
-    <div class="locked-metric"><div class="locked-label">所要時間</div><div class="locked-value" id="mcp-total">—</div><div class="locked-sub" id="mcp-time-note">Ratio込み</div></div>
-    <div class="locked-metric"><div class="locked-label">消費カロリー</div><div class="locked-value" id="mcp-calories">0 kcal</div><div class="locked-sub" id="mcp-calories-note">コース・走力連動</div></div>
-    <button type="button" class="locked-metric course-setting-tile" onclick="openSettingsModal()" aria-label="条件設定"><div class="locked-value">🚴‍♂️ 🏃 条件設定</div></button>
-    <button type="button" class="locked-metric course-setting-tile" onclick="triggerGPXImport()" aria-label="GPX読込"><div class="locked-value">📂 GPX読込</div><div class="locked-sub">コースデータを読み込む</div></button>
+  <!-- 固定操作パネル：Mobileでは見出し単位で折りたたみ -->
+  <div id="metrics-panel-shell" class="metrics-panel-shell">
+    <button type="button" class="metrics-fold-toggle" onclick="toggleMobileTopPanel('metrics')" aria-controls="locked-course-panel" aria-expanded="true">
+      <span class="metrics-fold-label">📊 距離・計算結果</span>
+      <span id="metrics-fold-summary" class="mobile-fold-summary">距離 0.0 km・獲得 0 m・時間 —</span>
+      <span id="metrics-fold-icon" class="mobile-fold-icon" aria-hidden="true">−</span>
+    </button>
+    <div id="locked-course-panel" style="display:flex;flex-wrap:wrap;gap:6px;align-items:stretch">
+      <div class="locked-metric"><div class="locked-label">距離</div><div class="locked-value" id="mcp-dist-display">0.0 km</div><div class="locked-sub" id="mcp-source">🗺️ コース未作成</div></div>
+      <div class="locked-metric"><div class="locked-label">獲得標高</div><div class="locked-value" id="mcp-elev-display">0 m</div><div class="locked-sub">設定/ルート反映</div></div>
+      <div class="locked-metric"><div class="locked-label">平地基準速度</div><div class="locked-value" id="mcp-spd-display">30.0 km/h</div><div class="locked-sub">平地巡航の基準</div></div>
+      <div class="locked-metric"><div class="locked-label">補正後速度</div><div class="locked-value" id="mcp-corrected-spd-display">— km/h</div><div class="locked-sub" id="mcp-corrected-note">坂・風・体調反映</div></div>
+      <div class="locked-metric"><div class="locked-label">所要時間</div><div class="locked-value" id="mcp-total">—</div><div class="locked-sub" id="mcp-time-note">Ratio込み</div></div>
+      <div class="locked-metric"><div class="locked-label">消費カロリー</div><div class="locked-value" id="mcp-calories">0 kcal</div><div class="locked-sub" id="mcp-calories-note">コース・走力連動</div></div>
+      <button type="button" class="locked-metric course-setting-tile" onclick="openSettingsModal()" aria-label="条件設定"><div class="locked-value">🚴‍♂️ 🏃 条件設定</div></button>
+      <button type="button" class="locked-metric course-setting-tile" onclick="triggerGPXImport()" aria-label="GPX読込"><div class="locked-value">📂 GPX読込</div><div class="locked-sub">コースデータを読み込む</div></button>
+    </div>
   </div>
 </div>
 <div id="ride-flow-guide" class="ride-flow-guide"><b>① 地図をタップしてコース作成</b><span>→</span><b>② 上の「条件設定」で速度・時刻を調整</b></div>
@@ -9526,6 +9579,91 @@ function routeToMountain(which){
   const label=which==='base'?item.name+' '+item.baseName:item.name+' 山頂最寄り舗装路';
   routeToNaturalTarget(target,label);
 }
+</script>
+
+<script>
+/* ── v8.89: Mobile上部パネルの個別折りたたみ ── */
+(function(){
+  if(window.__rppMobileTopFoldV889) return;
+  window.__rppMobileTopFoldV889=true;
+  var STORAGE_KEY='rpp_mobile_top_folds_v889';
+
+  function el(id){ return document.getElementById(id); }
+  function textOf(id,fallback){
+    var node=el(id);
+    var value=node&&node.textContent?node.textContent.trim():'';
+    return value||fallback;
+  }
+  function readState(){
+    try{
+      var saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');
+      if(saved&&typeof saved==='object'){
+        return {lap:saved.lap!==false,metrics:saved.metrics!==false};
+      }
+    }catch(e){}
+    // 初回は地図を広く見せるため両方を折りたたむ。
+    return {lap:true,metrics:true};
+  }
+  function currentState(){
+    return {
+      lap:!!el('lap-control')?.classList.contains('mobile-collapsed'),
+      metrics:!!el('metrics-panel-shell')?.classList.contains('mobile-collapsed')
+    };
+  }
+  function saveState(){
+    try{ localStorage.setItem(STORAGE_KEY,JSON.stringify(currentState())); }catch(e){}
+  }
+  function setFold(section,collapsed,persist){
+    var isLap=section==='lap';
+    var panel=el(isLap?'lap-control':'metrics-panel-shell');
+    var icon=el(isLap?'lap-fold-icon':'metrics-fold-icon');
+    var toggle=panel&&panel.querySelector(isLap?'.lap-top-title':'.metrics-fold-toggle');
+    if(!panel) return;
+    panel.classList.toggle('mobile-collapsed',!!collapsed);
+    if(icon) icon.textContent=collapsed?'＋':'−';
+    if(toggle){
+      toggle.setAttribute('aria-expanded',collapsed?'false':'true');
+      toggle.title=collapsed?'展開する':'折りたたむ';
+    }
+    if(persist!==false) saveState();
+  }
+
+  window.refreshMobileTopPanelSummaries=function(){
+    var lap=textOf('lap-count-display','1');
+    var dist=textOf('mcp-dist-display','0.0 km');
+    var elev=textOf('mcp-elev-display','0 m');
+    var total=textOf('mcp-total','—');
+    var lapSummary=el('lap-fold-summary');
+    var metricsSummary=el('metrics-fold-summary');
+    if(lapSummary) lapSummary.textContent=lap+' LAP・'+(dist==='0.0 km'?'コース未作成':dist);
+    if(metricsSummary) metricsSummary.textContent='距離 '+dist+'・獲得 '+elev+'・時間 '+total;
+  };
+
+  window.toggleMobileTopPanel=function(section){
+    var panel=el(section==='lap'?'lap-control':'metrics-panel-shell');
+    if(!panel) return;
+    setFold(section,!panel.classList.contains('mobile-collapsed'),true);
+    window.refreshMobileTopPanelSummaries();
+  };
+
+  function init(){
+    var state=readState();
+    setFold('lap',state.lap,false);
+    setFold('metrics',state.metrics,false);
+    window.refreshMobileTopPanelSummaries();
+
+    if(window.MutationObserver){
+      var observer=new MutationObserver(window.refreshMobileTopPanelSummaries);
+      ['lap-count-display','mcp-dist-display','mcp-elev-display','mcp-total'].forEach(function(id){
+        var node=el(id);
+        if(node) observer.observe(node,{childList:true,subtree:true,characterData:true});
+      });
+    }
+  }
+
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init,{once:true});
+  else init();
+})();
 </script>
 </body>
 </html>
