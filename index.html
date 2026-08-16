@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RIDE & RUN Planner v8.85 LAP DEFAULT 1</title>
+<title>RIDE & RUN Planner v8.88 GPS GOAL STATE</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -569,14 +569,14 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
 
 <!-- GPS バナー：body直下・最前面 -->
 <div id="gps-start-banner" style="display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:99999;background:rgba(10,10,10,0.93);backdrop-filter:blur(10px);border-radius:12px;padding:12px 18px;flex-direction:row;align-items:center;gap:12px;white-space:nowrap;box-shadow:0 4px 24px rgba(0,0,0,0.5)">
-  <span style="font-size:13px;color:#fff;font-weight:500">📍 現在地をスタートにしますか？</span>
-  <button onclick="setGpsAsStart()" style="padding:8px 18px;background:#4ade80;color:#18180f;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">スタートに設定</button>
-  <button onclick="document.getElementById('gps-start-banner').style.display='none'" style="padding:8px 12px;background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit">✕</button>
+  <span id="gps-banner-message" style="font-size:13px;color:#fff;font-weight:500">📍 現在地をスタートにしますか？</span>
+  <button id="gps-banner-action" onclick="setGpsAsStart()" style="padding:8px 18px;background:#4ade80;color:#18180f;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">スタートに設定</button>
+  <button onclick="hideGpsBanner()" style="padding:8px 12px;background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit">✕</button>
 </div>
 <!-- GPS再取得ボタン（常時表示） -->
 <button id="gps-retry-btn" onclick="retryGPS()" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">📍</button>
 <header>
-  <h1>RIDE &amp; RUN Planner <span class="ver">v8.85 LAP DEFAULT 1</span></h1>
+  <h1>RIDE &amp; RUN Planner <span class="ver">v8.88 GPS GOAL STATE</span></h1>
   <span class="sub">Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
@@ -3787,14 +3787,18 @@ function setBlueDot(lat,lng){
             strokeColor:'#4285F4',strokeWeight:1.5}
     });
     _blueDot=new google.maps.Marker({
-      position:pos,map:gmap,zIndex:9999,title:'現在地（タップでスタート設定）',
+      position:pos,map:gmap,zIndex:9999,title:'現在地（タップで地点設定）',
       icon:{path:google.maps.SymbolPath.CIRCLE,scale:10,
             fillColor:'#4285F4',fillOpacity:1,
             strokeColor:'#ffffff',strokeWeight:2.5}
     });
-    // 青丸タップでバナー再表示
+    // 青丸の明示タップ時だけ地点設定バナーを表示。
+    // すでにスタートがあれば、現在地を新しいゴールとして追加する。
     _blueDot.addListener('click',()=>{
-      showStartBanner(userLat,userLon);
+      showStartBanner(userLat,userLon,{
+        forceGoal:hasPlannerStartPoint(),
+        label:'現在地'
+      });
     });
   } else {
     _blueDot.setPosition(pos);
@@ -3813,7 +3817,10 @@ function retryGPS(){
     pos=>{
       setBlueDot(pos.coords.latitude,pos.coords.longitude);
       gmap.setCenter({lat:pos.coords.latitude,lng:pos.coords.longitude});
-      showStartBanner(pos.coords.latitude,pos.coords.longitude);
+      showStartBanner(pos.coords.latitude,pos.coords.longitude,{
+        forceGoal:hasPlannerStartPoint(),
+        label:'現在地'
+      });
     },
     err=>{
       if(err.code===1){
@@ -3833,7 +3840,7 @@ function startGPS(){
         gmap.setCenter({lat:pos.coords.latitude,lng:pos.coords.longitude});
         gmap.setZoom(13);
       }
-      showStartBanner(pos.coords.latitude,pos.coords.longitude);
+      showStartBanner(pos.coords.latitude,pos.coords.longitude,{auto:true,label:'現在地'});
     },
     err=>{ console.warn('GPS error:',err.code, err.message); },
     {timeout:10000,enableHighAccuracy:true,maximumAge:0}
@@ -3961,21 +3968,111 @@ function initMap(){
 
 let goalFixed=false; // ゴール確定済みフラグ
 
-/* ── GPS スタートバナー ── */
+/* ── GPS／地点設定バナー ── */
 let _gpsLat=null, _gpsLng=null;
-function showStartBanner(lat,lng){
-  _gpsLat=lat; _gpsLng=lng;
-  const b=document.getElementById('gps-start-banner');
-  if(b){
-    b.style.display='flex';
-    b.style.alignItems='center';
-  }
+let _gpsBannerForceGoal=false;
+let _gpsBannerLabel='現在地';
+let _gpsBannerAuto=false;
+
+function hasActiveStartPoint(){
+  return Array.isArray(waypoints)&&waypoints.length>0;
 }
+
+function hasVisibleStartMarker(){
+  try{
+    if(!Array.isArray(markers)||!markers[0]) return false;
+    return typeof markers[0].getMap!=='function'||!!markers[0].getMap();
+  }catch(e){ return false; }
+}
+
+function hasDisplayedRoute(){
+  try{
+    if(Array.isArray(lastRoutePath)&&lastRoutePath.length>1) return true;
+    if(window._routeData) return true;
+    const result=directionsRenderer&&typeof directionsRenderer.getDirections==='function'
+      ?directionsRenderer.getDirections():null;
+    return !!(result&&Array.isArray(result.routes)&&result.routes.length>0);
+  }catch(e){ return false; }
+}
+
+function hasStoredStartPoint(){
+  if(hasActiveStartPoint()||hasVisibleStartMarker()||hasDisplayedRoute()) return true;
+  try{
+    const state=JSON.parse(localStorage.getItem('rpp_route_cache')||'null');
+    return !!(state&&Array.isArray(state.waypoints)&&state.waypoints.length>0);
+  }catch(e){ return false; }
+}
+
+// GPS取得とルート復元の順序に左右されず、画面上にSまたはコースがあれば開始済みと判定。
+function hasPlannerStartPoint(){
+  return hasStoredStartPoint();
+}
+
+function hideGpsBanner(){
+  const b=document.getElementById('gps-start-banner');
+  if(b) b.style.display='none';
+  _gpsBannerAuto=false;
+}
+
+function showStartBanner(lat,lng,options={}){
+  _gpsLat=lat; _gpsLng=lng;
+  _gpsBannerForceGoal=!!options.forceGoal;
+  _gpsBannerLabel=options.label||'現在地';
+  _gpsBannerAuto=!!options.auto;
+
+  // GPS初回取得の自動案内は、画面上または保存済みのスタートがある場合は出さない。
+  // これにより、コース復元よりGPSが先に完了しても「スタートに設定」が点滅しない。
+  if(_gpsBannerAuto&&hasStoredStartPoint()){
+    hideGpsBanner();
+    return;
+  }
+
+  updateGpsBannerMode();
+  const b=document.getElementById('gps-start-banner');
+  if(b){ b.style.display='flex'; b.style.alignItems='center'; }
+}
+
+function updateGpsBannerMode(){
+  const hasStart=hasPlannerStartPoint();
+  const isGoal=_gpsBannerForceGoal||hasStart;
+  const message=document.getElementById('gps-banner-message');
+  const action=document.getElementById('gps-banner-action');
+  const icon=_gpsBannerLabel==='スタート地点'?'🏁':'📍';
+  if(message) message.textContent=isGoal
+    ?`${icon} ${_gpsBannerLabel}をゴールにしますか？`
+    :`${icon} ${_gpsBannerLabel}をスタートにしますか？`;
+  if(action){
+    action.textContent=isGoal?'ゴールに設定':'スタートに設定';
+    action.style.background=isGoal?'#f87171':'#4ade80';
+    action.style.color=isGoal?'#fff':'#18180f';
+  }
+  if(_blueDot&&typeof _blueDot.setTitle==='function'){
+    _blueDot.setTitle(hasStart?'現在地（タップでゴール設定）':'現在地（タップでスタート設定）');
+  }
+
+  // 自動表示中に地図タップやコース復元でスタートが入ったら即座に消す。
+  if(_gpsBannerAuto&&hasStart) hideGpsBanner();
+}
+
+function showPointAsGoalBanner(latLng,label='地点'){
+  if(!latLng) return;
+  showStartBanner(latLng.lat(),latLng.lng(),{forceGoal:true,label});
+}
+
 function setGpsAsStart(){
   if(_gpsLat===null) return;
+  if(_routeCalculating){
+    if(typeof showToast==='function') showToast('ルート計算が終わってからもう一度押してください');
+    return;
+  }
+  const makeGoal=_gpsBannerForceGoal||hasPlannerStartPoint();
   const ll=new google.maps.LatLng(_gpsLat,_gpsLng);
   addWaypoint(ll);
-  document.getElementById('gps-start-banner').style.display='none';
+  // addWaypoint内の履歴保存後にゴール化し、Undo時の状態を壊さない。
+  if(makeGoal&&waypoints.length>1) goalFixed=true;
+  hideGpsBanner();
+  _gpsBannerForceGoal=false;
+  _gpsBannerLabel='現在地';
 }
 
 /* ── デフォルトモード（ゴール優先 or スタート優先） ── */
@@ -4201,6 +4298,7 @@ function addWaypoint(latLng){
   const idx=waypoints.length;
   waypoints.push(latLng);
   waypointKinds.push(autoCloseToStart?'goal':'normal');
+  if(typeof updateGpsBannerMode==='function') updateGpsBannerMode();
 
   if(waypoints.length===1){
     // 1点目：マーカーのみ
@@ -4307,7 +4405,8 @@ function createMarker(latLng, idx){
     document.getElementById('mh-grade').textContent='';
   });
   marker.addListener('mouseout',()=>{document.getElementById('map-hover').style.display='none';});
-  // S地点クリック → 往復トグルのInfoWindow表示
+  // コース作成中にS地点を押したら、Sをゴールとして追加する確認を出す。
+  // Sしかない段階では従来の往復メニューを表示する。
   if(idx===0){
     const iwS=new google.maps.InfoWindow({
       content:`<div style="font-size:13px;font-weight:500;padding:2px 0 4px">
@@ -4324,7 +4423,13 @@ function createMarker(latLng, idx){
         </div>
       </div>`
     });
-    marker.addListener('click',()=>iwS.open(gmap,marker));
+    marker.addListener('click',()=>{
+      if(waypoints.length>=2){
+        showPointAsGoalBanner(waypoints[0],'スタート地点');
+        return;
+      }
+      iwS.open(gmap,marker);
+    });
   }
   markers[idx]=marker;
 }
@@ -4355,6 +4460,7 @@ function removeWaypoint(idx){
   waypointKinds.splice(idx,1);
   markers.splice(idx,1);
   if(removedWasGoal || waypoints.length<2) goalFixed=false;
+  if(typeof updateGpsBannerMode==='function') updateGpsBannerMode();
   // 全マーカーを再描画（ラベル更新）
   markers.forEach(m=>m.setMap(null));
   markers=[];
@@ -5124,6 +5230,7 @@ function applyWaypointState(state){
   while(waypointKinds.length<waypoints.length) waypointKinds.push('normal');
   manualSegments=(state&&state.manualSegments)?{...state.manualSegments}:{};
   if(state&&typeof state.goalFixed==='boolean') goalFixed=state.goalFixed;
+  if(typeof updateGpsBannerMode==='function') updateGpsBannerMode();
   waypoints.forEach((ll,i)=>createMarker(ll,i));
 
   lastRoutePath=[];
@@ -8747,6 +8854,7 @@ body.pc-mode .ride-settings-col{overflow-y:auto}
         if(window.waypoints.length>=2 && typeof window.calcRoute==='function') window.calcRoute();
       }
       if(typeof window.updateRtLabel==='function') window.updateRtLabel();
+      if(typeof window.updateGpsBannerMode==='function') window.updateGpsBannerMode();
 
       // 復元地点が画面外なら全地点が見える範囲へ。1地点なら中心だけ戻す。
       try{
@@ -9284,6 +9392,7 @@ function replaceRouteWithNaturalDestination(start,destination,label){
   waypointKinds=['normal','goal'];
   manualSegments={};
   goalFixed=true;
+  if(typeof updateGpsBannerMode==='function') updateGpsBannerMode();
   _routeCalculating=false;
   if(window._mergedPolyline){ window._mergedPolyline.setMap(null); window._mergedPolyline=null; }
   try{ directionsRenderer.setDirections({routes:[]}); }catch(e){}
