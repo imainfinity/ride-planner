@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RIDE & RUN Planner v8.91 ROAD RESTRICTION</title>
+<title>RIDE & RUN Planner v8.92 TRAFFIC INFO</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -505,9 +505,34 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
 .nature-route-actions button{padding:6px 8px;border:1px solid var(--blue);border-radius:7px;background:var(--bluebg);color:var(--blue);font-size:10px;font-weight:800;cursor:pointer}
 .nature-route-actions button.mountain-action{border-color:#4f9a61;background:rgba(55,138,74,.1);color:#2f7a40}
 .nature-route-actions button:disabled{opacity:.45;cursor:wait}
+
+/* ── v8.92: Google交通情報＋公式確認済み規制 ── */
+.traffic-mode-btn{flex:0 0 auto;font-weight:800!important;white-space:nowrap;color:#9a6700!important;border-color:#d5a21b!important}
+.traffic-mode-btn.on{background:#f6c945!important;border-color:#c58b00!important;color:#241a00!important;box-shadow:0 0 0 2px rgba(213,162,27,.22)}
+.traffic-control-panel{display:none;position:absolute;z-index:74;top:48px;right:8px;width:min(390px,calc(100% - 16px));max-height:calc(100% - 62px);overflow:auto;padding:9px;border:1px solid #d5a21b;border-radius:10px;background:color-mix(in srgb,var(--bg) 96%,transparent);box-shadow:0 5px 20px rgba(0,0,0,.24);backdrop-filter:blur(10px)}
+.traffic-control-panel.on{display:block}
+.traffic-panel-head{display:flex;align-items:center;gap:7px;margin-bottom:8px}
+.traffic-panel-head strong{flex:1;color:var(--text);font-size:13px}
+.traffic-panel-close{width:29px;height:29px;padding:0;border:1px solid var(--border2);border-radius:7px;background:var(--bg2);color:var(--text);font-size:17px;cursor:pointer}
+.traffic-layer-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--bg);margin-top:6px}
+.traffic-layer-copy{min-width:0}
+.traffic-layer-copy b{display:block;color:var(--text);font-size:11px}
+.traffic-layer-copy small{display:block;margin-top:2px;color:var(--text3);font-size:9px;line-height:1.45}
+.traffic-toggle{min-width:56px;height:30px;padding:0 8px;border:1px solid var(--border2);border-radius:999px;background:var(--bg3);color:var(--text2);font-size:10px;font-weight:900;cursor:pointer}
+.traffic-toggle.on{background:#f6c945;border-color:#c58b00;color:#241a00}
+.traffic-toggle.restriction.on{background:#dc2626;border-color:#b91c1c;color:#fff}
+.traffic-legend{display:flex;align-items:flex-start;gap:7px;margin-top:8px;padding:7px 8px;border-radius:7px;background:var(--bg2);color:var(--text2);font-size:9px;line-height:1.5}
+.traffic-stop-symbol{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:23px;height:23px;border-radius:50%;background:#dc2626;color:#fff;font-weight:900;border:2px solid #fff;box-shadow:0 0 0 1px #dc2626}
+.traffic-official-title{margin:10px 0 5px;color:var(--text2);font-size:10px;font-weight:900}
+.traffic-official-links{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.traffic-official-links a{display:flex;align-items:center;justify-content:center;min-height:34px;padding:5px 7px;border:1px solid var(--border2);border-radius:7px;background:var(--bg);color:var(--blue);font-size:9px;font-weight:800;text-decoration:none;text-align:center;line-height:1.3}
+.traffic-status{margin-top:7px;color:var(--text3);font-size:9px;line-height:1.45}
 @media(max-width:520px){
-  #map-search-bar .river-mode-btn,#map-search-bar .mountain-mode-btn{padding:7px 6px!important;font-size:10px!important}
+  #map-search-bar .river-mode-btn,#map-search-bar .mountain-mode-btn,#map-search-bar .traffic-mode-btn{padding:7px 5px!important;font-size:10px!important}
+  #map-search-bar .search-open-btn b{display:none}
+  #map-search-bar .search-open-btn{width:auto;flex:1 1 auto;min-width:39px;justify-content:center;padding:7px 6px!important}
   .river-control-bar{top:43px;left:4px;width:calc(100% - 8px);max-height:calc(100% - 50px);padding:7px}
+  .traffic-control-panel{top:43px;right:4px;width:calc(100% - 8px);max-height:calc(100% - 50px);padding:8px}
   .river-select-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto minmax(0,1.2fr);gap:5px}
   .river-select-row select,.river-select-row #river-select{width:100%;min-width:0;max-width:none;height:32px;font-size:11px}
   .nature-panel-summary{display:none}
@@ -618,7 +643,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
 <!-- GPS再取得ボタン（常時表示） -->
 <button id="gps-retry-btn" onclick="retryGPS()" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">📍</button>
 <header>
-  <h1>RIDE &amp; RUN Planner <span class="ver">v8.91 ROAD RESTRICTION</span></h1>
+  <h1>RIDE &amp; RUN Planner <span class="ver">v8.92 TRAFFIC INFO</span></h1>
   <span class="sub">Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
@@ -718,6 +743,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
       <button class="bs legacy-search-btn" onclick="openSearchModal()" style="font-size:12px;padding:7px 12px">検索</button>
       <button type="button" class="bs river-mode-btn" id="river-mode-btn" aria-pressed="false" onclick="toggleRiverMode()">🌊 河川</button>
       <button type="button" class="bs mountain-mode-btn" id="mountain-mode-btn" aria-pressed="false" onclick="toggleMountainMode()">⛰ 山</button>
+      <button type="button" class="bs traffic-mode-btn" id="traffic-mode-btn" aria-expanded="false" onclick="toggleTrafficPanel()">🚦 交通</button>
     </div>
     <!-- ルート統計バー：スクロールしても固定（sticky） -->
 
@@ -763,6 +789,39 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
             <div id="mountain-info" class="river-info" role="status" aria-live="polite"></div>
           </div>
         </div>
+      </div>
+
+      <div id="traffic-control-panel" class="traffic-control-panel" aria-label="交通情報表示設定">
+        <div class="traffic-panel-head">
+          <strong>🚦 交通情報・確認済み規制</strong>
+          <button type="button" class="traffic-panel-close" onclick="closeTrafficPanel()" title="閉じる">×</button>
+        </div>
+        <div class="traffic-layer-row">
+          <div class="traffic-layer-copy">
+            <b>Google リアルタイム交通表示</b>
+            <small>混雑など、Googleが提供する交通状況を地図へ重ねます。通行止め地点の一覧取得ではありません。</small>
+          </div>
+          <button type="button" id="google-traffic-toggle" class="traffic-toggle" onclick="toggleGoogleTrafficLayer()" aria-pressed="false">OFF</button>
+        </div>
+        <div class="traffic-layer-row">
+          <div class="traffic-layer-copy">
+            <b>公式確認済み規制マーカー</b>
+            <small>公式発表を確認して登録した規制のみ、赤い「止」と破線で表示します。</small>
+          </div>
+          <button type="button" id="confirmed-restriction-toggle" class="traffic-toggle restriction on" onclick="toggleConfirmedRestrictions()" aria-pressed="true">ON</button>
+        </div>
+        <div class="traffic-legend">
+          <span class="traffic-stop-symbol">止</span>
+          <span><b>赤い「止」＝公式確認済み</b><br>現地標識・係員・最新の公式情報を必ず優先してください。</span>
+        </div>
+        <div class="traffic-official-title">最新情報を公式サイトで確認</div>
+        <div class="traffic-official-links">
+          <a href="https://www.road-info-prvs.mlit.go.jp/" target="_blank" rel="noopener noreferrer">国交省<br>道路情報</a>
+          <a href="https://www.w-nexco.co.jp/realtime/" target="_blank" rel="noopener noreferrer">NEXCO西日本<br>高速道路</a>
+          <a href="https://www.jartic.or.jp/" target="_blank" rel="noopener noreferrer">JARTIC<br>一般道・高速</a>
+          <a href="https://www.pref.kumamoto.jp/soshiki/102/247195.html" target="_blank" rel="noopener noreferrer">九州各県<br>道路情報リンク</a>
+        </div>
+        <div id="traffic-status" class="traffic-status">確認済み規制を表示中</div>
       </div>
 
       <!-- スマホ専用：地図上固定POIショートカットバー -->
@@ -3905,7 +3964,31 @@ function startGPS(){
   );
 }
 
-/* ══ 公式情報に基づく道路通行規制レイヤー ══ */
+/* ══ v8.92 Google交通情報＋公式確認済み規制 ══ */
+const TRAFFIC_PREF_KEY='rpp_traffic_layers_v1';
+let _googleTrafficLayer=null;
+let _googleTrafficVisible=false;
+let _confirmedRestrictionsVisible=true;
+
+function loadTrafficPrefs(){
+  try{
+    const saved=JSON.parse(localStorage.getItem(TRAFFIC_PREF_KEY)||'null');
+    if(saved&&typeof saved==='object'){
+      _googleTrafficVisible=saved.google===true;
+      _confirmedRestrictionsVisible=saved.confirmed!==false;
+    }
+  }catch(e){}
+}
+
+function saveTrafficPrefs(){
+  try{
+    localStorage.setItem(TRAFFIC_PREF_KEY,JSON.stringify({
+      google:_googleTrafficVisible,
+      confirmed:_confirmedRestrictionsVisible
+    }));
+  }catch(e){}
+}
+
 const KNOWN_ROAD_RESTRICTIONS=[
   {
     id:'sefuri-mod-access-2025-2027',
@@ -3942,7 +4025,7 @@ function roadRestrictionInfoHtml(item){
     ?item.from.replaceAll('-','/')+' ～ '+item.to.replaceAll('-','/')
     :'終了時期は公式情報を確認';
   return `<div style="max-width:270px;padding:2px 1px;font-size:12px;line-height:1.55;color:#222">
-    <div style="font-size:14px;font-weight:900;color:#b91c1c">⛔ 通行規制</div>
+    <div style="font-size:14px;font-weight:900;color:#b91c1c">⛔ 公式確認済み規制</div>
     <div style="font-weight:800;margin-top:2px">${item.name}</div>
     <div style="margin-top:5px"><b>状態：</b>${item.status}</div>
     <div><b>期間：</b>${period}</div>
@@ -3962,6 +4045,7 @@ function clearRoadRestrictionOverlays(){
 function renderKnownRoadRestrictions(){
   if(!gmap||!window.google||!google.maps) return;
   clearRoadRestrictionOverlays();
+  if(!_confirmedRestrictionsVisible){ updateTrafficPanelUI(); return; }
   KNOWN_ROAD_RESTRICTIONS.filter(item=>isRoadRestrictionActive(item)).forEach(item=>{
     const line=new google.maps.Polyline({
       map:gmap,path:item.path,clickable:true,zIndex:445,
@@ -3986,6 +4070,85 @@ function renderKnownRoadRestrictions(){
     line.addListener('click',openInfo);
     _roadRestrictionOverlays.push(line,marker);
   });
+  updateTrafficPanelUI();
+}
+
+function activeRoadRestrictionCount(){
+  return KNOWN_ROAD_RESTRICTIONS.filter(item=>isRoadRestrictionActive(item)).length;
+}
+
+function applyGoogleTrafficLayer(){
+  if(!gmap||!window.google||!google.maps) return;
+  if(!_googleTrafficLayer) _googleTrafficLayer=new google.maps.TrafficLayer();
+  _googleTrafficLayer.setMap(_googleTrafficVisible?gmap:null);
+  updateTrafficPanelUI();
+}
+
+function updateTrafficPanelUI(){
+  const googleButton=document.getElementById('google-traffic-toggle');
+  const confirmedButton=document.getElementById('confirmed-restriction-toggle');
+  const command=document.getElementById('traffic-mode-btn');
+  const panel=document.getElementById('traffic-control-panel');
+  const status=document.getElementById('traffic-status');
+  const activeCount=activeRoadRestrictionCount();
+  if(googleButton){
+    googleButton.classList.toggle('on',_googleTrafficVisible);
+    googleButton.textContent=_googleTrafficVisible?'ON':'OFF';
+    googleButton.setAttribute('aria-pressed',String(_googleTrafficVisible));
+  }
+  if(confirmedButton){
+    confirmedButton.classList.toggle('on',_confirmedRestrictionsVisible);
+    confirmedButton.textContent=_confirmedRestrictionsVisible?'ON':'OFF';
+    confirmedButton.setAttribute('aria-pressed',String(_confirmedRestrictionsVisible));
+  }
+  if(command){
+    command.classList.toggle('on',_googleTrafficVisible||_confirmedRestrictionsVisible);
+    command.setAttribute('aria-expanded',String(!!panel&&panel.classList.contains('on')));
+    command.title='Google交通 '+(_googleTrafficVisible?'ON':'OFF')+'／確認済み規制 '+(_confirmedRestrictionsVisible?'ON':'OFF');
+  }
+  if(status){
+    const googleText=_googleTrafficVisible?'Google交通：表示中':'Google交通：非表示';
+    const restrictionText=_confirmedRestrictionsVisible
+      ?'確認済み規制：'+activeCount+'件表示中'
+      :'確認済み規制：非表示';
+    status.textContent=googleText+'　｜　'+restrictionText;
+  }
+}
+
+function toggleTrafficPanel(){
+  const panel=document.getElementById('traffic-control-panel');
+  if(!panel) return;
+  const opening=!panel.classList.contains('on');
+  panel.classList.toggle('on',opening);
+  if(opening&&window.__natureModeActive){
+    const nature=document.getElementById('river-control-bar');
+    if(nature&&nature.classList.contains('on')) setNaturePanelCollapsed(true);
+  }
+  updateTrafficPanelUI();
+}
+
+function closeTrafficPanel(){
+  const panel=document.getElementById('traffic-control-panel');
+  if(panel) panel.classList.remove('on');
+  updateTrafficPanelUI();
+}
+
+function toggleGoogleTrafficLayer(){
+  _googleTrafficVisible=!_googleTrafficVisible;
+  applyGoogleTrafficLayer();
+  saveTrafficPrefs();
+}
+
+function toggleConfirmedRestrictions(){
+  _confirmedRestrictionsVisible=!_confirmedRestrictionsVisible;
+  renderKnownRoadRestrictions();
+  saveTrafficPrefs();
+}
+
+function initTrafficLayers(){
+  loadTrafficPrefs();
+  applyGoogleTrafficLayer();
+  renderKnownRoadRestrictions();
 }
 
 function initMap(){
@@ -4097,7 +4260,7 @@ function initMap(){
 
   // GPS起動（グローバル関数で呼ぶ）
   startGPS();
-  renderKnownRoadRestrictions();
+  initTrafficLayers();
   if(window.__riverModeActive&&typeof showSelectedRiver==='function'){
     setTimeout(showSelectedRiver,80);
   }
@@ -9395,6 +9558,7 @@ function closeNatureMode(){
 }
 
 function switchNatureMode(mode){
+  closeTrafficPanel();
   _natureMode=mode==='mountain'?'mountain':'river';
   window.__natureModeActive=true;
   window.__riverModeActive=_natureMode==='river';
