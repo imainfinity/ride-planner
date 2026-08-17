@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RIDE & RUN Planner v8.89 MOBILE FOLD</title>
+<title>RIDE & RUN Planner v8.90 GRADE FILTER</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -618,7 +618,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
 <!-- GPS再取得ボタン（常時表示） -->
 <button id="gps-retry-btn" onclick="retryGPS()" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">📍</button>
 <header>
-  <h1>RIDE &amp; RUN Planner <span class="ver">v8.89 MOBILE FOLD</span></h1>
+  <h1>RIDE &amp; RUN Planner <span class="ver">v8.90 GRADE FILTER</span></h1>
   <span class="sub">Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
@@ -5072,37 +5072,76 @@ function drawElevProfile(elevResults){
   ctx.fillText(`${Math.round(minE)}m`,3,H-2);
 }
 
+/* ── 標高ノイズ除去と実走向け最大斜度 ── */
+function medianValue(values){
+  const sorted=values.filter(Number.isFinite).sort((a,b)=>a-b);
+  if(!sorted.length) return 0;
+  const mid=Math.floor(sorted.length/2);
+  return sorted.length%2?sorted[mid]:(sorted[mid-1]+sorted[mid])/2;
+}
+
+function smoothElevationSamples(values){
+  if(!Array.isArray(values)||values.length<3) return Array.isArray(values)?values.slice():[];
+
+  // 5点中央値で、Google標高データに混じる単発の上下スパイクを除去。
+  const medianFiltered=values.map((value,index)=>{
+    const from=Math.max(0,index-2);
+    const to=Math.min(values.length,index+3);
+    return medianValue(values.slice(from,to));
+  });
+
+  // さらに3点加重平均。連続する本物の坂は残し、細かなギザギザだけを抑える。
+  return medianFiltered.map((value,index)=>{
+    const prev=medianFiltered[Math.max(0,index-1)];
+    const next=medianFiltered[Math.min(medianFiltered.length-1,index+1)];
+    return (prev+value*2+next)/4;
+  });
+}
+
+function robustGradeStats(elevations,totalM){
+  const values=smoothElevationSamples(elevations);
+  if(values.length<2||!(totalM>0)) return {values,maxGrade:0,steepPct:0,windowM:0};
+
+  const spacingM=totalM/Math.max(1,values.length-1);
+  // 通常ルートは約100m継続した斜度を採用。短距離でも最低30mは確保する。
+  const targetWindowM=Math.min(totalM,totalM>=500?100:Math.max(30,totalM*0.2));
+  const windowSamples=Math.max(1,Math.ceil(targetWindowM/Math.max(1,spacingM)));
+  const actualWindowM=Math.max(1,windowSamples*spacingM);
+  const grades=[];
+
+  for(let i=windowSamples;i<values.length;i++){
+    const g=Math.abs(values[i]-values[i-windowSamples])/actualWindowM*100;
+    if(Number.isFinite(g)) grades.push(g);
+  }
+  if(!grades.length) return {values,maxGrade:0,steepPct:0,windowM:actualWindowM};
+
+  // 単発の残存外れ値を最大値にしない。十分な点数があれば上位2%点を実用最大値とする。
+  const sorted=grades.slice().sort((a,b)=>a-b);
+  const maxIndex=sorted.length>=20?Math.max(0,Math.ceil(sorted.length*0.98)-1):sorted.length-1;
+  const maxGrade=sorted[maxIndex];
+  const steepPct=grades.filter(g=>g>5).length/grades.length*100;
+  return {values,maxGrade,steepPct,windowM:actualWindowM};
+}
+
 /* ── 標高 → プランナー反映 ── */
 function processElevation(elevResults,distKm,path){
   const elevs=elevResults.map(e=>e.elevation);
   const DEADBAND=1.0; // 1m未満の変動を無視
-  const SPIKE_THR=30; // 30m超の急変をスパイクとして除去
+  const totalM=(+distKm)*1000;
+  const gradeStats=robustGradeStats(elevs,totalM);
+  const filtered=gradeStats.values;
 
-  // スパイク除去（前後線形補間）
-  const filtered=[...elevs];
-  for(let i=1;i<filtered.length-1;i++){
-    const diff1=Math.abs(filtered[i]-filtered[i-1]);
-    const diff2=Math.abs(filtered[i]-filtered[i+1]);
-    if(diff1>SPIKE_THR&&diff2>SPIKE_THR){
-      filtered[i]=(filtered[i-1]+filtered[i+1])/2; // 補間
-    }
-  }
-
-  let gain=0,maxElev=-Infinity;
-  const segLen=(+distKm)*1000/filtered.length;
-  let maxGrade=0, steepSegs=0;
+  let gain=0;
+  const maxElev=filtered.length?Math.max(...filtered):0;
   for(let i=1;i<filtered.length;i++){
     const diff=filtered[i]-filtered[i-1];
     if(diff>DEADBAND) gain+=diff; // Deadbandフィルタ
-    maxElev=Math.max(maxElev,filtered[i]);
-    const g=Math.abs(diff)/segLen*100;
-    maxGrade=Math.max(maxGrade,g);
-    if(g>5) steepSegs++;
   }
+  const maxGrade=gradeStats.maxGrade;
   const gainM=Math.round(gain);
   // 平均勾配 = 獲得標高 ÷ 総走行距離。ループコースでも0%にならない「平均登坂負荷」の表示。
   const avgGrade=(+distKm)>0 ? (gainM/((+distKm)*1000)*100) : 0;
-  const steepPct=steepSegs/filtered.length*100;
+  const steepPct=gradeStats.steepPct;
   const profile=maxGrade<3&&steepPct<5?'🟢 平坦メイン':
                 maxGrade<8&&steepPct<20?'🟡 丘陵ルート':
                 maxGrade<15?'🟠 山岳ルート':'🔴 激坂含む';
@@ -5120,16 +5159,19 @@ function processElevation(elevResults,distKm,path){
     document.getElementById('msb-elev').textContent=gainM+' m';
     const ag=document.getElementById('msb-avggrade'); if(ag) ag.textContent=avgGrade.toFixed(1)+'%';
     document.getElementById('msb-grade').textContent=maxGrade.toFixed(1)+'%';
+    document.getElementById('msb-grade').title='約'+Math.round(gradeStats.windowM)+'m区間で平滑化した最大斜度';
   }
   document.getElementById('ri-maxelev').textContent=Math.round(maxElev)+' m';
   document.getElementById('ri-bearing').textContent=bearingToLabel(bearing);
   document.getElementById('ri-profile').textContent=profile;
   const riAvg=document.getElementById('ri-avggrade'); if(riAvg) riAvg.textContent=avgGrade.toFixed(1)+'%';
   document.getElementById('ri-maxgrade').textContent=maxGrade.toFixed(1)+'%';
+  document.getElementById('ri-maxgrade').title='約'+Math.round(gradeStats.windowM)+'m区間で平滑化した最大斜度';
 
   const filteredElevResults=elevResults.map((e,i)=>({elevation:filtered[i]!=null?filtered[i]:e.elevation,location:e.location}));
+  lastElevResults=filteredElevResults;
   drawElevProfile(filteredElevResults);
-  window._routeData={distKm:+distKm, gainM, bearing, maxGrade, avgGrade};
+  window._routeData={distKm:+distKm, gainM, bearing, maxGrade, avgGrade, gradeWindowM:gradeStats.windowM};
 
   // 入力欄もルートデータで上書き（常にルートが正）
   document.getElementById('r-dist').value=distKm;
