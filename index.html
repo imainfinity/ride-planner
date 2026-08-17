@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RIDE & RUN Planner v8.90 GRADE FILTER</title>
+<title>RIDE & RUN Planner v8.91 ROAD RESTRICTION</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -618,7 +618,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
 <!-- GPS再取得ボタン（常時表示） -->
 <button id="gps-retry-btn" onclick="retryGPS()" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">📍</button>
 <header>
-  <h1>RIDE &amp; RUN Planner <span class="ver">v8.90 GRADE FILTER</span></h1>
+  <h1>RIDE &amp; RUN Planner <span class="ver">v8.91 ROAD RESTRICTION</span></h1>
   <span class="sub">Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
@@ -3905,6 +3905,89 @@ function startGPS(){
   );
 }
 
+/* ══ 公式情報に基づく道路通行規制レイヤー ══ */
+const KNOWN_ROAD_RESTRICTIONS=[
+  {
+    id:'sefuri-mod-access-2025-2027',
+    name:'脊振山 防衛省進入道路（福岡方面）',
+    status:'工事中・条件付き通行規制',
+    from:'2025-06-01',
+    to:'2027-06-30',
+    position:{lat:33.4354,lng:130.3793},
+    // 背振少年自然の家付近から脊振山頂までの規制道路概略。
+    path:[
+      {lat:33.43455,lng:130.38884},
+      {lat:33.43495,lng:130.38615},
+      {lat:33.43395,lng:130.38355},
+      {lat:33.43510,lng:130.38105},
+      {lat:33.43615,lng:130.37845},
+      {lat:33.43575,lng:130.37480},
+      {lat:33.43656,lng:130.36837}
+    ],
+    detail:'整備工事中です。工事実施時は入口の誘導員の指示に従い、誘導員がいない場合のみ通行可能と案内されています。',
+    sourceLabel:'航空自衛隊 脊振山分屯基地・公式案内',
+    sourceUrl:'https://www.mod.go.jp/asdf/seburiyama/second/otoiawase.html'
+  }
+];
+let _roadRestrictionOverlays=[];
+let _roadRestrictionIW=null;
+
+function isRoadRestrictionActive(item,now=new Date()){
+  const key=[now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-');
+  return (!item.from||key>=item.from)&&(!item.to||key<=item.to);
+}
+
+function roadRestrictionInfoHtml(item){
+  const period=item.from&&item.to
+    ?item.from.replaceAll('-','/')+' ～ '+item.to.replaceAll('-','/')
+    :'終了時期は公式情報を確認';
+  return `<div style="max-width:270px;padding:2px 1px;font-size:12px;line-height:1.55;color:#222">
+    <div style="font-size:14px;font-weight:900;color:#b91c1c">⛔ 通行規制</div>
+    <div style="font-weight:800;margin-top:2px">${item.name}</div>
+    <div style="margin-top:5px"><b>状態：</b>${item.status}</div>
+    <div><b>期間：</b>${period}</div>
+    <div style="margin-top:5px">${item.detail}</div>
+    <div style="margin-top:6px;padding:5px 7px;border-radius:6px;background:#fff3f3;color:#991b1b;font-weight:700">現地の標識・誘導員を最優先してください</div>
+    <a href="${item.sourceUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin-top:6px;color:#2563eb;font-weight:700">公式情報を確認 ↗</a>
+    <div style="margin-top:4px;font-size:9px;color:#777">赤い破線は規制道路の概略表示です</div>
+  </div>`;
+}
+
+function clearRoadRestrictionOverlays(){
+  _roadRestrictionOverlays.forEach(overlay=>overlay&&overlay.setMap&&overlay.setMap(null));
+  _roadRestrictionOverlays=[];
+  if(_roadRestrictionIW){_roadRestrictionIW.close();_roadRestrictionIW=null;}
+}
+
+function renderKnownRoadRestrictions(){
+  if(!gmap||!window.google||!google.maps) return;
+  clearRoadRestrictionOverlays();
+  KNOWN_ROAD_RESTRICTIONS.filter(item=>isRoadRestrictionActive(item)).forEach(item=>{
+    const line=new google.maps.Polyline({
+      map:gmap,path:item.path,clickable:true,zIndex:445,
+      strokeColor:'#dc2626',strokeOpacity:0,strokeWeight:4,
+      icons:[{
+        icon:{path:'M 0,-1 0,1',strokeColor:'#dc2626',strokeOpacity:1,strokeWeight:4,scale:3},
+        offset:'0',repeat:'14px'
+      }]
+    });
+    const marker=new google.maps.Marker({
+      map:gmap,position:item.position,zIndex:446,
+      title:'⛔ 通行規制：'+item.name,
+      label:{text:'止',color:'#fff',fontSize:'12px',fontWeight:'900'},
+      icon:{path:google.maps.SymbolPath.CIRCLE,scale:15,fillColor:'#dc2626',fillOpacity:1,strokeColor:'#fff',strokeWeight:2.5}
+    });
+    const openInfo=()=>{
+      if(_roadRestrictionIW) _roadRestrictionIW.close();
+      _roadRestrictionIW=new google.maps.InfoWindow({content:roadRestrictionInfoHtml(item)});
+      _roadRestrictionIW.open(gmap,marker);
+    };
+    marker.addListener('click',openInfo);
+    line.addListener('click',openInfo);
+    _roadRestrictionOverlays.push(line,marker);
+  });
+}
+
 function initMap(){
   // 今日の日付を確実にセット
   (function(){
@@ -4014,6 +4097,7 @@ function initMap(){
 
   // GPS起動（グローバル関数で呼ぶ）
   startGPS();
+  renderKnownRoadRestrictions();
   if(window.__riverModeActive&&typeof showSelectedRiver==='function'){
     setTimeout(showSelectedRiver,80);
   }
