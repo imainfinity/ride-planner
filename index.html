@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RIDE & RUN Planner v8.93 ROUTE CLOSURE CHECK</title>
+<title>RIDE & RUN Planner v8.94 ROUTE CLOSURE SIGN</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -506,7 +506,7 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
 .nature-route-actions button.mountain-action{border-color:#4f9a61;background:rgba(55,138,74,.1);color:#2f7a40}
 .nature-route-actions button:disabled{opacity:.45;cursor:wait}
 
-/* ── v8.93: 九州交通規制検索＋ルート照合 ── */
+/* ── v8.94: 九州交通規制検索＋進入禁止サイン ── */
 .traffic-mode-btn{flex:0 0 auto;font-weight:800!important;white-space:nowrap;color:#9a6700!important;border-color:#d5a21b!important}
 .traffic-mode-btn.on{background:#f6c945!important;border-color:#c58b00!important;color:#241a00!important;box-shadow:0 0 0 2px rgba(213,162,27,.22)}
 .traffic-control-panel{display:none;position:absolute;z-index:74;top:48px;right:8px;width:min(390px,calc(100% - 16px));max-height:calc(100% - 62px);overflow:auto;padding:9px;border:1px solid #d5a21b;border-radius:10px;background:color-mix(in srgb,var(--bg) 96%,transparent);box-shadow:0 5px 20px rgba(0,0,0,.24);backdrop-filter:blur(10px)}
@@ -536,7 +536,8 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
 .traffic-result-badge{padding:3px 5px;border-radius:999px;background:#dc2626;color:#fff;font-size:8px;font-weight:900;white-space:nowrap}
 .traffic-result-badge.conditional{background:#d97706}
 .traffic-legend{display:flex;align-items:flex-start;gap:7px;margin-top:8px;padding:7px 8px;border-radius:7px;background:var(--bg2);color:var(--text2);font-size:9px;line-height:1.5}
-.traffic-stop-symbol{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:23px;height:23px;border-radius:50%;background:#dc2626;color:#fff;font-weight:900;border:2px solid #fff;box-shadow:0 0 0 1px #dc2626}
+.traffic-stop-symbol{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:23px;height:23px;border-radius:50%;background:#dc2626;border:2px solid #fff;box-shadow:0 0 0 1px #dc2626}
+.traffic-stop-symbol::after{content:'';display:block;width:14px;height:5px;border-radius:2px;background:#fff}
 .traffic-official-title{margin:10px 0 5px;color:var(--text2);font-size:10px;font-weight:900}
 .traffic-official-links{display:grid;grid-template-columns:1fr 1fr;gap:5px}
 .traffic-official-links a{display:flex;align-items:center;justify-content:center;min-height:34px;padding:5px 7px;border:1px solid var(--border2);border-radius:7px;background:var(--bg);color:var(--blue);font-size:9px;font-weight:800;text-decoration:none;text-align:center;line-height:1.3}
@@ -661,7 +662,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
 <!-- GPS再取得ボタン（常時表示） -->
 <button id="gps-retry-btn" onclick="retryGPS()" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">📍</button>
 <header>
-  <h1>RIDE &amp; RUN Planner <span class="ver">v8.93 ROUTE CLOSURE CHECK</span></h1>
+  <h1>RIDE &amp; RUN Planner <span class="ver">v8.94 ROUTE CLOSURE SIGN</span></h1>
   <span class="sub">Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
@@ -824,7 +825,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
         <div class="traffic-layer-row">
           <div class="traffic-layer-copy">
             <b>公式確認済み規制マーカー</b>
-            <small>公式発表を確認して登録した規制のみ、赤い「止」と破線で表示します。</small>
+            <small>公式発表を確認して登録した規制のみ、進入禁止マークと赤い破線で表示します。</small>
           </div>
           <button type="button" id="confirmed-restriction-toggle" class="traffic-toggle restriction on" onclick="toggleConfirmedRestrictions()" aria-pressed="true">ON</button>
         </div>
@@ -842,8 +843,8 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
           <div id="traffic-search-results" class="traffic-results" aria-live="polite"></div>
         </div>
         <div class="traffic-legend">
-          <span class="traffic-stop-symbol">止</span>
-          <span><b>赤い「止」＝公式確認済み</b><br>現地標識・係員・最新の公式情報を必ず優先してください。</span>
+          <span class="traffic-stop-symbol" aria-hidden="true"></span>
+          <span><b>進入禁止マーク＝公式確認済み</b><br>現地標識・係員・最新の公式情報を必ず優先してください。</span>
         </div>
         <div class="traffic-official-title">最新情報を公式サイトで確認</div>
         <div class="traffic-official-links">
@@ -3999,7 +4000,7 @@ function startGPS(){
   );
 }
 
-/* ══ v8.93 九州交通規制検索＋ルート照合 ══ */
+/* ══ v8.94 九州交通規制検索＋進入禁止サイン ══ */
 const TRAFFIC_PREF_KEY='rpp_traffic_layers_v1';
 const TRAFFIC_GEOCACHE_KEY='rpp_restriction_geocache_v1';
 let _googleTrafficLayer=null;
@@ -4247,6 +4248,19 @@ function restrictionLevelLabel(item){
   return '通行止';
 }
 
+function roadRestrictionMarkerIcon(item){
+  const color=item.level==='scheduled'?'#d97706':'#dc2626';
+  if(item.level==='scheduled'){
+    return {path:google.maps.SymbolPath.CIRCLE,scale:15,fillColor:color,fillOpacity:1,strokeColor:'#fff',strokeWeight:2.5};
+  }
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36"><circle cx="18" cy="18" r="16" fill="${color}" stroke="#fff" stroke-width="3"/><rect x="8" y="14.5" width="20" height="7" rx="2.5" fill="#fff"/></svg>`;
+  return {
+    url:'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(svg),
+    scaledSize:new google.maps.Size(36,36),
+    anchor:new google.maps.Point(18,18)
+  };
+}
+
 function roadRestrictionInfoHtml(item,distanceM){
   const period=item.from
     ?item.from.replaceAll('-','/')+' ～ '+(item.to?item.to.replaceAll('-','/'):'終了未定')
@@ -4293,8 +4307,8 @@ function renderKnownRoadRestrictions(){
     const marker=new google.maps.Marker({
       map:gmap,position:markerPosition,zIndex:446,
       title:'⛔ 通行規制：'+item.name,
-      label:{text:item.level==='scheduled'?'予':'止',color:'#fff',fontSize:'12px',fontWeight:'900'},
-      icon:{path:google.maps.SymbolPath.CIRCLE,scale:15,fillColor:color,fillOpacity:1,strokeColor:'#fff',strokeWeight:2.5}
+      label:item.level==='scheduled'?{text:'予',color:'#fff',fontSize:'12px',fontWeight:'900'}:undefined,
+      icon:roadRestrictionMarkerIcon(item)
     });
     const openInfo=()=>{
       if(_roadRestrictionIW) _roadRestrictionIW.close();
