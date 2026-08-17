@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RIDE & RUN Planner v8.92 TRAFFIC INFO</title>
+<title>RIDE & RUN Planner v8.93 ROUTE CLOSURE CHECK</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -506,7 +506,7 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
 .nature-route-actions button.mountain-action{border-color:#4f9a61;background:rgba(55,138,74,.1);color:#2f7a40}
 .nature-route-actions button:disabled{opacity:.45;cursor:wait}
 
-/* ── v8.92: Google交通情報＋公式確認済み規制 ── */
+/* ── v8.93: 九州交通規制検索＋ルート照合 ── */
 .traffic-mode-btn{flex:0 0 auto;font-weight:800!important;white-space:nowrap;color:#9a6700!important;border-color:#d5a21b!important}
 .traffic-mode-btn.on{background:#f6c945!important;border-color:#c58b00!important;color:#241a00!important;box-shadow:0 0 0 2px rgba(213,162,27,.22)}
 .traffic-control-panel{display:none;position:absolute;z-index:74;top:48px;right:8px;width:min(390px,calc(100% - 16px));max-height:calc(100% - 62px);overflow:auto;padding:9px;border:1px solid #d5a21b;border-radius:10px;background:color-mix(in srgb,var(--bg) 96%,transparent);box-shadow:0 5px 20px rgba(0,0,0,.24);backdrop-filter:blur(10px)}
@@ -521,12 +521,30 @@ body.sp-mode #map-search-bar .legacy-search-btn{display:none!important}
 .traffic-toggle{min-width:56px;height:30px;padding:0 8px;border:1px solid var(--border2);border-radius:999px;background:var(--bg3);color:var(--text2);font-size:10px;font-weight:900;cursor:pointer}
 .traffic-toggle.on{background:#f6c945;border-color:#c58b00;color:#241a00}
 .traffic-toggle.restriction.on{background:#dc2626;border-color:#b91c1c;color:#fff}
+.traffic-search-box{margin-top:8px;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--bg2)}
+.traffic-search-title{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:6px;color:var(--text);font-size:11px;font-weight:900}
+.traffic-search-title small{color:var(--text3);font-size:8px;font-weight:700}
+.traffic-search-row{display:grid;grid-template-columns:92px minmax(0,1fr);gap:5px}
+.traffic-search-row select,.traffic-search-row input{min-width:0;height:32px;padding:5px 7px;border:1px solid var(--border2);border-radius:7px;background:var(--bg);color:var(--text);font-size:10px;font-family:inherit}
+.traffic-route-check-btn{width:100%;margin-top:6px;min-height:34px;padding:6px 8px;border:1px solid #b91c1c;border-radius:7px;background:#fff1f2;color:#b91c1c;font-size:10px;font-weight:900;cursor:pointer}
+.traffic-results{display:flex;flex-direction:column;gap:4px;margin-top:6px;max-height:166px;overflow:auto}
+.traffic-result-item{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center;padding:6px 7px;border:1px solid var(--border);border-radius:7px;background:var(--bg);cursor:pointer;text-align:left}
+.traffic-result-item.route-hit{border-color:#dc2626;background:color-mix(in srgb,#fee2e2 68%,var(--bg))}
+.traffic-result-copy{min-width:0}
+.traffic-result-copy b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);font-size:10px}
+.traffic-result-copy span{display:block;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text3);font-size:8px}
+.traffic-result-badge{padding:3px 5px;border-radius:999px;background:#dc2626;color:#fff;font-size:8px;font-weight:900;white-space:nowrap}
+.traffic-result-badge.conditional{background:#d97706}
 .traffic-legend{display:flex;align-items:flex-start;gap:7px;margin-top:8px;padding:7px 8px;border-radius:7px;background:var(--bg2);color:var(--text2);font-size:9px;line-height:1.5}
 .traffic-stop-symbol{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:23px;height:23px;border-radius:50%;background:#dc2626;color:#fff;font-weight:900;border:2px solid #fff;box-shadow:0 0 0 1px #dc2626}
 .traffic-official-title{margin:10px 0 5px;color:var(--text2);font-size:10px;font-weight:900}
 .traffic-official-links{display:grid;grid-template-columns:1fr 1fr;gap:5px}
 .traffic-official-links a{display:flex;align-items:center;justify-content:center;min-height:34px;padding:5px 7px;border:1px solid var(--border2);border-radius:7px;background:var(--bg);color:var(--blue);font-size:9px;font-weight:800;text-decoration:none;text-align:center;line-height:1.3}
 .traffic-status{margin-top:7px;color:var(--text3);font-size:9px;line-height:1.45}
+.route-restriction-alert{display:none;position:absolute;z-index:86;top:8px;left:50%;transform:translateX(-50%);width:min(470px,calc(100% - 18px));padding:9px 11px;border:2px solid #fff;border-radius:10px;background:rgba(185,28,28,.94);color:#fff;box-shadow:0 4px 18px rgba(0,0,0,.36);font-size:10px;font-weight:800;line-height:1.4;cursor:pointer;text-align:left}
+.route-restriction-alert.on{display:flex;align-items:center;gap:8px}
+.route-restriction-alert strong{font-size:14px;white-space:nowrap}
+.route-restriction-alert span{flex:1;min-width:0}
 @media(max-width:520px){
   #map-search-bar .river-mode-btn,#map-search-bar .mountain-mode-btn,#map-search-bar .traffic-mode-btn{padding:7px 5px!important;font-size:10px!important}
   #map-search-bar .search-open-btn b{display:none}
@@ -643,7 +661,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
 <!-- GPS再取得ボタン（常時表示） -->
 <button id="gps-retry-btn" onclick="retryGPS()" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">📍</button>
 <header>
-  <h1>RIDE &amp; RUN Planner <span class="ver">v8.92 TRAFFIC INFO</span></h1>
+  <h1>RIDE &amp; RUN Planner <span class="ver">v8.93 ROUTE CLOSURE CHECK</span></h1>
   <span class="sub">Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
@@ -810,6 +828,19 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
           </div>
           <button type="button" id="confirmed-restriction-toggle" class="traffic-toggle restriction on" onclick="toggleConfirmedRestrictions()" aria-pressed="true">ON</button>
         </div>
+        <div class="traffic-search-box">
+          <div class="traffic-search-title"><span>🔎 九州の交通規制を検索</span><small id="traffic-search-count">—</small></div>
+          <div class="traffic-search-row">
+            <select id="traffic-pref-filter" onchange="renderTrafficSearchResults()" aria-label="県で絞り込み">
+              <option value="">九州全県</option><option value="福岡県">福岡県</option><option value="佐賀県">佐賀県</option>
+              <option value="長崎県">長崎県</option><option value="熊本県">熊本県</option><option value="大分県">大分県</option>
+              <option value="宮崎県">宮崎県</option><option value="鹿児島県">鹿児島県</option>
+            </select>
+            <input id="traffic-name-search" type="search" inputmode="search" placeholder="道路名・市町村・原因" oninput="renderTrafficSearchResults()">
+          </div>
+          <button type="button" class="traffic-route-check-btn" onclick="checkRouteRoadRestrictions(true)">⚠️ 現在のルート上・付近を規制チェック</button>
+          <div id="traffic-search-results" class="traffic-results" aria-live="polite"></div>
+        </div>
         <div class="traffic-legend">
           <span class="traffic-stop-symbol">止</span>
           <span><b>赤い「止」＝公式確認済み</b><br>現地標識・係員・最新の公式情報を必ず優先してください。</span>
@@ -823,6 +854,10 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
         </div>
         <div id="traffic-status" class="traffic-status">確認済み規制を表示中</div>
       </div>
+
+      <button type="button" id="route-restriction-alert" class="route-restriction-alert" onclick="openTrafficRouteHits()" aria-live="assertive">
+        <strong>⛔ 規制注意</strong><span id="route-restriction-alert-text">ルート付近に交通規制があります</span>
+      </button>
 
       <!-- スマホ専用：地図上固定POIショートカットバー -->
       <div id="map-poi-floating" aria-label="POI shortcut buttons">
@@ -3964,11 +3999,18 @@ function startGPS(){
   );
 }
 
-/* ══ v8.92 Google交通情報＋公式確認済み規制 ══ */
+/* ══ v8.93 九州交通規制検索＋ルート照合 ══ */
 const TRAFFIC_PREF_KEY='rpp_traffic_layers_v1';
+const TRAFFIC_GEOCACHE_KEY='rpp_restriction_geocache_v1';
 let _googleTrafficLayer=null;
 let _googleTrafficVisible=false;
 let _confirmedRestrictionsVisible=true;
+let _restrictionGeocodeCache={};
+let _restrictionGeometryById={};
+let _roadRestrictionOverlayById={};
+let _trafficRouteHits=[];
+let _restrictionCheckTimer=null;
+let _restrictionCheckSeq=0;
 
 function loadTrafficPrefs(){
   try{
@@ -3992,6 +4034,7 @@ function saveTrafficPrefs(){
 const KNOWN_ROAD_RESTRICTIONS=[
   {
     id:'sefuri-mod-access-2025-2027',
+    pref:'福岡県', road:'脊振山 防衛省進入道路', location:'福岡市・脊振山', level:'conditional',
     name:'脊振山 防衛省進入道路（福岡方面）',
     status:'工事中・条件付き通行規制',
     from:'2025-06-01',
@@ -4008,8 +4051,177 @@ const KNOWN_ROAD_RESTRICTIONS=[
       {lat:33.43656,lng:130.36837}
     ],
     detail:'整備工事中です。工事実施時は入口の誘導員の指示に従い、誘導員がいない場合のみ通行可能と案内されています。',
+    checkedAt:'2026-08-17',thresholdM:260,
     sourceLabel:'航空自衛隊 脊振山分屯基地・公式案内',
     sourceUrl:'https://www.mod.go.jp/asdf/seburiyama/second/otoiawase.html'
+  },
+  {
+    id:'saga-r327-nanayama-2026',pref:'佐賀県',road:'県道327号 七山唐津線',location:'唐津市七山仁部',level:'full',
+    name:'県道327号 七山唐津線（唐津市七山）',status:'全面通行止め',cause:'土砂災害',from:'2026-07-06',
+    position:{lat:33.421,lng:130.116},geocodeQueries:['佐賀県唐津市七山仁部 県道327号七山唐津線'],thresholdM:900,
+    detail:'土砂災害による約1.6kmの通行止めとして佐賀県が案内しています。',checkedAt:'2026-08-17',
+    sourceLabel:'佐賀県 県内道路における通行規制情報',sourceUrl:'https://www.pref.saga.lg.jp/kiji00311424/index.html'
+  },
+  {
+    id:'karatsu-yagataishi-nanatsugama',pref:'佐賀県',road:'市道 屋形石七ツ釜線',location:'唐津市屋形石',level:'full',
+    name:'市道 屋形石七ツ釜線',status:'全面通行止め',cause:'地滑りのおそれ',
+    position:{lat:33.557,lng:129.929},geocodeQueries:['佐賀県唐津市屋形石 七ツ釜'],thresholdM:850,
+    detail:'地滑りのおそれがある区間の通行止めです。',checkedAt:'2026-08-17',
+    sourceLabel:'唐津市 市内道路における通行規制情報',sourceUrl:'https://www.city.karatsu.lg.jp/page/1382.html'
+  },
+  {
+    id:'karatsu-hamatama-yokotashimo-nishinotani',pref:'佐賀県',road:'市道 西の谷線',location:'唐津市浜玉町横田下',level:'full',
+    name:'市道 西の谷線（浜玉町横田下）',status:'一部区間通行止め',cause:'地滑りのおそれ',
+    position:{lat:33.447,lng:130.048},geocodeQueries:['佐賀県唐津市浜玉町横田下 西の谷'],thresholdM:750,
+    detail:'地滑りのおそれがある箇所の安全措置による一部区間通行止めです。',checkedAt:'2026-08-17',
+    sourceLabel:'唐津市 市内道路における通行規制情報',sourceUrl:'https://www.city.karatsu.lg.jp/page/1382.html'
+  },
+  {
+    id:'karatsu-hamatama-taniguchi-tatenaka-ishikawachi',pref:'佐賀県',road:'市道 立中～石川内線',location:'唐津市浜玉町谷口',level:'full',
+    name:'市道 立中～石川内線',status:'全面通行止め',cause:'路肩崩壊',
+    position:{lat:33.424,lng:130.059},geocodeQueries:['佐賀県唐津市浜玉町谷口'],thresholdM:750,
+    detail:'路肩崩壊による通行止めです。',checkedAt:'2026-08-17',
+    sourceLabel:'唐津市 市内道路における通行規制情報',sourceUrl:'https://www.city.karatsu.lg.jp/page/1382.html'
+  },
+  {
+    id:'karatsu-kyuragi-hirose-dam',pref:'佐賀県',road:'市道 厳木ダム線',location:'唐津市厳木町広瀬',level:'full',
+    name:'市道 厳木ダム線',status:'全面通行止め',cause:'土砂崩れ',
+    position:{lat:33.304,lng:130.043},geocodeQueries:['佐賀県唐津市厳木町広瀬 厳木ダム'],thresholdM:850,
+    detail:'土砂崩れによる通行止めです。',checkedAt:'2026-08-17',
+    sourceLabel:'唐津市 市内道路における通行規制情報',sourceUrl:'https://www.city.karatsu.lg.jp/page/1382.html'
+  },
+  {
+    id:'karatsu-hizen-niikiba-takagushi',pref:'佐賀県',road:'市道 新木場高串線',location:'唐津市肥前町新木場',level:'full',
+    name:'市道 新木場高串線',status:'全面通行止め',cause:'地すべり',
+    position:{lat:33.391,lng:129.866},geocodeQueries:['佐賀県唐津市肥前町新木場'],thresholdM:850,
+    detail:'地すべりによる通行止めです。',checkedAt:'2026-08-17',
+    sourceLabel:'唐津市 市内道路における通行規制情報',sourceUrl:'https://www.city.karatsu.lg.jp/page/1382.html'
+  },
+  {
+    id:'karatsu-hizen-nosho-datake',pref:'佐賀県',road:'市道 駄竹・納所線',location:'唐津市肥前町納所',level:'full',
+    name:'市道 駄竹・納所線',status:'全面通行止め',cause:'地滑りのおそれ',
+    position:{lat:33.421,lng:129.872},geocodeQueries:['佐賀県唐津市肥前町納所'],thresholdM:850,
+    detail:'地滑りのおそれがある箇所の通行止めです。',checkedAt:'2026-08-17',
+    sourceLabel:'唐津市 市内道路における通行規制情報',sourceUrl:'https://www.city.karatsu.lg.jp/page/1382.html'
+  },
+  {
+    id:'karatsu-nanayama-takigawa-kitouchi-kuwasaka',pref:'佐賀県',road:'市道 祈祷地桑坂線',location:'唐津市七山滝川',level:'full',
+    name:'市道 祈祷地桑坂線',status:'全面通行止め',cause:'橋梁老朽化',
+    position:{lat:33.442,lng:130.126},geocodeQueries:['佐賀県唐津市七山滝川 祈祷地'],thresholdM:750,
+    detail:'橋梁の老朽化に伴う通行止めです。',checkedAt:'2026-08-17',
+    sourceLabel:'唐津市 市内道路における通行規制情報',sourceUrl:'https://www.city.karatsu.lg.jp/page/1382.html'
+  },
+  {
+    id:'karatsu-nanayama-takigawa-takinokannon',pref:'佐賀県',road:'市道 滝ノ観音線',location:'唐津市七山滝川',level:'full',
+    name:'市道 滝ノ観音線',status:'全面通行止め',cause:'土砂崩れ',
+    position:{lat:33.439,lng:130.123},geocodeQueries:['佐賀県唐津市七山滝川 滝ノ観音'],thresholdM:750,
+    detail:'土砂崩れによる通行止めです。',checkedAt:'2026-08-17',
+    sourceLabel:'唐津市 市内道路における通行規制情報',sourceUrl:'https://www.city.karatsu.lg.jp/page/1382.html'
+  },
+  {
+    id:'karatsu-nanayama-takigawa-kiura',pref:'佐賀県',road:'市道 木浦滝川線',location:'唐津市七山滝川',level:'full',
+    name:'市道 木浦滝川線',status:'全面通行止め',cause:'森の木橋落橋',
+    position:{lat:33.431,lng:130.137},geocodeQueries:['佐賀県唐津市七山滝川 木浦'],thresholdM:850,
+    detail:'「森の木橋」の落橋による通行止めです。',checkedAt:'2026-08-17',
+    sourceLabel:'唐津市 市内道路における通行規制情報',sourceUrl:'https://www.city.karatsu.lg.jp/page/1382.html'
+  },
+  {
+    id:'karatsu-nanayama-magawakawa-yamabata',pref:'佐賀県',road:'市道 馬川～山端線',location:'唐津市七山馬川',level:'full',
+    name:'市道 馬川～山端線',status:'全面通行止め',cause:'土砂崩れ',
+    position:{lat:33.426,lng:130.145},geocodeQueries:['佐賀県唐津市七山馬川'],thresholdM:850,
+    detail:'土砂崩れによる通行止めです。',checkedAt:'2026-08-17',
+    sourceLabel:'唐津市 市内道路における通行規制情報',sourceUrl:'https://www.city.karatsu.lg.jp/page/1382.html'
+  },
+  {
+    id:'nagasaki-sasebo-hino-matsuura-night',pref:'長崎県',road:'主要地方道 佐世保日野松浦線',location:'佐世保市平瀬町～干尽町',level:'conditional',
+    name:'主要地方道 佐世保日野松浦線',status:'夜間全面通行止め',cause:'西九州道4車線化工事',from:'2021-09-01',
+    position:{lat:33.168375932,lng:129.71885853},thresholdM:700,
+    detail:'平瀬交差点から佐世保競輪場前交差点。原則20:00～6:00（土日祝日を除く）の夜間規制です。',checkedAt:'2026-08-17',
+    sourceLabel:'長崎県管理国県道 道路通行規制情報',sourceUrl:'https://ijikanri.doboku.pref.nagasaki.jp/~kisei/'
+  },
+  {
+    id:'nagasaki-tawaraura-hino-2026',pref:'長崎県',road:'一般県道 俵ヶ浦日野線',location:'佐世保市庵浦町817付近',level:'full',
+    name:'一般県道 俵ヶ浦日野線',status:'全面通行止め',cause:'路肩崩壊',from:'2026-06-25',
+    position:{lat:33.124619704,lng:129.70505498},thresholdM:650,
+    detail:'佐世保市庵浦町817付近。路肩崩壊による全面通行止めです。',checkedAt:'2026-08-17',
+    sourceLabel:'長崎県管理国県道 道路通行規制情報',sourceUrl:'https://ijikanri.doboku.pref.nagasaki.jp/~kisei/'
+  },
+  {
+    id:'nagasaki-hirado-tabira-2026',pref:'長崎県',road:'主要地方道 平戸田平線',location:'平戸市高越町',level:'full',
+    name:'主要地方道 平戸田平線',status:'全面通行止め',cause:'災害の危険性・雨量基準超過',from:'2026-06-23',
+    position:{lat:33.329690749,lng:129.45017173},thresholdM:650,
+    detail:'平戸市高越町。災害の危険性が高いための全面通行止めです。',checkedAt:'2026-08-17',
+    sourceLabel:'長崎県管理国県道 道路通行規制情報',sourceUrl:'https://ijikanri.doboku.pref.nagasaki.jp/~kisei/'
+  },
+  {
+    id:'nagasaki-matsushima-loop-2026',pref:'長崎県',road:'一般県道 松島循環線',location:'西海市大瀬戸町松島外郷',level:'full',
+    name:'一般県道 松島循環線',status:'全面通行止め',cause:'道路斜面の変状',from:'2026-07-01',
+    position:{lat:32.927406665,lng:129.59707725},thresholdM:650,
+    detail:'日本一小さな公園バス停付近。豪雨後の道路斜面変状による全面通行止めです。',checkedAt:'2026-08-17',
+    sourceLabel:'長崎県管理国県道 道路通行規制情報',sourceUrl:'https://ijikanri.doboku.pref.nagasaki.jp/~kisei/'
+  },
+  {
+    id:'kumamoto-shimogo-kitashinden-2026',pref:'熊本県',road:'下郷北新田線',location:'宇城市小川町',level:'full',
+    name:'下郷北新田線（宇城市小川町）',status:'全面通行止め',cause:'災害',from:'2026-08-10',
+    position:{lat:32.586,lng:130.692},geocodeQueries:['熊本県宇城市小川町中小野681','熊本県宇城市小川町北部田1150-4'],thresholdM:650,
+    detail:'宇城市小川町中小野681から北部田1150-4付近。災害による全面通行止めです。',checkedAt:'2026-08-17',
+    sourceLabel:'熊本県 防災情報くまもと',sourceUrl:'https://portal.bousai.pref.kumamoto.jp/?p=traffic&l=99-0'
+  },
+  {
+    id:'kumamoto-shimonashida-1-2026',pref:'熊本県',road:'市道 九品寺6丁目画図町下無田第1号線',location:'熊本市東区画図町下無田',level:'full',
+    name:'市道 九品寺6丁目画図町下無田第1号線',status:'全面通行止め',cause:'災害',from:'2026-08-08',
+    position:{lat:32.745,lng:130.731},geocodeQueries:['熊本県熊本市東区画図町大字下無田820','熊本県熊本市東区画図町大字下無田814'],thresholdM:450,
+    detail:'熊本市東区画図町大字下無田820から814付近。災害による全面通行止めです。',checkedAt:'2026-08-17',
+    sourceLabel:'熊本県 防災情報くまもと',sourceUrl:'https://portal.bousai.pref.kumamoto.jp/?p=traffic&l=99-0'
+  },
+  {
+    id:'kumamoto-shimonashida-9-2026',pref:'熊本県',road:'市道 下無田第9号線',location:'熊本市東区画図町下無田',level:'full',
+    name:'市道 下無田第9号線',status:'全面通行止め',cause:'災害',from:'2026-08-08',
+    position:{lat:32.743,lng:130.729},geocodeQueries:['熊本県熊本市東区画図町大字下無田63'],thresholdM:400,
+    detail:'熊本市東区画図町大字下無田63付近。災害による全面通行止めです。',checkedAt:'2026-08-17',
+    sourceLabel:'熊本県 防災情報くまもと',sourceUrl:'https://portal.bousai.pref.kumamoto.jp/?p=traffic&l=99-0'
+  },
+  {
+    id:'oita-shimogori-bypass-20260819',pref:'大分県',road:'下郡バイパス・庄の原佐野線',location:'大分市下郡',level:'scheduled',
+    name:'下郡バイパス（下郡工業団地入口付近）',status:'夜間全面通行止め予定',cause:'橋梁架設工事',from:'2026-08-19',to:'2026-08-20',
+    position:{lat:33.226,lng:131.637},geocodeQueries:['大分県大分市 下郡工業団地入口交差点','大分県大分市 宗麟大橋'],thresholdM:650,
+    detail:'8月19日・20日に夜間全面通行止め予定。庄の原佐野線の一部は夜間片側交互通行です。',checkedAt:'2026-08-17',
+    sourceLabel:'大分県 下郡工区通行規制案内',sourceUrl:'https://www.pref.oita.jp/site/oita17004/syounoharu-tsuukoukisei.html'
+  },
+  {
+    id:'miyazaki-r265-shiiba-2026',pref:'宮崎県',road:'国道265号',location:'椎葉村大字大河内',level:'full',
+    name:'国道265号 椎葉村大字大河内',status:'通行止め',cause:'道路の崩落',from:'2026-06-24',
+    position:{lat:32.318,lng:131.125},geocodeQueries:['宮崎県東臼杵郡椎葉村大字大河内 国道265号'],thresholdM:1000,
+    detail:'道路崩落のため当分の間、通行止めです。',checkedAt:'2026-08-17',
+    sourceLabel:'宮崎県道路規制情報',sourceUrl:'https://roadi.pref.miyazaki.lg.jp/roadinfo/public/List/List_Today.aspx'
+  },
+  {
+    id:'miyazaki-r327-shiiba-2023',pref:'宮崎県',road:'国道327号',location:'椎葉村大字松尾',level:'full',
+    name:'国道327号 松尾新橋～野地トンネル椎葉側',status:'通行止め',cause:'道路の崩落',from:'2023-04-28',
+    position:{lat:32.467,lng:131.158},geocodeQueries:['宮崎県東臼杵郡椎葉村大字松尾 松尾新橋','宮崎県東臼杵郡椎葉村 野地トンネル'],thresholdM:1000,
+    detail:'松尾新橋から野地トンネル椎葉側。道路崩落のため当分の間、通行止めです。',checkedAt:'2026-08-17',
+    sourceLabel:'宮崎県道路規制情報',sourceUrl:'https://roadi.pref.miyazaki.lg.jp/roadinfo/public/List/List_Today.aspx'
+  },
+  {
+    id:'miyazaki-r388-okawachi-2024a',pref:'宮崎県',road:'国道388号',location:'椎葉村大字大河内',level:'full',
+    name:'国道388号 椎葉村大字大河内',status:'通行止め',cause:'路肩決壊',from:'2024-08-29',
+    position:{lat:32.305,lng:131.109},geocodeQueries:['宮崎県東臼杵郡椎葉村大字大河内 国道388号'],thresholdM:1000,
+    detail:'路肩決壊のため当分の間、通行止めです。',checkedAt:'2026-08-17',
+    sourceLabel:'宮崎県道路規制情報',sourceUrl:'https://roadi.pref.miyazaki.lg.jp/roadinfo/public/List/List_Today.aspx'
+  },
+  {
+    id:'miyazaki-r388-okawachi-2024b',pref:'宮崎県',road:'国道388号',location:'椎葉村大字大河内中山～大河内越',level:'full',
+    name:'国道388号 大河内中山～大河内越',status:'通行止め',cause:'洗い出し',from:'2024-08-30',
+    position:{lat:32.291,lng:131.123},geocodeQueries:['宮崎県東臼杵郡椎葉村大字大河内中山','宮崎県東臼杵郡椎葉村 大河内越'],thresholdM:1000,
+    detail:'洗い出しのため当分の間、通行止めです。',checkedAt:'2026-08-17',
+    sourceLabel:'宮崎県道路規制情報',sourceUrl:'https://roadi.pref.miyazaki.lg.jp/roadinfo/public/List/List_Today.aspx'
+  },
+  {
+    id:'kagoshima-r504-hokusatsu-tunnel',pref:'鹿児島県',road:'国道504号 北薩トンネル',location:'さつま町～出水市',level:'full',
+    name:'国道504号 北薩トンネル区間',status:'全面通行止め',cause:'路面変状等',from:'2024-07-25',
+    position:{lat:32.048,lng:130.427},geocodeQueries:['鹿児島県 さつま泊野インターチェンジ','鹿児島県 高尾野インターチェンジ'],thresholdM:1200,
+    detail:'さつま泊野ICから高尾野IC間。北薩トンネル内の路面変状等により全面通行止めです。',checkedAt:'2026-08-17',
+    sourceLabel:'鹿児島県 北薩トンネル復旧情報',sourceUrl:'https://www.pref.kagoshima.jp/ah06/hokusatsu/hokusatutonneru2.html'
   }
 ];
 let _roadRestrictionOverlays=[];
@@ -4020,25 +4232,44 @@ function isRoadRestrictionActive(item,now=new Date()){
   return (!item.from||key>=item.from)&&(!item.to||key<=item.to);
 }
 
-function roadRestrictionInfoHtml(item){
-  const period=item.from&&item.to
-    ?item.from.replaceAll('-','/')+' ～ '+item.to.replaceAll('-','/')
+function isRoadRestrictionSearchable(item,now=new Date()){
+  if(isRoadRestrictionActive(item,now)) return true;
+  if(item.level==='scheduled'&&item.from){
+    const start=new Date(item.from+'T00:00:00');
+    return start.getTime()>=now.getTime()-86400000&&start.getTime()<=now.getTime()+45*86400000;
+  }
+  return false;
+}
+
+function restrictionLevelLabel(item){
+  if(item.level==='scheduled') return '予告';
+  if(item.level==='conditional') return '条件付';
+  return '通行止';
+}
+
+function roadRestrictionInfoHtml(item,distanceM){
+  const period=item.from
+    ?item.from.replaceAll('-','/')+' ～ '+(item.to?item.to.replaceAll('-','/'):'終了未定')
     :'終了時期は公式情報を確認';
+  const near=Number.isFinite(distanceM)?`<div style="margin-top:5px;font-weight:800;color:#b91c1c">作成ルートから約 ${Math.round(distanceM)}m</div>`:'';
   return `<div style="max-width:270px;padding:2px 1px;font-size:12px;line-height:1.55;color:#222">
     <div style="font-size:14px;font-weight:900;color:#b91c1c">⛔ 公式確認済み規制</div>
     <div style="font-weight:800;margin-top:2px">${item.name}</div>
     <div style="margin-top:5px"><b>状態：</b>${item.status}</div>
+    <div><b>場所：</b>${item.pref||''} ${item.location||''}</div>
     <div><b>期間：</b>${period}</div>
     <div style="margin-top:5px">${item.detail}</div>
+    ${near}
     <div style="margin-top:6px;padding:5px 7px;border-radius:6px;background:#fff3f3;color:#991b1b;font-weight:700">現地の標識・誘導員を最優先してください</div>
     <a href="${item.sourceUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin-top:6px;color:#2563eb;font-weight:700">公式情報を確認 ↗</a>
-    <div style="margin-top:4px;font-size:9px;color:#777">赤い破線は規制道路の概略表示です</div>
+    <div style="margin-top:4px;font-size:9px;color:#777">確認日 ${item.checkedAt||'—'} ／ 表示位置は付近・概略を含みます</div>
   </div>`;
 }
 
 function clearRoadRestrictionOverlays(){
   _roadRestrictionOverlays.forEach(overlay=>overlay&&overlay.setMap&&overlay.setMap(null));
   _roadRestrictionOverlays=[];
+  _roadRestrictionOverlayById={};
   if(_roadRestrictionIW){_roadRestrictionIW.close();_roadRestrictionIW=null;}
 }
 
@@ -4046,20 +4277,24 @@ function renderKnownRoadRestrictions(){
   if(!gmap||!window.google||!google.maps) return;
   clearRoadRestrictionOverlays();
   if(!_confirmedRestrictionsVisible){ updateTrafficPanelUI(); return; }
-  KNOWN_ROAD_RESTRICTIONS.filter(item=>isRoadRestrictionActive(item)).forEach(item=>{
-    const line=new google.maps.Polyline({
-      map:gmap,path:item.path,clickable:true,zIndex:445,
-      strokeColor:'#dc2626',strokeOpacity:0,strokeWeight:4,
-      icons:[{
-        icon:{path:'M 0,-1 0,1',strokeColor:'#dc2626',strokeOpacity:1,strokeWeight:4,scale:3},
-        offset:'0',repeat:'14px'
-      }]
-    });
+  KNOWN_ROAD_RESTRICTIONS.filter(item=>isRoadRestrictionSearchable(item)).forEach(item=>{
+    const geometry=restrictionGeometry(item);
+    if(!geometry.length) return;
+    const markerPosition=geometry[Math.floor(geometry.length/2)];
+    const color=item.level==='scheduled'?'#d97706':'#dc2626';
+    let line=null;
+    if(geometry.length>1){
+      line=new google.maps.Polyline({
+        map:gmap,path:geometry,clickable:true,zIndex:445,
+        strokeColor:color,strokeOpacity:0,strokeWeight:4,
+        icons:[{icon:{path:'M 0,-1 0,1',strokeColor:color,strokeOpacity:1,strokeWeight:4,scale:3},offset:'0',repeat:'14px'}]
+      });
+    }
     const marker=new google.maps.Marker({
-      map:gmap,position:item.position,zIndex:446,
+      map:gmap,position:markerPosition,zIndex:446,
       title:'⛔ 通行規制：'+item.name,
-      label:{text:'止',color:'#fff',fontSize:'12px',fontWeight:'900'},
-      icon:{path:google.maps.SymbolPath.CIRCLE,scale:15,fillColor:'#dc2626',fillOpacity:1,strokeColor:'#fff',strokeWeight:2.5}
+      label:{text:item.level==='scheduled'?'予':'止',color:'#fff',fontSize:'12px',fontWeight:'900'},
+      icon:{path:google.maps.SymbolPath.CIRCLE,scale:15,fillColor:color,fillOpacity:1,strokeColor:'#fff',strokeWeight:2.5}
     });
     const openInfo=()=>{
       if(_roadRestrictionIW) _roadRestrictionIW.close();
@@ -4067,14 +4302,224 @@ function renderKnownRoadRestrictions(){
       _roadRestrictionIW.open(gmap,marker);
     };
     marker.addListener('click',openInfo);
-    line.addListener('click',openInfo);
-    _roadRestrictionOverlays.push(line,marker);
+    if(line) line.addListener('click',openInfo);
+    _roadRestrictionOverlays.push(...(line?[line,marker]:[marker]));
+    _roadRestrictionOverlayById[item.id]={marker,line,openInfo};
   });
   updateTrafficPanelUI();
+  renderTrafficSearchResults();
 }
 
 function activeRoadRestrictionCount(){
-  return KNOWN_ROAD_RESTRICTIONS.filter(item=>isRoadRestrictionActive(item)).length;
+  return KNOWN_ROAD_RESTRICTIONS.filter(item=>isRoadRestrictionSearchable(item)).length;
+}
+
+function latOf(point){ return typeof point?.lat==='function'?point.lat():Number(point?.lat); }
+function lngOf(point){ return typeof point?.lng==='function'?point.lng():Number(point?.lng); }
+function toLatLng(point){
+  if(!point||!Number.isFinite(latOf(point))||!Number.isFinite(lngOf(point))) return null;
+  return point instanceof google.maps.LatLng?point:new google.maps.LatLng(latOf(point),lngOf(point));
+}
+
+function restrictionGeometry(item){
+  if(_restrictionGeometryById[item.id]?.length) return _restrictionGeometryById[item.id];
+  const raw=Array.isArray(item.path)&&item.path.length?item.path:(item.position?[item.position]:[]);
+  return raw.map(toLatLng).filter(Boolean);
+}
+
+function loadRestrictionGeocache(){
+  try{ _restrictionGeocodeCache=JSON.parse(localStorage.getItem(TRAFFIC_GEOCACHE_KEY)||'{}')||{}; }catch(e){ _restrictionGeocodeCache={}; }
+  Object.keys(_restrictionGeocodeCache).forEach(id=>{
+    const rows=_restrictionGeocodeCache[id];
+    if(Array.isArray(rows)) _restrictionGeometryById[id]=rows.map(toLatLng).filter(Boolean);
+  });
+}
+
+function saveRestrictionGeocache(){
+  const plain={};
+  Object.keys(_restrictionGeometryById).forEach(id=>{
+    plain[id]=_restrictionGeometryById[id].map(p=>({lat:latOf(p),lng:lngOf(p)}));
+  });
+  try{ localStorage.setItem(TRAFFIC_GEOCACHE_KEY,JSON.stringify(plain)); }catch(e){}
+}
+
+function geocodeRestrictionAddress(address){
+  return new Promise(resolve=>{
+    if(!geocoder||!address){ resolve(null); return; }
+    geocoder.geocode({address,region:'JP'},(results,status)=>{
+      resolve(status==='OK'&&results?.[0]?.geometry?.location?results[0].geometry.location:null);
+    });
+  });
+}
+
+async function resolveRestrictionGeometry(item){
+  if(_restrictionGeometryById[item.id]?.length) return _restrictionGeometryById[item.id];
+  if(!Array.isArray(item.geocodeQueries)||!item.geocodeQueries.length){
+    const base=restrictionGeometry(item);
+    _restrictionGeometryById[item.id]=base;
+    return base;
+  }
+  const resolved=[];
+  for(const query of item.geocodeQueries){
+    const point=await geocodeRestrictionAddress(query);
+    if(point) resolved.push(point);
+  }
+  _restrictionGeometryById[item.id]=resolved.length?resolved:restrictionGeometry(item);
+  saveRestrictionGeocache();
+  const overlay=_roadRestrictionOverlayById[item.id];
+  const geometry=_restrictionGeometryById[item.id];
+  if(overlay&&geometry.length){
+    overlay.marker?.setPosition(geometry[Math.floor(geometry.length/2)]);
+    if(overlay.line&&geometry.length>1) overlay.line.setPath(geometry);
+  }
+  return geometry;
+}
+
+function renderTrafficSearchResults(){
+  const host=document.getElementById('traffic-search-results');
+  const count=document.getElementById('traffic-search-count');
+  if(!host) return;
+  const pref=document.getElementById('traffic-pref-filter')?.value||'';
+  const query=(document.getElementById('traffic-name-search')?.value||'').trim().toLowerCase();
+  const hitIds=new Set(_trafficRouteHits.map(row=>row.item.id));
+  const rows=KNOWN_ROAD_RESTRICTIONS.filter(item=>isRoadRestrictionSearchable(item)).filter(item=>{
+    if(pref&&item.pref!==pref) return false;
+    if(!query) return true;
+    return [item.name,item.road,item.location,item.cause,item.status,item.pref].join(' ').toLowerCase().includes(query);
+  }).sort((a,b)=>Number(hitIds.has(b.id))-Number(hitIds.has(a.id))||a.pref.localeCompare(b.pref,'ja'));
+  if(count) count.textContent=rows.length+'件／登録'+activeRoadRestrictionCount()+'件';
+  host.innerHTML=rows.length?rows.map(item=>{
+    const hit=hitIds.has(item.id);
+    const distance=_trafficRouteHits.find(row=>row.item.id===item.id)?.distanceM;
+    const sub=[item.pref,item.location,item.cause,Number.isFinite(distance)?'ルートから約'+Math.round(distance)+'m':''].filter(Boolean).join('・');
+    return `<button type="button" class="traffic-result-item${hit?' route-hit':''}" onclick="selectRoadRestriction('${item.id}')">
+      <span class="traffic-result-copy"><b>${item.name}</b><span>${sub}</span></span>
+      <span class="traffic-result-badge${item.level==='full'?'':' conditional'}">${hit?'要確認':restrictionLevelLabel(item)}</span>
+    </button>`;
+  }).join(''):'<div style="padding:8px;color:var(--text3);font-size:9px;text-align:center">該当する規制はありません</div>';
+}
+
+async function selectRoadRestriction(id){
+  const item=KNOWN_ROAD_RESTRICTIONS.find(row=>row.id===id);
+  if(!item||!gmap) return;
+  _confirmedRestrictionsVisible=true;
+  saveTrafficPrefs();
+  renderKnownRoadRestrictions();
+  const geometry=await resolveRestrictionGeometry(item);
+  if(!geometry.length) return;
+  if(geometry.length>1){
+    const bounds=new google.maps.LatLngBounds();geometry.forEach(p=>bounds.extend(p));gmap.fitBounds(bounds,70);
+  }else{ gmap.panTo(geometry[0]);gmap.setZoom(Math.max(gmap.getZoom()||11,14)); }
+  const overlay=_roadRestrictionOverlayById[item.id];
+  if(overlay){
+    if(_roadRestrictionIW) _roadRestrictionIW.close();
+    const distance=_trafficRouteHits.find(row=>row.item.id===item.id)?.distanceM;
+    _roadRestrictionIW=new google.maps.InfoWindow({content:roadRestrictionInfoHtml(item,distance)});
+    _roadRestrictionIW.open(gmap,overlay.marker);
+  }
+}
+
+function routePathForRestrictionCheck(){
+  if(Array.isArray(lastRoutePath)&&lastRoutePath.length>1) return lastRoutePath.map(toLatLng).filter(Boolean);
+  try{
+    const path=window._mergedPolyline?.getPath?.().getArray?.();
+    if(Array.isArray(path)&&path.length>1) return path;
+  }catch(e){}
+  return [];
+}
+
+function pointSegmentDistanceM(point,a,b){
+  const lat0=(latOf(point)+latOf(a)+latOf(b))/3*Math.PI/180;
+  const mx=111320*Math.cos(lat0),my=110540;
+  const px=lngOf(point)*mx,py=latOf(point)*my,ax=lngOf(a)*mx,ay=latOf(a)*my,bx=lngOf(b)*mx,by=latOf(b)*my;
+  const dx=bx-ax,dy=by-ay,den=dx*dx+dy*dy;
+  const t=den?Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/den)):0;
+  return Math.hypot(px-(ax+t*dx),py-(ay+t*dy));
+}
+
+function pointPathDistanceM(point,path){
+  if(!path.length) return Infinity;
+  if(path.length===1) return google.maps.geometry.spherical.computeDistanceBetween(point,path[0]);
+  let best=Infinity;
+  for(let i=1;i<path.length;i++) best=Math.min(best,pointSegmentDistanceM(point,path[i-1],path[i]));
+  return best;
+}
+
+function pathDistanceM(a,b){
+  let best=Infinity;
+  a.forEach(point=>{ best=Math.min(best,pointPathDistanceM(point,b)); });
+  b.forEach(point=>{ best=Math.min(best,pointPathDistanceM(point,a)); });
+  return best;
+}
+
+function restrictionCheckCandidates(route){
+  return KNOWN_ROAD_RESTRICTIONS.filter(item=>{
+    if(!isRoadRestrictionSearchable(item)) return false;
+    if(item.level==='scheduled'){
+      const start=new Date(item.from+'T00:00:00').getTime();
+      if(start>Date.now()+7*86400000) return false;
+    }
+    const base=restrictionGeometry(item);
+    return base.length&&pathDistanceM(base,route)<90000;
+  });
+}
+
+async function checkRouteRoadRestrictions(showFeedback=false){
+  const checkSeq=++_restrictionCheckSeq;
+  const route=routePathForRestrictionCheck();
+  if(route.length<2){
+    clearRouteRestrictionAlert();
+    if(showFeedback) alert('先にルートを作成してください。');
+    return [];
+  }
+  const sampled=route.length<=300?route:Array.from({length:300},(_,i)=>route[Math.round(i*(route.length-1)/299)]);
+  const candidates=restrictionCheckCandidates(sampled);
+  const hits=[];
+  for(const item of candidates){
+    const geometry=await resolveRestrictionGeometry(item);
+    if(checkSeq!==_restrictionCheckSeq) return [];
+    if(!geometry.length) continue;
+    const distanceM=pathDistanceM(geometry,sampled);
+    if(distanceM<=Number(item.thresholdM||700)) hits.push({item,distanceM});
+  }
+  _trafficRouteHits=hits.sort((a,b)=>a.distanceM-b.distanceM);
+  const alertBox=document.getElementById('route-restriction-alert');
+  const alertText=document.getElementById('route-restriction-alert-text');
+  if(_trafficRouteHits.length){
+    const names=_trafficRouteHits.slice(0,2).map(row=>row.item.road||row.item.name).join('・');
+    if(alertText) alertText.textContent='ルート付近に'+_trafficRouteHits.length+'件：'+names+(_trafficRouteHits.length>2?' ほか':'');
+    alertBox?.classList.add('on');
+  }else{
+    clearRouteRestrictionAlert();
+    if(showFeedback){
+      if(typeof showToast==='function') showToast('登録済み規制との近接は見つかりませんでした');
+      else alert('登録済み規制との近接は見つかりませんでした。');
+    }
+  }
+  renderTrafficSearchResults();
+  return _trafficRouteHits;
+}
+
+function scheduleRouteRestrictionCheck(){
+  clearTimeout(_restrictionCheckTimer);
+  _restrictionCheckTimer=setTimeout(()=>checkRouteRoadRestrictions(false),500);
+}
+
+function clearRouteRestrictionAlert(){
+  _restrictionCheckSeq++;
+  _trafficRouteHits=[];
+  document.getElementById('route-restriction-alert')?.classList.remove('on');
+  renderTrafficSearchResults();
+}
+
+function openTrafficRouteHits(){
+  const panel=document.getElementById('traffic-control-panel');
+  if(panel) panel.classList.add('on');
+  document.getElementById('route-restriction-alert')?.classList.remove('on');
+  document.getElementById('traffic-pref-filter').value='';
+  document.getElementById('traffic-name-search').value='';
+  renderTrafficSearchResults();
+  updateTrafficPanelUI();
 }
 
 function applyGoogleTrafficLayer(){
@@ -4111,7 +4556,7 @@ function updateTrafficPanelUI(){
     const restrictionText=_confirmedRestrictionsVisible
       ?'確認済み規制：'+activeCount+'件表示中'
       :'確認済み規制：非表示';
-    status.textContent=googleText+'　｜　'+restrictionText;
+    status.textContent=googleText+'　｜　'+restrictionText+'　｜　公式確認 2026/08/17';
   }
 }
 
@@ -4120,16 +4565,21 @@ function toggleTrafficPanel(){
   if(!panel) return;
   const opening=!panel.classList.contains('on');
   panel.classList.toggle('on',opening);
+  const routeAlert=document.getElementById('route-restriction-alert');
+  if(opening) routeAlert?.classList.remove('on');
+  else if(_trafficRouteHits.length) routeAlert?.classList.add('on');
   if(opening&&window.__natureModeActive){
     const nature=document.getElementById('river-control-bar');
     if(nature&&nature.classList.contains('on')) setNaturePanelCollapsed(true);
   }
   updateTrafficPanelUI();
+  if(opening) renderTrafficSearchResults();
 }
 
 function closeTrafficPanel(){
   const panel=document.getElementById('traffic-control-panel');
   if(panel) panel.classList.remove('on');
+  if(_trafficRouteHits.length) document.getElementById('route-restriction-alert')?.classList.add('on');
   updateTrafficPanelUI();
 }
 
@@ -4147,6 +4597,7 @@ function toggleConfirmedRestrictions(){
 
 function initTrafficLayers(){
   loadTrafficPrefs();
+  loadRestrictionGeocache();
   applyGoogleTrafficLayer();
   renderKnownRoadRestrictions();
 }
@@ -5012,6 +5463,7 @@ function mergeAndProcessRoutes(results,routeRequestId){
   // マーカー再描画
   markers.forEach(m=>m.setMap(null)); markers=[];
   waypoints.forEach((ll,i)=>createMarker(ll,i));
+  scheduleRouteRestrictionCheck();
 
   // 迂回モード警告
   const hasAlt=results.some(r=>r&&r.mode==='alt');
@@ -5060,6 +5512,7 @@ function processRoute(result){
   const path=result.routes[0].overview_path;
   lastRoutePath=path;
   window._routeDistanceIndex=null;
+  scheduleRouteRestrictionCheck();
 
   // マーカー再描画（ズームなし）
   markers.forEach(m=>m.setMap(null));
@@ -5612,6 +6065,7 @@ function hardClearRoute(){
   lastElevResults=null;
   lastRoutePath=null;
   lastRouteResult=null;
+  clearRouteRestrictionAlert();
   window._routeData=null;
   window._dlHoverData=null;
   window._twDay2=null;
@@ -5802,6 +6256,7 @@ function _resetRouteForGPXImport(){
   if(window._mergedPolyline){window._mergedPolyline.setMap(null);window._mergedPolyline=null;}
   try{ directionsRenderer.setDirections({routes:[]}); }catch(e){}
   lastElevResults=null; lastRoutePath=[]; lastRouteResult=null;
+  clearRouteRestrictionAlert();
   window._routeDistanceIndex=null; window._mergedLegDists=[];
   window._routeData=null;
   goalFixed=false;
@@ -5850,6 +6305,7 @@ function _applyGPXMetrics(gpxPts, path, filename){
   window._routeData={distKm, gainM, bearing, maxGrade, avgGrade, source:'gpx', filename:filename||''};
   lastRoutePath=path;
   window._routeDistanceIndex=null;
+  scheduleRouteRestrictionCheck();
 
   // GPXの標高をそのままプロファイルへ。描画負荷を抑えるため最大180点。
   if(haveElev){
