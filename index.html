@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RIDE & RUN Planner v8.96 GLOBAL POI</title>
+<title>RIDE & RUN Planner v8.97 AUTO GLOBAL POI</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -694,7 +694,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
 <!-- GPS再取得ボタン（常時表示） -->
 <button id="gps-retry-btn" onclick="retryGPS()" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">📍</button>
 <header>
-  <h1>RIDE &amp; RUN Planner <span class="ver">v8.96 GLOBAL POI</span></h1>
+  <h1>RIDE &amp; RUN Planner <span class="ver">v8.97 AUTO GLOBAL POI</span></h1>
   <span class="sub">Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
@@ -4859,6 +4859,7 @@ function initMap(){
   });
   gmap.addListener('idle',()=>{
     if(typeof syncRegionalRestrictionVisibility==='function') syncRegionalRestrictionVisibility(false);
+    if(typeof updatePOIVisualMode==='function') updatePOIVisualMode();
   });
   directionsService  = new google.maps.DirectionsService();
   directionsRenderer = new google.maps.DirectionsRenderer({
@@ -6379,6 +6380,7 @@ function setupSearchAutocomplete(){
 function showSearchResultOnMap(place){
   if(!place||!place.geometry||!place.geometry.location) return;
   const loc=place.geometry.location;
+  if(typeof syncGlobalRegionFromPoint==='function') syncGlobalRegionFromPoint(loc);
   const currentZoom=gmap&&gmap.getZoom?gmap.getZoom():null;
   gmap.panTo(loc);
   if(currentZoom!=null) setTimeout(()=>gmap.setZoom(currentZoom),50); // 検索で勝手にアップしない
@@ -6682,8 +6684,28 @@ const WORLD_POI_VISUALS={
   '名所・観光':{icon:'📸',short:'Sight',title:'Landmarks & sights'}
 };
 
-function getPOIVisual(label,cfg=POI_TYPES[label]){
-  const worldMode=typeof globalTravelPrefs==='object'&&globalTravelPrefs.region==='world';
+function isWorldPOIContext(point){
+  if(point&&!isPointInJapan(point)) return true;
+  if(typeof globalTravelPrefs==='object'&&globalTravelPrefs.region==='world') return true;
+  const center=gmap&&gmap.getCenter?gmap.getCenter():null;
+  return !!center&&!isPointInJapan(center);
+}
+
+function syncGlobalRegionFromPoint(point){
+  if(!point||typeof globalTravelPrefs!=='object') return;
+  const nextRegion=isPointInJapan(point)?'jp':'world';
+  if(globalTravelPrefs.region===nextRegion){
+    updatePOIVisualMode();
+    return;
+  }
+  globalTravelPrefs.region=nextRegion;
+  saveGlobalTravelPrefs();
+  if(typeof clearAllPOI==='function') clearAllPOI();
+  updateGlobalTravelUI();
+}
+
+function getPOIVisual(label,cfg=POI_TYPES[label],point=null){
+  const worldMode=isWorldPOIContext(point);
   const visual=worldMode?WORLD_POI_VISUALS[label]:null;
   return {
     icon:visual?.icon||cfg?.icon||'📍',
@@ -6753,7 +6775,7 @@ function cancelPOISelect(silent=false){
 /* ── エリアクリック後：1リクエストで検索 ── */
 function executePOISearch(label,latLng){
   const cfg=POI_TYPES[label];
-  const visual=getPOIVisual(label,cfg);
+  const visual=getPOIVisual(label,cfg,latLng);
   if(!cfg)return;
   if(_poiClickListener){google.maps.event.removeListener(_poiClickListener);_poiClickListener=null;}
   gmap.setOptions({draggableCursor:null});
@@ -6761,7 +6783,7 @@ function executePOISearch(label,latLng){
   _poiSelectMode=false;
   const radius=+document.getElementById('poi-radius-sel').value||1000;
   const lat=latLng.lat(),lng=latLng.lng();
-  const worldMode=typeof globalTravelPrefs==='object'&&globalTravelPrefs.region==='world';
+  const worldMode=isWorldPOIContext(latLng);
   const keyword=worldMode?(WORLD_POI_KEYWORDS[label]||cfg.keyword):cfg.keyword;
   const cacheKey=`${worldMode?'world':'jp'}:${label}:${lat.toFixed(3)},${lng.toFixed(3)}:${radius}`;
   // 検索円を2.5秒表示
@@ -6790,7 +6812,7 @@ function executePOISearch(label,latLng){
 
 /* ── マーカー描画 ── */
 function renderPOI(places,cfg,label,fromCache=false){
-  const visual=getPOIVisual(label,cfg);
+  const visual=getPOIVisual(label,cfg,places?.[0]?.geometry?.location||null);
   if(!sharedIW)sharedIW=new google.maps.InfoWindow();
   // 同カテゴリの旧マーカー削除
   poiMarkers=poiMarkers.filter(m=>{if(m._poiLabel===label){m.setMap(null);return false;}return true;});
