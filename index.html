@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RIDE & RUN Planner v8.95 GLOBAL ROUTE</title>
+<title>RIDE & RUN Planner v8.96 GLOBAL POI</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -694,7 +694,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
 <!-- GPS再取得ボタン（常時表示） -->
 <button id="gps-retry-btn" onclick="retryGPS()" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">📍</button>
 <header>
-  <h1>RIDE &amp; RUN Planner <span class="ver">v8.95 GLOBAL ROUTE</span></h1>
+  <h1>RIDE &amp; RUN Planner <span class="ver">v8.96 GLOBAL POI</span></h1>
   <span class="sub">Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
@@ -4082,6 +4082,7 @@ function updateGlobalTravelUI(){
   }
   const safety=document.getElementById('global-route-safety');
   if(safety) safety.textContent=(world?'🌐 海外':'🇯🇵 日本')+'・'+globalDrivingSideLabel()+'・'+(globalTravelPrefs.unit==='mi'?'mile':'km');
+  if(typeof updatePOIVisualMode==='function') updatePOIVisualMode();
   scheduleGlobalUnitRefresh();
 }
 
@@ -4096,8 +4097,11 @@ function updateSearchAutocompleteBias(){
 }
 
 function setGlobalRegionMode(mode){
-  globalTravelPrefs.region=mode==='world'?'world':'jp';
+  const nextRegion=mode==='world'?'world':'jp';
+  const changed=globalTravelPrefs.region!==nextRegion;
+  globalTravelPrefs.region=nextRegion;
   saveGlobalTravelPrefs();
+  if(changed&&typeof clearAllPOI==='function') clearAllPOI();
   updateGlobalTravelUI();
   updateSearchAutocompleteBias();
   syncRegionalRestrictionVisibility(true);
@@ -6673,6 +6677,37 @@ const WORLD_POI_KEYWORDS={
   '公園':'park','絶景':'scenic viewpoint observation deck','史跡':'historic site ruins castle',
   '名所・観光':'tourist attraction landmark','温泉':'spa hot spring thermal bath'
 };
+const WORLD_POI_VISUALS={
+  '史跡':{icon:'🏛️',short:'History',title:'Historic sites'},
+  '名所・観光':{icon:'📸',short:'Sight',title:'Landmarks & sights'}
+};
+
+function getPOIVisual(label,cfg=POI_TYPES[label]){
+  const worldMode=typeof globalTravelPrefs==='object'&&globalTravelPrefs.region==='world';
+  const visual=worldMode?WORLD_POI_VISUALS[label]:null;
+  return {
+    icon:visual?.icon||cfg?.icon||'📍',
+    short:visual?.short||(label==='名所・観光'?'名所':label),
+    title:visual?.title||label
+  };
+}
+
+function updatePOIVisualMode(){
+  document.querySelectorAll('[data-poi-label]').forEach(button=>{
+    const label=button.dataset.poiLabel;
+    if(!WORLD_POI_VISUALS[label]) return;
+    const visual=getPOIVisual(label);
+    const textNode=Array.from(button.childNodes).find(node=>node.nodeType===3&&node.nodeValue.trim());
+    if(textNode) textNode.nodeValue=visual.icon;
+    const caption=button.querySelector('div');
+    if(caption) caption.textContent=visual.short;
+    button.title=visual.title;
+  });
+  poiMarkers.forEach(marker=>{
+    if(!marker?._poiIconMarker||!WORLD_POI_VISUALS[marker._poiLabel]) return;
+    marker.setLabel({text:getPOIVisual(marker._poiLabel).icon,fontSize:'13px'});
+  });
+}
 
 /* ── 状態管理 ── */
 let poiMarkers=[];
@@ -6687,6 +6722,7 @@ let sharedIW=null;
 /* ── カテゴリアイコン押下 → エリア指定モード開始 ── */
 function selectPOICategory(label){
   const cfg=POI_TYPES[label];
+  const visual=getPOIVisual(label,cfg);
   if(!cfg||!gmap) return;
   if(_poiSelectMode&&_poiSelectedLabel===label){ cancelPOISelect(); return; }
   if(_poiSelectMode) cancelPOISelect(true);
@@ -6694,7 +6730,7 @@ function selectPOICategory(label){
   document.querySelectorAll('.poi-icon-btn,.poi-float-btn').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll(`[data-poi-label="${label}"],#poi-btn-${label}`).forEach(b=>b.classList.add('active'));
   const prompt=document.getElementById('poi-area-prompt');
-  document.getElementById('poi-prompt-label').textContent=`${cfg.icon} ${label}を探したいエリアを地図でタップ`;
+  document.getElementById('poi-prompt-label').textContent=`${visual.icon} ${label}を探したいエリアを地図でタップ`;
   prompt.style.display='block';
   gmap.setOptions({draggableCursor:'crosshair'});
   _poiClickListener=gmap.addListener('click',e=>{ executePOISearch(label,e.latLng); });
@@ -6717,6 +6753,7 @@ function cancelPOISelect(silent=false){
 /* ── エリアクリック後：1リクエストで検索 ── */
 function executePOISearch(label,latLng){
   const cfg=POI_TYPES[label];
+  const visual=getPOIVisual(label,cfg);
   if(!cfg)return;
   if(_poiClickListener){google.maps.event.removeListener(_poiClickListener);_poiClickListener=null;}
   gmap.setOptions({draggableCursor:null});
@@ -6739,7 +6776,7 @@ function executePOISearch(label,latLng){
     return;
   }
   document.getElementById('poi-results').innerHTML=
-    `<div style="font-size:11px;color:var(--text2);padding:4px">🔍 ${cfg.icon} ${label}を検索中…</div>`;
+    `<div style="font-size:11px;color:var(--text2);padding:4px">🔍 ${visual.icon} ${label}を検索中…</div>`;
   document.getElementById('poi-cache-badge').style.display='none';
   if(!placesService)return;
   // ★ 1リクエストのみ（コース全自動スキャン廃止）
@@ -6753,6 +6790,7 @@ function executePOISearch(label,latLng){
 
 /* ── マーカー描画 ── */
 function renderPOI(places,cfg,label,fromCache=false){
+  const visual=getPOIVisual(label,cfg);
   if(!sharedIW)sharedIW=new google.maps.InfoWindow();
   // 同カテゴリの旧マーカー削除
   poiMarkers=poiMarkers.filter(m=>{if(m._poiLabel===label){m.setMap(null);return false;}return true;});
@@ -6761,15 +6799,16 @@ function renderPOI(places,cfg,label,fromCache=false){
       icon:{path:google.maps.SymbolPath.CIRCLE,scale:13,fillColor:cfg.col,fillOpacity:0.9,strokeColor:'#fff',strokeWeight:2}});
     m._poiLabel=label;
     const ml=new google.maps.Marker({position:pl.geometry.location,map:gmap,zIndex:51,clickable:false,
-      label:{text:cfg.icon,fontSize:'13px'},
+      label:{text:visual.icon,fontSize:'13px'},
       icon:{path:google.maps.SymbolPath.CIRCLE,scale:0,fillOpacity:0,strokeOpacity:0}});
     ml._poiLabel=label;
+    ml._poiIconMarker=true;
     m.addListener('click',()=>{
       const su='https://www.google.com/search?q='+encodeURIComponent(pl.name+(pl.vicinity?' '+pl.vicinity:''));
       sharedIW.setContent(`<div style="min-width:160px;max-width:220px;font-family:sans-serif">
         <a href="${su}" target="_blank" rel="noopener"
            style="font-size:13px;font-weight:600;color:#1a73e8;text-decoration:none;display:block;margin-bottom:4px">
-          ${cfg.icon} ${pl.name} 🔗</a>
+          ${visual.icon} ${pl.name} 🔗</a>
         <div style="font-size:11px;color:#666;margin-bottom:2px">${pl.vicinity||''}</div>
         ${pl.rating?`<div style="font-size:11px">⭐ ${pl.rating}${pl.user_ratings_total?' ('+pl.user_ratings_total+'件)':''}</div>`:''}</div>`);
       sharedIW.open(gmap,m);
@@ -6780,9 +6819,9 @@ function renderPOI(places,cfg,label,fromCache=false){
   const box=document.getElementById('poi-results');
   const tag=fromCache?'<span style="font-size:9px;padding:1px 5px;background:var(--greenbg);color:var(--green);border-radius:8px;margin-left:4px">キャッシュ</span>':'';
   const newContent=places.length===0
-    ?`<div style="font-size:11px;color:var(--text3);padding:4px 0">${cfg.icon} ${label}は周辺に見つかりませんでした<br>
+    ?`<div style="font-size:11px;color:var(--text3);padding:4px 0">${visual.icon} ${label}は周辺に見つかりませんでした<br>
        <span style="font-size:10px">半径を広げるか別エリアで再検索してください</span></div>`
-    :`<div style="font-size:10px;font-weight:700;color:var(--text3);padding:4px 0 3px">${cfg.icon} ${label} ${places.length}件${tag}
+    :`<div style="font-size:10px;font-weight:700;color:var(--text3);padding:4px 0 3px">${visual.icon} ${label} ${places.length}件${tag}
        <button onclick="selectPOICategory('${label}')"
          style="margin-left:6px;font-size:9px;padding:1px 6px;border:0.5px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text2);cursor:pointer">+ 別エリア追加</button>
      </div>`+
@@ -6790,7 +6829,7 @@ function renderPOI(places,cfg,label,fromCache=false){
        const su='https://www.google.com/search?q='+encodeURIComponent(pl.name+(pl.vicinity?' '+pl.vicinity:''));
        return `<div style="padding:4px 0;border-bottom:0.5px solid var(--border);display:flex;align-items:center;gap:6px">
          <span onclick="gmap.panTo(new google.maps.LatLng(${pl.geometry.location.lat()},${pl.geometry.location.lng()}))"
-               style="cursor:pointer;flex:1;font-size:11px;color:var(--text)">${cfg.icon} ${pl.name}${pl.rating?' ⭐'+pl.rating:''}</span>
+               style="cursor:pointer;flex:1;font-size:11px;color:var(--text)">${visual.icon} ${pl.name}${pl.rating?' ⭐'+pl.rating:''}</span>
          <a href="${su}" target="_blank" rel="noopener" style="font-size:10px;color:#1a73e8;text-decoration:none">🔍</a></div>`;
      }).join('');
   // 既存結果の「検索中」表示を置換、それ以外は累積追記
