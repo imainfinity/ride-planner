@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RIDE & RUN Planner v8.98 TIME DAY FIX</title>
+<title>RIDE & RUN Planner v8.99 SEGMENT EDIT</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -697,7 +697,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
 <!-- GPS再取得ボタン（常時表示） -->
 <button id="gps-retry-btn" onclick="retryGPS()" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">📍</button>
 <header>
-  <h1>RIDE &amp; RUN Planner <span class="ver">v8.98 TIME DAY FIX</span></h1>
+  <h1>RIDE &amp; RUN Planner <span class="ver">v8.99 SEGMENT EDIT</span></h1>
   <span class="sub">Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
@@ -1131,7 +1131,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
       <span id="route-edit-hint" class="hint" style="display:none;color:var(--amber);font-weight:700">地図上の通したい道路をクリック</span>
     </div>
   </div>
-  <div class="hint" style="margin:-2px 0 6px;line-height:1.45">迂回する場合：◆強制経由 → 通したい道路をクリック。まだ迂回する区間は地点リストの「自動」を押して ✏手動へ切替。</div>
+    <div class="hint" style="margin:-2px 0 6px;line-height:1.45">区間修正：赤いコース線をタップして◆を追加 → ◆を通したい道路へドラッグ。離れた道路を直接指定する場合は「◆強制経由」。</div>
 
   <!-- 📍 POI（オンデマンド・エリア指定方式） -->
   <div style="margin-bottom:6px">
@@ -3929,6 +3929,10 @@ let manualSegments={};
 let _forceWaypointMode=false;
 let lastRouteResult=null, lastElevResults=null, lastRoutePath=null;
 let hoverPolyline=null; // ルート線上ホバー用の透明な太いライン
+// 結合ルートの各区間を正しく選択するための透明なタップ領域。
+// 旧DirectionsRenderer用の _dragOverlay とは分けて管理する。
+window._routeEditOverlays=Array.isArray(window._routeEditOverlays)?window._routeEditOverlays:[];
+let _routeLineTapGuard=false;
 
 /* ── 往復合計距離表示 ── */
 function updateRtLabel(){
@@ -4917,6 +4921,7 @@ function initMap(){
 
   gmap.addListener('click',(e)=>{
     if(_mapDragged) return;
+    if(_routeLineTapGuard) return;
     if(window.__natureMapClickLocked) return;
     if(_poiSelectMode) return; // POIエリア選択中はwaypoint追加をロック
     if(sharedIW&&sharedIW.getMap()){sharedIW.close();return;}
@@ -5231,6 +5236,88 @@ function pointToSegmentDistanceMeters(p,a,b){
   return Math.hypot(px-(ax+t*dx),py-(ay+t*dy));
 }
 
+function closestPointOnRoutePath(point,path){
+  if(!point||!Array.isArray(path)||path.length<2) return point;
+  let bestPoint=point, bestDistance=Infinity;
+  for(let i=0;i<path.length-1;i++){
+    const a=path[i], b=path[i+1];
+    const lat0=(a.lat()+b.lat()+point.lat())/3*Math.PI/180;
+    const cos=Math.max(0.01,Math.abs(Math.cos(lat0)));
+    const ax=a.lng()*cos, ay=a.lat();
+    const bx=b.lng()*cos, by=b.lat();
+    const px=point.lng()*cos, py=point.lat();
+    const dx=bx-ax, dy=by-ay;
+    const den=dx*dx+dy*dy;
+    const t=den?Math.max(0,Math.min(1,((px-ax)*dx+(py-ay)*dy)/den)):0;
+    const candidate=new google.maps.LatLng(ay+dy*t,(ax+dx*t)/cos);
+    const distance=google.maps.geometry.spherical.computeDistanceBetween(point,candidate);
+    if(distance<bestDistance){bestDistance=distance;bestPoint=candidate;}
+  }
+  return bestPoint;
+}
+
+function clearRouteEditOverlays(){
+  if(window._dragOverlay){window._dragOverlay.setMap(null);window._dragOverlay=null;}
+  (window._routeEditOverlays||[]).forEach(overlay=>overlay&&overlay.setMap&&overlay.setMap(null));
+  window._routeEditOverlays=[];
+}
+
+function notifyRouteEdit(message){
+  if(typeof window.rppNotify==='function') window.rppNotify(message);
+  else if(typeof window.showToast==='function') window.showToast(message);
+}
+
+function routeEditInteractionLocked(){
+  if(_routeCalculating) return true;
+  if(window.__natureMapClickLocked||_poiSelectMode) return true;
+  if(sharedIW&&sharedIW.getMap&&sharedIW.getMap()) return true;
+  return false;
+}
+
+function insertRouteEditWaypoint(segmentIndex,clickedPoint,segmentPath){
+  if(routeEditInteractionLocked()||segmentIndex<0||segmentIndex>=waypoints.length-1) return;
+  const insertIdx=segmentIndex+1;
+  const snappedPoint=closestPointOnRoutePath(clickedPoint,segmentPath);
+  saveHistory();
+  shiftManualSegmentsForInsert(insertIdx);
+  waypoints.splice(insertIdx,0,snappedPoint);
+  waypointKinds.splice(insertIdx,0,'force');
+  markers.forEach(marker=>marker&&marker.setMap(null));
+  markers=[];
+  waypoints.forEach((point,index)=>createMarker(point,index));
+  const editMarker=markers[insertIdx];
+  if(editMarker&&google.maps.Animation){
+    editMarker.setAnimation(google.maps.Animation.BOUNCE);
+    setTimeout(()=>{try{editMarker.setAnimation(null);}catch(e){}},1200);
+  }
+  renderWpList();
+  updateGoalFlagBtn();
+  notifyRouteEdit('◆ 区間編集点を追加しました。通したい道路へドラッグしてください');
+  calcRoute();
+}
+
+function setupMergedRouteEditOverlays(results,routeRequestId){
+  clearRouteEditOverlays();
+  if(!Array.isArray(results)||!gmap) return;
+  results.forEach((result,segmentIndex)=>{
+    const path=result&&result.routes&&result.routes[0]&&result.routes[0].overview_path;
+    if(!Array.isArray(path)||path.length<2) return;
+    const overlay=new google.maps.Polyline({
+      path:path,map:gmap,clickable:true,cursor:'pointer',zIndex:430,
+      strokeColor:'#ffd166',strokeWeight:24,strokeOpacity:0.01
+    });
+    overlay.addListener('click',event=>{
+      if(routeRequestId!==window._routeCalcSeq||routeEditInteractionLocked()) return;
+      _routeLineTapGuard=true;
+      setTimeout(()=>{_routeLineTapGuard=false;},250);
+      insertRouteEditWaypoint(segmentIndex,event.latLng,path);
+    });
+    overlay.addListener('mouseover',()=>overlay.setOptions({strokeOpacity:0.18}));
+    overlay.addListener('mouseout',()=>overlay.setOptions({strokeOpacity:0.01}));
+    window._routeEditOverlays.push(overlay);
+  });
+}
+
 function nearestWaypointSegmentIndex(latLng){
   let best=0, bestD=Infinity;
   for(let i=0;i<waypoints.length-1;i++){
@@ -5375,10 +5462,15 @@ function createMarker(latLng, idx){
           fillColor:color, fillOpacity:1, strokeColor:'#fff', strokeWeight:2}
   });
   // マーカードラッグで地点更新
+  marker.addListener('dragstart',()=>{
+    // 「戻る」でドラッグ前の区間へ戻せるよう、移動前を履歴へ保存する。
+    saveHistory();
+  });
   marker.addListener('dragend',(e)=>{
     waypoints[idx]=e.latLng;
     if(waypoints.length>=2) calcRoute();
     renderWpList();
+    if(isForce) notifyRouteEdit('◆ 区間を再計算しました');
   });
   // マーカー右クリックで削除
   marker.addListener('rightclick',()=>{
@@ -5539,6 +5631,8 @@ function renderWpList(){
 /* ══ ルーティング：1区間ずつ直列処理 ══ */
 
 function calcRoute(){
+  // 再計算中に古い区間へ編集点が入らないよう、タップ領域を先に破棄する。
+  clearRouteEditOverlays();
   if(waypoints.length<2) return;
   if(!Number.isFinite(window._routeCalcSeq)) window._routeCalcSeq=0;
   const routeRequestId=++window._routeCalcSeq;
@@ -5698,8 +5792,13 @@ function mergeAndProcessRoutes(results,routeRequestId){
     strokeColor:'#e24b4a',
     strokeWeight:4,
     strokeOpacity:0.85,
-    map:gmap
+    map:gmap,
+    clickable:false,
+    zIndex:420
   });
+
+  // 複数区間を結合した現在の描画方式にも、区間ごとの編集領域を付与する。
+  setupMergedRouteEditOverlays(results,routeRequestId);
 
   // マーカー再描画
   markers.forEach(m=>m.setMap(null)); markers=[];
@@ -6258,6 +6357,7 @@ function applyWaypointState(state){
     window._mergedPolyline.setMap(null);
     window._mergedPolyline=null;
   }
+  clearRouteEditOverlays();
   try{ directionsRenderer.setDirections({routes:[]}); }catch(e){}
 
   markers.forEach(m=>m&&m.setMap(null));
@@ -6297,7 +6397,7 @@ function hardClearRoute(){
   toggleForceWaypointMode(false);
   markers.forEach(m=>m.setMap(null)); markers=[];
   poiMarkers.forEach(m=>m.setMap(null)); poiMarkers=[];
-  if(window._dragOverlay){window._dragOverlay.setMap(null);window._dragOverlay=null;}
+  clearRouteEditOverlays();
   if(hoverPolyline){hoverPolyline.setMap(null);hoverPolyline=null;}
   if(sharedIW){sharedIW.close();sharedIW=null;}
   if(window._mergedPolyline){window._mergedPolyline.setMap(null);window._mergedPolyline=null;}
@@ -6504,7 +6604,7 @@ function _resetRouteForGPXImport(){
   window._routeCalcSeq=(window._routeCalcSeq||0)+1;
   waypoints=[]; waypointKinds=[]; manualSegments={};
   markers.forEach(m=>m&&m.setMap(null)); markers=[];
-  if(window._dragOverlay){window._dragOverlay.setMap(null);window._dragOverlay=null;}
+  clearRouteEditOverlays();
   if(hoverPolyline){hoverPolyline.setMap(null);hoverPolyline=null;}
   if(window._mergedPolyline){window._mergedPolyline.setMap(null);window._mergedPolyline=null;}
   try{ directionsRenderer.setDirections({routes:[]}); }catch(e){}
