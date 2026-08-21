@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RIDE & RUN Planner v8.97 AUTO GLOBAL POI</title>
+<title>RIDE & RUN Planner v8.98 TIME DAY FIX</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -243,6 +243,9 @@ body.pc-mode .ride-settings-col{padding-top:0}
 .locked-value{font-size:17px;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums;line-height:1.2}
 .locked-sub{font-size:9px;color:var(--text3);line-height:1.2}
 .time-chip{display:flex;align-items:center;gap:3px;background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--rs);padding:5px 7px}
+.time-day-badge{display:none;align-items:center;justify-content:center;min-width:30px;padding:2px 5px;border-radius:999px;background:#fff1f2;color:#be123c;font-size:8px;font-weight:900;line-height:1.2;white-space:nowrap}
+.time-day-badge.on{display:inline-flex}
+.time-day-badge.next{background:#fff7ed;color:#c2410c}
 .time-read{font-size:19px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--text);min-width:54px;text-align:center}
 .time-read.goal{color:var(--amber)}
 .time-mini-btn{width:22px;height:28px;border:0.5px solid var(--border2);border-radius:4px;background:var(--bg);color:var(--text2);font-size:12px;cursor:pointer;font-family:inherit}
@@ -694,7 +697,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
 <!-- GPS再取得ボタン（常時表示） -->
 <button id="gps-retry-btn" onclick="retryGPS()" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">📍</button>
 <header>
-  <h1>RIDE &amp; RUN Planner <span class="ver">v8.97 AUTO GLOBAL POI</span></h1>
+  <h1>RIDE &amp; RUN Planner <span class="ver">v8.98 TIME DAY FIX</span></h1>
   <span class="sub">Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
@@ -725,6 +728,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
       <div class="locked-label">Start</div>
       <button class="time-mini-btn" onclick="mcpDialAdj('start','h',-1)">▲</button>
       <div class="time-read"><span id="mcp-start-h">08</span>:<span id="mcp-start-m">00</span></div>
+      <span id="mcp-start-day" class="time-day-badge" aria-live="polite"></span>
       <button class="time-mini-btn" onclick="mcpDialAdj('start','h',1)">▼</button>
       <button class="time-mini-btn" onclick="mcpDialAdj('start','m',-5)">−5</button>
       <button class="time-mini-btn" onclick="mcpDialAdj('start','m',5)">+5</button>
@@ -734,6 +738,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
       <div class="locked-label">Goal</div>
       <button class="time-mini-btn" onclick="mcpDialAdj('end','h',-1)">▲</button>
       <div class="time-read goal"><span id="mcp-end-h">--</span>:<span id="mcp-end-m">--</span></div>
+      <span id="mcp-end-day" class="time-day-badge next" aria-live="polite"></span>
       <button class="time-mini-btn" onclick="mcpDialAdj('end','h',1)">▼</button>
       <button class="time-mini-btn" onclick="mcpDialAdj('end','m',-5)">−5</button>
       <button class="time-mini-btn" onclick="mcpDialAdj('end','m',5)">+5</button>
@@ -1021,6 +1026,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
           <div id="mcp-sb-start-h" style="font-size:16px;font-weight:600;min-width:22px;text-align:center;color:var(--text)">08</div>
           <div style="font-size:15px;color:var(--text3)">:</div>
           <div id="mcp-sb-start-m" style="font-size:16px;font-weight:600;min-width:22px;text-align:center;color:var(--text)">00</div>
+          <span id="mcp-sb-start-day" class="time-day-badge"></span>
           <button onclick="mcpDialAdj('start','h',1)" style="width:20px;height:28px;border:0.5px solid var(--border2);border-radius:0 4px 4px 0;background:var(--bg2);color:var(--text2);font-size:12px;cursor:pointer">▼</button>
           <button onclick="mcpDialAdj('start','m',-5)" style="width:20px;height:28px;border:0.5px solid var(--border2);border-radius:4px 0 0 4px;background:var(--bg2);color:var(--text2);font-size:12px;cursor:pointer;margin-left:2px">▲</button>
           <button onclick="mcpDialAdj('start','m',5)" style="width:20px;height:28px;border:0.5px solid var(--border2);border-radius:0 4px 4px 0;background:var(--bg2);color:var(--text2);font-size:12px;cursor:pointer">▼</button>
@@ -1034,6 +1040,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
           <div id="mcp-sb-end-h" style="font-size:16px;font-weight:600;min-width:22px;text-align:center;color:var(--amber)">--</div>
           <div style="font-size:15px;color:var(--text3)">:</div>
           <div id="mcp-sb-end-m" style="font-size:16px;font-weight:600;min-width:22px;text-align:center;color:var(--amber)">--</div>
+          <span id="mcp-sb-end-day" class="time-day-badge next"></span>
           <button onclick="mcpDialAdj('end','h',1)" style="width:20px;height:28px;border:0.5px solid var(--border2);border-radius:0 4px 4px 0;background:var(--bg2);color:var(--text2);font-size:12px;cursor:pointer">▼</button>
           <button onclick="mcpDialAdj('end','m',-5)" style="width:20px;height:28px;border:0.5px solid var(--border2);border-radius:4px 0 0 4px;background:var(--bg2);color:var(--text2);font-size:12px;cursor:pointer;margin-left:2px">▲</button>
           <button onclick="mcpDialAdj('end','m',5)" style="width:20px;height:28px;border:0.5px solid var(--border2);border-radius:0 4px 4px 0;background:var(--bg2);color:var(--text2);font-size:12px;cursor:pointer">▼</button>
@@ -7546,12 +7553,14 @@ function mcpCalc(trigger){
     const endAbs = mcp.endH * 60 + mcp.endM;
     const st = normClock(endAbs - durationMins);
     mcp.startH = st.h; mcp.startM = st.m;
+    mcp.startDayOffset = st.day; mcp.endDayOffset = 0;
   } else {
     // START固定 → 所要時間分だけGOALを加算
     // GOALは予測値として保持し、STARTを動かすたびに即時更新する。
     const startAbs = mcp.startH * 60 + mcp.startM;
     const en = normClock(startAbs + durationMins);
     window._mcpPredEndH = en.h; window._mcpPredEndM = en.m;
+    mcp.startDayOffset = 0; mcp.endDayOffset = en.day;
     mcp.endH = null; mcp.endM = null;
   }
 
@@ -10720,6 +10729,84 @@ function routeToMountain(which){
 
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init,{once:true});
   else init();
+})();
+</script>
+
+<script>
+/* ── v8.98: START/GOAL逆算の日付またぎ表示を保証 ── */
+(function(){
+  if(window.__rppTimeDayFixV898) return;
+  window.__rppTimeDayFixV898=true;
+  var refreshTimer=0;
+
+  function el(id){return document.getElementById(id)}
+  function text(id,value){var node=el(id);if(node&&node.textContent!==value)node.textContent=value}
+  function readClock(prefix){
+    var h=Number(el(prefix+'-h')?.textContent),m=Number(el(prefix+'-m')?.textContent);
+    return Number.isFinite(h)&&Number.isFinite(m)?{h:h,m:m}:null;
+  }
+  function readDuration(){
+    var value=(el('mcp-total')?.textContent||'').trim();
+    var match=value.match(/^(\d+):(\d{2})$/);
+    if(match)return Number(match[1])*60+Number(match[2]);
+    return Number.isFinite(window._lastTotalMins)&&window._lastTotalMins>0?Math.round(window._lastTotalMins):0;
+  }
+  function dayLabel(offset){
+    if(offset===-1)return '前日';
+    if(offset===1)return '翌日';
+    if(offset<0)return Math.abs(offset)+'日前';
+    if(offset>0)return offset+'日後';
+    return '';
+  }
+  function setBadge(id,offset){
+    var node=el(id);if(!node)return;
+    var label=dayLabel(offset);
+    if(node.textContent!==label)node.textContent=label;
+    node.classList.toggle('on',!!label);
+    node.classList.toggle('next',offset>0);
+  }
+  function decorated(clock,offset){
+    if(!clock)return '--:--';
+    var base=String(clock.h).padStart(2,'0')+':'+String(clock.m).padStart(2,'0');
+    var label=dayLabel(offset);
+    return label?base+'（'+label+'）':base;
+  }
+
+  window.refreshTimeDayContext=function(){
+    var start=readClock('mcp-start'),goal=readClock('mcp-end'),duration=readDuration();
+    if(!start||!goal||!duration){
+      ['mcp-start-day','mcp-end-day','mcp-sb-start-day','mcp-sb-end-day'].forEach(function(id){setBadge(id,0)});
+      return;
+    }
+    var mode=localStorage.getItem('rpp_time_mode')||'start-first';
+    var startMin=start.h*60+start.m,goalMin=goal.h*60+goal.m,startDay=0,goalDay=0;
+    if(mode==='goal-first') startDay=Math.floor((goalMin-duration)/1440);
+    else goalDay=Math.floor((startMin+duration)/1440);
+
+    if(typeof mcp==='object'){
+      mcp.startDayOffset=startDay;
+      mcp.endDayOffset=goalDay;
+    }
+    setBadge('mcp-start-day',startDay);setBadge('mcp-end-day',goalDay);
+    setBadge('mcp-sb-start-day',startDay);setBadge('mcp-sb-end-day',goalDay);
+    text('msb-start',decorated(start,startDay));
+    text('msb-arrive',decorated(goal,goalDay));
+    text('modal-start-display',decorated(start,startDay));
+    text('modal-goal-display',decorated(goal,goalDay));
+    text('run-start-display',decorated(start,startDay));
+    text('run-goal-display',decorated(goal,goalDay));
+  };
+
+  function schedule(){clearTimeout(refreshTimer);refreshTimer=setTimeout(window.refreshTimeDayContext,0)}
+  function init(){
+    var observer=new MutationObserver(schedule);
+    ['mcp-start-h','mcp-start-m','mcp-end-h','mcp-end-m','mcp-total','msb-start','msb-arrive','modal-start-display','modal-goal-display'].forEach(function(id){
+      var node=el(id);if(node)observer.observe(node,{childList:true,subtree:true,characterData:true});
+    });
+    ['mcp-mode-start','mcp-mode-goal'].forEach(function(id){var node=el(id);if(node)observer.observe(node,{attributes:true,attributeFilter:['class']})});
+    schedule();
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
 </script>
 </body>
