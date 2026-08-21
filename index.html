@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RIDE & RUN Planner v8.99 SEGMENT EDIT</title>
+<title>RIDE & RUN Planner v9.00 GPX SEGMENT EDIT</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -697,7 +697,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
 <!-- GPS再取得ボタン（常時表示） -->
 <button id="gps-retry-btn" onclick="retryGPS()" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">📍</button>
 <header>
-  <h1>RIDE &amp; RUN Planner <span class="ver">v8.99 SEGMENT EDIT</span></h1>
+  <h1>RIDE &amp; RUN Planner <span class="ver">v9.00 GPX SEGMENT EDIT</span></h1>
   <span class="sub">Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
@@ -5274,7 +5274,7 @@ function routeEditInteractionLocked(){
   return false;
 }
 
-function insertRouteEditWaypoint(segmentIndex,clickedPoint,segmentPath){
+function insertRouteEditWaypoint(segmentIndex,clickedPoint,segmentPath,options={}){
   if(routeEditInteractionLocked()||segmentIndex<0||segmentIndex>=waypoints.length-1) return;
   const insertIdx=segmentIndex+1;
   const snappedPoint=closestPointOnRoutePath(clickedPoint,segmentPath);
@@ -5292,11 +5292,19 @@ function insertRouteEditWaypoint(segmentIndex,clickedPoint,segmentPath){
   }
   renderWpList();
   updateGoalFlagBtn();
-  notifyRouteEdit('◆ 区間編集点を追加しました。通したい道路へドラッグしてください');
+  notifyRouteEdit(options.gpx
+    ?'◆ GPX区間編集点を追加しました。通したい道路へドラッグしてください'
+    :'◆ 区間編集点を追加しました。通したい道路へドラッグしてください');
+  if(options.deferRecalc){
+    // GPXはタップしただけでは元の軌跡を変えない。◆を動かした時点で再計算する。
+    clearRouteEditOverlays();
+    window.__gpxPendingRouteEdit=true;
+    return;
+  }
   calcRoute();
 }
 
-function setupMergedRouteEditOverlays(results,routeRequestId){
+function setupMergedRouteEditOverlays(results,routeRequestId,options={}){
   clearRouteEditOverlays();
   if(!Array.isArray(results)||!gmap) return;
   results.forEach((result,segmentIndex)=>{
@@ -5310,7 +5318,7 @@ function setupMergedRouteEditOverlays(results,routeRequestId){
       if(routeRequestId!==window._routeCalcSeq||routeEditInteractionLocked()) return;
       _routeLineTapGuard=true;
       setTimeout(()=>{_routeLineTapGuard=false;},250);
-      insertRouteEditWaypoint(segmentIndex,event.latLng,path);
+      insertRouteEditWaypoint(segmentIndex,event.latLng,path,options);
     });
     overlay.addListener('mouseover',()=>overlay.setOptions({strokeOpacity:0.18}));
     overlay.addListener('mouseout',()=>overlay.setOptions({strokeOpacity:0.01}));
@@ -5468,6 +5476,7 @@ function createMarker(latLng, idx){
   });
   marker.addListener('dragend',(e)=>{
     waypoints[idx]=e.latLng;
+    window.__gpxPendingRouteEdit=false;
     if(waypoints.length>=2) calcRoute();
     renderWpList();
     if(isForce) notifyRouteEdit('◆ 区間を再計算しました');
@@ -6394,6 +6403,7 @@ function hardClearRoute(){
   waypoints=[];
   waypointKinds=[];
   manualSegments={};
+  window.__gpxPendingRouteEdit=false;
   toggleForceWaypointMode(false);
   markers.forEach(m=>m.setMap(null)); markers=[];
   poiMarkers.forEach(m=>m.setMap(null)); poiMarkers=[];
@@ -6603,6 +6613,7 @@ function _resetRouteForGPXImport(){
   // GPX読込専用の軽量クリア。hardClearRoute() はページreloadを行うため使用しない。
   window._routeCalcSeq=(window._routeCalcSeq||0)+1;
   waypoints=[]; waypointKinds=[]; manualSegments={};
+  window.__gpxPendingRouteEdit=false;
   markers.forEach(m=>m&&m.setMap(null)); markers=[];
   clearRouteEditOverlays();
   if(hoverPolyline){hoverPolyline.setMap(null);hoverPolyline=null;}
@@ -6627,6 +6638,27 @@ function _gpxPathDistanceMeters(path){
 function _sampleArray(arr,maxN){
   if(arr.length<=maxN) return arr.slice();
   return Array.from({length:maxN},(_,i)=>arr[Math.round(i*(arr.length-1)/(maxN-1))]);
+}
+
+function setupGPXRouteEditOverlays(path,routeRequestId){
+  if(!Array.isArray(path)||path.length<2||waypoints.length<2){
+    clearRouteEditOverlays();
+    return;
+  }
+  // GPX本体は最大1200点、編集マーカーは最大21点なので、同じ配列比率で
+  // GPX線を waypoint 間の区間へ分割して通常ルートと同じ編集処理へ渡す。
+  const segmentCount=waypoints.length-1;
+  const virtualResults=[];
+  for(let segmentIndex=0;segmentIndex<segmentCount;segmentIndex++){
+    const startIndex=Math.floor(segmentIndex*(path.length-1)/segmentCount);
+    const endIndex=Math.ceil((segmentIndex+1)*(path.length-1)/segmentCount);
+    const segmentPath=path.slice(startIndex,endIndex+1);
+    if(segmentPath.length<2){
+      segmentPath.push(path[Math.min(path.length-1,startIndex+1)]);
+    }
+    virtualResults.push({routes:[{overview_path:segmentPath}]});
+  }
+  setupMergedRouteEditOverlays(virtualResults,routeRequestId,{gpx:true,deferRecalc:true});
 }
 
 function _applyGPXMetrics(gpxPts, path, filename){
@@ -6719,7 +6751,8 @@ function importGPXText(txt, filename){
   const drawPts=_sampleArray(pts,1200);
   const path=drawPts.map(p=>new google.maps.LatLng(p.lat,p.lng));
   window._mergedPolyline=new google.maps.Polyline({
-    path, strokeColor:'#e24b4a', strokeWeight:4, strokeOpacity:0.88, map:gmap
+    path, strokeColor:'#e24b4a', strokeWeight:4, strokeOpacity:0.88, map:gmap,
+    clickable:false, zIndex:420
   });
 
   // 編集用マーカーだけ最大21点。GPX本体の形状・距離計算は全点を使用。
@@ -6728,6 +6761,9 @@ function importGPXText(txt, filename){
   waypointKinds=waypoints.map((_,i)=>i===waypoints.length-1?'goal':'normal');
   goalFixed=true;
   waypoints.forEach((ll,i)=>createMarker(ll,i));
+
+  // GPXはDirectionsを通らない独自描画のため、ここで明示的に区間編集を接続する。
+  setupGPXRouteEditOverlays(path,window._routeCalcSeq);
 
   const bounds=new google.maps.LatLngBounds();
   path.forEach(ll=>bounds.extend(ll));
