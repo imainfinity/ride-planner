@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RIDE & RUN Planner v9.03 MAP FOCUS</title>
+<title>RIDE & RUN Planner v9.04 POI SWITCH</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -129,6 +129,15 @@ input[type=number],input[type=text],input[type=time],select{
 .ri-chip{background:rgba(255,255,255,0.12);border:0.5px solid rgba(255,255,255,0.18);border-radius:var(--rs);padding:3px 8px;font-size:10px;display:inline-flex;gap:4px;align-items:center}
 .ri-cl{color:rgba(255,255,255,0.55);font-weight:500;white-space:nowrap}
 .ri-cv{font-weight:700;color:#fff;white-space:nowrap}
+#map-hover{
+  display:none;position:absolute;bottom:104px;left:50%;right:auto;transform:translateX(-50%);
+  max-width:calc(100% - 112px);align-items:center;justify-content:center;gap:8px;
+  background:rgba(0,0,0,.82);color:#fff;border-radius:9px;padding:7px 10px;
+  font-size:10px;line-height:1.2;pointer-events:none;z-index:20;text-align:center;
+  box-shadow:0 2px 10px rgba(0,0,0,.24);backdrop-filter:blur(5px)
+}
+#map-hover>div{white-space:nowrap}
+@media(max-width:380px){#map-hover{gap:5px;padding:6px 7px;font-size:9px;max-width:calc(100% - 96px)}}
 
 /* ── compass ── */
 .compass-wrap{display:flex;flex-direction:column;align-items:center;gap:4px}
@@ -369,6 +378,7 @@ body.sp-mode #map-poi-floating{
 .poi-float-btn div{font-size:8px;font-weight:800;color:#333;line-height:1;white-space:nowrap}
 .poi-float-btn.active{background:var(--acc);color:#fff}
 .poi-float-btn.active div{color:rgba(255,255,255,.82)}
+.poi-float-btn.poi-selecting{outline:2px dashed #fbbf24;outline-offset:1px}
 .poi-float-btn.route-locked{background:rgba(17,24,39,.96);color:#fff;outline:2px solid #fbbf24}
 .poi-float-btn.route-locked div{color:#fef3c7}
 .poi-float-btn.cmd-danger{background:#dc2626;color:#fff;font-weight:900}
@@ -426,7 +436,7 @@ body.map-focus-mode #elev-wrap{bottom:max(0px,env(safe-area-inset-bottom))!impor
 body.map-focus-mode #route-info{display:none!important}
 body.map-focus-mode #elev-canvas{background:rgba(7,12,20,.78)!important;touch-action:none}
 body.map-focus-mode #elev-focus-hint{display:block!important}
-body.map-focus-mode #map-hover{bottom:112px!important;right:58px!important;z-index:55!important}
+body.map-focus-mode #map-hover{bottom:112px!important;left:50%!important;right:auto!important;transform:translateX(-50%)!important;z-index:55!important}
 body.map-focus-mode #goal-flag-btn{display:none!important}
 body.map-focus-mode #poi-radius-map-command{top:62px!important;z-index:61!important}
 @media(max-width:520px){
@@ -774,7 +784,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
 <!-- GPS再取得ボタン（常時表示） -->
 <button id="gps-retry-btn" onclick="returnToCurrentLocation()" title="現在地へ戻る" aria-label="現在地へ戻る" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">◎</button>
 <header>
-  <h1>RIDE &amp; RUN Planner <span class="ver">v9.03 MAP FOCUS</span></h1>
+  <h1>RIDE &amp; RUN Planner <span class="ver">v9.04 POI SWITCH</span></h1>
   <span class="sub">Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
@@ -1031,7 +1041,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
           <button onclick="toggleMapFocusMode(false)" title="最大化を終了">×</button>
         </div>
       </div>
-      <div id="map-hover" style="display:none;position:absolute;bottom:60px;right:52px;background:rgba(0,0,0,0.82);color:#fff;border-radius:6px;padding:7px 10px;font-size:11px;line-height:1.6;pointer-events:none;z-index:20;text-align:right">
+      <div id="map-hover" aria-live="polite">
         <div id="mh-dist"></div><div id="mh-elev"></div><div id="mh-gain"></div><div id="mh-grade"></div>
       </div>
 
@@ -5784,7 +5794,7 @@ function createMarker(latLng, idx){
   marker.addListener('mouseover',()=>{
     const popup=document.getElementById('map-hover');
     const distKm=waypoints.slice(0,idx+1).length>1?'—':'スタート';
-    popup.style.display='block';
+    popup.style.display='flex';
     document.getElementById('mh-dist').textContent=`📍 地点 ${label}`;
     document.getElementById('mh-elev').textContent=`緯度 ${latLng.lat().toFixed(4)}`;
     document.getElementById('mh-gain').textContent=`経度 ${latLng.lng().toFixed(4)}`;
@@ -6238,11 +6248,11 @@ function setupRouteDragOverlay(result){
     if(!lastElevResults) return;
     const ll=e.latLng;
     const {km,elev,gain,grade}=getRouteInfoAtLatLng(ll);
-    popup.style.display='block';
-    document.getElementById('mh-dist').textContent=`📍 スタートから ${km.toFixed(1)} km`;
-    document.getElementById('mh-elev').textContent=`⛰️ 標高 ${elev.toFixed(0)} m`;
-    document.getElementById('mh-gain').textContent=`📈 獲得標高累計 ${gain.toFixed(0)} m`;
-    document.getElementById('mh-grade').textContent=`📐 直近斜度 ${grade.toFixed(1)} %`;
+    popup.style.display='flex';
+    document.getElementById('mh-dist').textContent=`📍 ${km.toFixed(1)} km`;
+    document.getElementById('mh-elev').textContent=`⛰ ${elev.toFixed(0)} m`;
+    document.getElementById('mh-gain').textContent=`📈 +${gain.toFixed(0)} m`;
+    document.getElementById('mh-grade').textContent=`∠ ${grade.toFixed(1)}%`;
   });
   overlay.addListener('mouseout',()=>{
     document.getElementById('map-hover').style.display='none';
@@ -6362,7 +6372,7 @@ function onElevHover(e,centerMap=false){
   // 地点情報
   const {km,elev,gain,grade}=getRouteInfoAtLatLng(ll);
   const popup=document.getElementById('map-hover');
-  popup.style.display='block';
+  popup.style.display='flex';
   document.getElementById('mh-dist').textContent=`📍 ${km.toFixed(1)} km`;
   document.getElementById('mh-elev').textContent=`⛰️ ${elev.toFixed(0)} m`;
   document.getElementById('mh-gain').textContent=`📈 累計+${gain.toFixed(0)} m`;
@@ -7219,21 +7229,70 @@ const _poiCache=new Map(); // key: `${label}:${lat.toFixed(3)},${lng.toFixed(3)}
 const activePOIs=new Set();
 let sharedIW=null;
 
-/* ── カテゴリアイコン押下 → エリア指定モード開始 ── */
+function syncPOIButtonStates(){
+  document.querySelectorAll('[data-poi-label]').forEach(button=>{
+    const label=button.dataset.poiLabel;
+    const shown=activePOIs.has(label);
+    const selecting=_poiSelectMode&&_poiSelectedLabel===label;
+    button.classList.toggle('active',shown||selecting);
+    button.classList.toggle('poi-selecting',selecting);
+    button.setAttribute('aria-pressed',shown?'true':'false');
+  });
+}
+
+function setPOICategoryVisible(label,show,notify=true){
+  let found=false;
+  poiMarkers.forEach(marker=>{
+    if(marker&&marker._poiLabel===label){
+      found=true;
+      marker.setMap(show?gmap:null);
+    }
+  });
+  if(show&& !found) return false;
+  if(show) activePOIs.add(label); else activePOIs.delete(label);
+  if(!show&&sharedIW) sharedIW.close();
+  syncPOIButtonStates();
+  if(notify){
+    const visual=getPOIVisual(label,POI_TYPES[label]);
+    notifyRouteEdit(`${visual.icon} ${label}を${show?'表示':'非表示'}にしました`);
+  }
+  return found;
+}
+
+/* ── カテゴリアイコン：表示済みならON/OFF、未検索ならエリア指定 ── */
 function selectPOICategory(label){
   const cfg=POI_TYPES[label];
-  const visual=getPOIVisual(label,cfg);
   if(!cfg||!gmap) return;
   if(_poiSelectMode&&_poiSelectedLabel===label){ cancelPOISelect(); return; }
   if(_poiSelectMode) cancelPOISelect(true);
+  if(activePOIs.has(label)){
+    setPOICategoryVisible(label,false);
+    return;
+  }
+  if(poiMarkers.some(marker=>marker&&marker._poiLabel===label)){
+    setPOICategoryVisible(label,true);
+    return;
+  }
+  beginPOICategorySearch(label);
+}
+
+function beginPOICategorySearch(label){
+  const cfg=POI_TYPES[label];
+  const visual=getPOIVisual(label,cfg);
+  if(!cfg||!gmap) return;
+  if(_poiSelectMode) cancelPOISelect(true);
   _poiSelectMode=true; _poiSelectedLabel=label;
-  document.querySelectorAll('.poi-icon-btn,.poi-float-btn').forEach(b=>b.classList.remove('active'));
-  document.querySelectorAll(`[data-poi-label="${label}"],#poi-btn-${label}`).forEach(b=>b.classList.add('active'));
+  syncPOIButtonStates();
   const prompt=document.getElementById('poi-area-prompt');
   document.getElementById('poi-prompt-label').textContent=`${visual.icon} ${label}を探したいエリアを地図でタップ`;
   prompt.style.display='block';
   gmap.setOptions({draggableCursor:'crosshair'});
   _poiClickListener=gmap.addListener('click',e=>{ executePOISearch(label,e.latLng); });
+}
+
+function startAdditionalPOISearch(label){
+  beginPOICategorySearch(label);
+  document.getElementById('poi-radius-map-command')?.classList.add('on');
 }
 
 function cancelPOISelect(silent=false){
@@ -7242,12 +7301,7 @@ function cancelPOISelect(silent=false){
   if(_poiSearchCircle){_poiSearchCircle.setMap(null);_poiSearchCircle=null;}
   gmap?.setOptions({draggableCursor:null});
   document.getElementById('poi-area-prompt').style.display='none';
-  if(!silent){
-    document.querySelectorAll('.poi-icon-btn,.poi-float-btn').forEach(b=>{
-      const lbl=b.dataset.poiLabel || b.id.replace('poi-btn-','');
-      if(!activePOIs.has(lbl))b.classList.remove('active');
-    });
-  }
+  syncPOIButtonStates();
 }
 
 /* ── エリアクリック後：1リクエストで検索 ── */
@@ -7258,7 +7312,7 @@ function executePOISearch(label,latLng){
   if(_poiClickListener){google.maps.event.removeListener(_poiClickListener);_poiClickListener=null;}
   gmap.setOptions({draggableCursor:null});
   document.getElementById('poi-area-prompt').style.display='none';
-  _poiSelectMode=false;
+  _poiSelectMode=false; _poiSelectedLabel=null;
   const radius=+document.getElementById('poi-radius-sel').value||1000;
   const lat=latLng.lat(),lng=latLng.lng();
   const worldMode=isWorldPOIContext(latLng);
@@ -7322,8 +7376,8 @@ function renderPOI(places,cfg,label,fromCache=false){
     ?`<div style="font-size:11px;color:var(--text3);padding:4px 0">${visual.icon} ${label}は周辺に見つかりませんでした<br>
        <span style="font-size:10px">半径を広げるか別エリアで再検索してください</span></div>`
     :`<div style="font-size:10px;font-weight:700;color:var(--text3);padding:4px 0 3px">${visual.icon} ${label} ${places.length}件${tag}
-       <button onclick="selectPOICategory('${label}')"
-         style="margin-left:6px;font-size:9px;padding:1px 6px;border:0.5px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text2);cursor:pointer">+ 別エリア追加</button>
+       <button onclick="startAdditionalPOISearch('${label}')"
+         style="margin-left:6px;font-size:9px;padding:1px 6px;border:0.5px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text2);cursor:pointer">別エリア検索</button>
      </div>`+
      places.slice(0,15).map(pl=>{
        const su='https://www.google.com/search?q='+encodeURIComponent(pl.name+(pl.vicinity?' '+pl.vicinity:''));
@@ -7335,14 +7389,14 @@ function renderPOI(places,cfg,label,fromCache=false){
   // 既存結果の「検索中」表示を置換、それ以外は累積追記
   if(box.innerHTML.includes('検索中')||!box.innerHTML.trim()){box.innerHTML=newContent;}
   else{box.innerHTML+=newContent;}
-  document.querySelectorAll(`[data-poi-label="${label}"],#poi-btn-${label}`).forEach(b=>b.classList.add('active'));
+  syncPOIButtonStates();
 }
 
 /* ── POIクリア系 ── */
 function clearPOI(){poiMarkers.forEach(m=>m.setMap(null));poiMarkers=[];}
 function clearAllPOI(){
   activePOIs.clear(); cancelPOISelect(true); clearPOI();
-  document.querySelectorAll('.poi-icon-btn,.poi-float-btn').forEach(b=>b.classList.remove('active'));
+  syncPOIButtonStates();
   document.getElementById('poi-results').innerHTML='';
   document.getElementById('poi-cache-badge').style.display='none';
 }
