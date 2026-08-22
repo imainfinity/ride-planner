@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RIDE & RUN Planner v9.04 POI SWITCH</title>
+<title>RIDE & RUN Planner v9.05 PC FOCUS BAR</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -436,9 +436,17 @@ body.map-focus-mode #elev-wrap{bottom:max(0px,env(safe-area-inset-bottom))!impor
 body.map-focus-mode #route-info{display:none!important}
 body.map-focus-mode #elev-canvas{background:rgba(7,12,20,.78)!important;touch-action:none}
 body.map-focus-mode #elev-focus-hint{display:block!important}
-body.map-focus-mode #map-hover{bottom:112px!important;left:50%!important;right:auto!important;transform:translateX(-50%)!important;z-index:55!important}
+body.map-focus-mode #map-hover{left:50%!important;right:auto!important;transform:translateX(-50%)!important;z-index:55!important}
 body.map-focus-mode #goal-flag-btn{display:none!important}
 body.map-focus-mode #poi-radius-map-command{top:62px!important;z-index:61!important}
+body.pc-mode.map-focus-mode #map-poi-floating{display:flex!important}
+.pc-map-focus-entry{
+  display:none;position:absolute;top:10px;right:10px;z-index:24;border:0;border-radius:8px;
+  padding:8px 11px;background:rgba(255,255,255,.94);color:#222;font:800 11px inherit;
+  box-shadow:0 2px 9px rgba(0,0,0,.24);backdrop-filter:blur(6px);cursor:pointer
+}
+body.pc-mode .pc-map-focus-entry{display:block}
+body.map-focus-mode .pc-map-focus-entry{display:none!important}
 @media(max-width:520px){
   body.map-focus-mode #fs-mini-panel{max-width:calc(100vw - 112px)!important;gap:6px;padding:6px 7px!important}
   body.map-focus-mode #fs-mini-panel .fs-metric-row{gap:7px}
@@ -784,7 +792,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
 <!-- GPS再取得ボタン（常時表示） -->
 <button id="gps-retry-btn" onclick="returnToCurrentLocation()" title="現在地へ戻る" aria-label="現在地へ戻る" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">◎</button>
 <header>
-  <h1>RIDE &amp; RUN Planner <span class="ver">v9.04 POI SWITCH</span></h1>
+  <h1>RIDE &amp; RUN Planner <span class="ver">v9.05 PC FOCUS BAR</span></h1>
   <span class="sub">Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
@@ -893,6 +901,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
     <!-- 地図 -->
     <div id="map-stage" style="position:relative">
       <div id="gmap" style="width:100%;height:400px;border-radius:var(--rs);border:0.5px solid var(--border);background:var(--bg2)"></div>
+      <button type="button" id="pc-map-focus-entry" class="pc-map-focus-entry" onclick="toggleMapFocusMode(true)" title="操作パネルを残して地図を最大化">⛶ 地図最大化</button>
 
       <div id="river-control-bar" class="river-control-bar" aria-label="九州の河川・山表示">
         <div class="nature-panel-head">
@@ -5134,6 +5143,7 @@ function initMap(){
     center:{lat:33.59,lng:130.40}, zoom:11, mapTypeId:'terrain',
     gestureHandling: isMobile ? 'cooperative' : 'greedy',
     zoomControl:false,
+    fullscreenControl:false,
     streetViewControl:false,
     mapTypeControl:true,
     mapTypeControlOptions:{
@@ -5794,7 +5804,7 @@ function createMarker(latLng, idx){
   marker.addListener('mouseover',()=>{
     const popup=document.getElementById('map-hover');
     const distKm=waypoints.slice(0,idx+1).length>1?'—':'スタート';
-    popup.style.display='flex';
+    showMapHoverBar(popup);
     document.getElementById('mh-dist').textContent=`📍 地点 ${label}`;
     document.getElementById('mh-elev').textContent=`緯度 ${latLng.lat().toFixed(4)}`;
     document.getElementById('mh-gain').textContent=`経度 ${latLng.lng().toFixed(4)}`;
@@ -6248,7 +6258,7 @@ function setupRouteDragOverlay(result){
     if(!lastElevResults) return;
     const ll=e.latLng;
     const {km,elev,gain,grade}=getRouteInfoAtLatLng(ll);
-    popup.style.display='flex';
+    showMapHoverBar(popup);
     document.getElementById('mh-dist').textContent=`📍 ${km.toFixed(1)} km`;
     document.getElementById('mh-elev').textContent=`⛰ ${elev.toFixed(0)} m`;
     document.getElementById('mh-gain').textContent=`📈 +${gain.toFixed(0)} m`;
@@ -6343,6 +6353,15 @@ function getRouteInfoAtLatLng(ll){
   return {km,elev:lastElevResults[elevIdx]?.elevation||0,gain,grade};
 }
 
+function showMapHoverBar(popup=document.getElementById('map-hover')){
+  if(!popup) return;
+  const elevWrap=document.getElementById('elev-wrap');
+  const elevVisible=elevWrap&&getComputedStyle(elevWrap).display!=='none';
+  const panelHeight=elevVisible?Math.max(0,elevWrap.offsetHeight):0;
+  popup.style.bottom=(panelHeight>0?panelHeight+10:70)+'px';
+  popup.style.display='flex';
+}
+
 /* ── 標高プロファイルホバー ── */
 function onElevHover(e,centerMap=false){
   if(!lastElevResults||!lastRoutePath) return;
@@ -6372,7 +6391,7 @@ function onElevHover(e,centerMap=false){
   // 地点情報
   const {km,elev,gain,grade}=getRouteInfoAtLatLng(ll);
   const popup=document.getElementById('map-hover');
-  popup.style.display='flex';
+  showMapHoverBar(popup);
   document.getElementById('mh-dist').textContent=`📍 ${km.toFixed(1)} km`;
   document.getElementById('mh-elev').textContent=`⛰️ ${elev.toFixed(0)} m`;
   document.getElementById('mh-gain').textContent=`📈 累計+${gain.toFixed(0)} m`;
