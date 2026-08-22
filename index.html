@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RIDE & RUN Planner v9.01 GRADE DAYLIGHT FIX</title>
+<title>RIDE & RUN Planner v9.02 LOCATION ROUTE LOCK</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -349,6 +349,8 @@ body.sp-mode #map-poi-floating{
 .poi-float-btn div{font-size:8px;font-weight:800;color:#333;line-height:1;white-space:nowrap}
 .poi-float-btn.active{background:var(--acc);color:#fff}
 .poi-float-btn.active div{color:rgba(255,255,255,.82)}
+.poi-float-btn.route-locked{background:rgba(17,24,39,.96);color:#fff;outline:2px solid #fbbf24}
+.poi-float-btn.route-locked div{color:#fef3c7}
 .poi-float-btn.cmd-danger{background:#dc2626;color:#fff;font-weight:900}
 .poi-float-btn.cmd-danger div{color:#fff}
 .poi-float-btn.cmd-gpx{background:rgba(20,20,20,.88);color:#fff}
@@ -695,9 +697,9 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
   <button onclick="hideGpsBanner()" style="padding:8px 12px;background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit">✕</button>
 </div>
 <!-- GPS再取得ボタン（常時表示） -->
-<button id="gps-retry-btn" onclick="retryGPS()" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">📍</button>
+<button id="gps-retry-btn" onclick="returnToCurrentLocation()" title="現在地へ戻る" aria-label="現在地へ戻る" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">◎</button>
 <header>
-  <h1>RIDE &amp; RUN Planner <span class="ver">v9.01 GRADE DAYLIGHT FIX</span></h1>
+  <h1>RIDE &amp; RUN Planner <span class="ver">v9.02 LOCATION ROUTE LOCK</span></h1>
   <span class="sub">Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
@@ -902,6 +904,8 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
         <button class="poi-float-btn cmd-danger" onclick="if(confirm('コースを完全に削除して初期状態へ戻しますか？')) hardClearRoute()" title="コース削除・初期化">🗑️<div>削除</div></button>
         <button class="poi-float-btn" onclick="undoRoute()" title="直前の地点操作を戻す">↩️<div>戻る</div></button>
         <button class="poi-float-btn" onclick="redoRoute()" title="戻した地点操作をやり直す">↪️<div>進む</div></button>
+        <button class="poi-float-btn" id="current-location-float" onclick="returnToCurrentLocation()" title="現在地へ地図を戻す">◎<div>現在地</div></button>
+        <button class="poi-float-btn" id="route-lock-float" onclick="toggleRouteLock()" title="コースを固定する">🔓<div>編集</div></button>
         <button class="poi-float-btn" id="force-waypoint-float" onclick="toggleForceWaypointMode()" title="通したい道路に強制経由点を追加">◆<div>経由</div></button>
         <button class="poi-float-btn cmd-gpx" onclick="downloadGPX()" title="GPX保存">💾<div>GPX</div></button>
         <button class="poi-float-btn cmd-gpx" onclick="triggerGPXImport()" title="GPX読込">📂<div>読込</div></button>
@@ -1117,6 +1121,8 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
     <button class="bs" onclick="hardClearRoute()"  style="font-size:11px;padding:4px 8px">🗑</button>
     <button class="bs" onclick="undoRoute()"        style="font-size:11px;padding:4px 8px">↩</button>
     <button class="bs" onclick="redoRoute()"        style="font-size:11px;padding:4px 8px">↪</button>
+    <button class="bs" onclick="returnToCurrentLocation()" title="現在地へ地図を戻す" style="font-size:11px;padding:4px 8px">◎ 現在地</button>
+    <button class="course-btn" id="route-lock-inline" onclick="toggleRouteLock()" title="コースを固定する">🔓 編集可能</button>
     <button class="bp" onclick="downloadGPX()" title="作成したコースをGPXで保存" style="font-size:12px;padding:6px 12px;font-weight:800;background:var(--green);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.18)">💾 GPX保存</button>
     <button class="bs" onclick="showSaveDialog()"   style="font-size:11px;padding:4px 8px">💾</button>
     <button class="bp" onclick="manualSync()"       style="font-size:11px;padding:4px 10px">🔄</button>
@@ -3958,6 +3964,86 @@ let hoverPolyline=null; // ルート線上ホバー用の透明な太いライ�
 // 旧DirectionsRenderer用の _dragOverlay とは分けて管理する。
 window._routeEditOverlays=Array.isArray(window._routeEditOverlays)?window._routeEditOverlays:[];
 let _routeLineTapGuard=false;
+let _routeLocked=false;
+let _lastRouteLockNoticeAt=0;
+window._lastRouteEditResults=null;
+window._lastRouteEditRequestId=0;
+window._gpxImportedPath=null;
+
+function isRouteLocked(){
+  return !!_routeLocked&&Array.isArray(waypoints)&&waypoints.length>=2;
+}
+
+function updateRouteLockUI(){
+  const locked=isRouteLocked();
+  const floating=document.getElementById('route-lock-float');
+  const inline=document.getElementById('route-lock-inline');
+  if(floating){
+    floating.classList.toggle('route-locked',locked);
+    floating.innerHTML=locked?'🔒<div>固定</div>':'🔓<div>編集</div>';
+    floating.title=locked?'タップしてコース編集を許可':'タップしてコースを固定';
+    floating.setAttribute('aria-pressed',locked?'true':'false');
+  }
+  if(inline){
+    inline.classList.toggle('on',locked);
+    inline.textContent=locked?'🔒 コース固定':'🔓 編集可能';
+    inline.title=locked?'タップしてコース編集を許可':'タップしてコースを固定';
+    inline.setAttribute('aria-pressed',locked?'true':'false');
+  }
+  const force=document.getElementById('force-waypoint-btn');
+  const forceFloat=document.getElementById('force-waypoint-float');
+  if(force) force.disabled=locked;
+  if(forceFloat){forceFloat.disabled=locked;forceFloat.style.opacity=locked?'.45':'';}
+}
+
+function notifyRouteLocked(){
+  const now=Date.now();
+  if(now-_lastRouteLockNoticeAt<1200) return;
+  _lastRouteLockNoticeAt=now;
+  notifyRouteEdit('🔒 コース固定中です。鍵アイコンを押すと編集できます');
+}
+
+function routeMutationBlocked(){
+  if(!isRouteLocked()) return false;
+  notifyRouteLocked();
+  return true;
+}
+
+function restoreRouteEditHitAreas(){
+  if(isRouteLocked()||waypoints.length<2) return;
+  if(window._gpxImportedPath&&window._routeData&&window._routeData.source==='gpx'){
+    setupGPXRouteEditOverlays(window._gpxImportedPath,window._routeCalcSeq);
+  }else if(Array.isArray(window._lastRouteEditResults)){
+    setupMergedRouteEditOverlays(window._lastRouteEditResults,window._lastRouteEditRequestId||window._routeCalcSeq);
+  }
+}
+
+function setRouteLocked(locked,options={}){
+  _routeLocked=!!locked&&waypoints.length>=2;
+  if(_routeLocked){
+    toggleForceWaypointMode(false);
+    clearRouteEditOverlays();
+  }
+  markers.forEach(marker=>{
+    if(marker&&typeof marker.setDraggable==='function') marker.setDraggable(!_routeLocked);
+  });
+  updateRouteLockUI();
+  try{localStorage.setItem('rpp_route_locked',_routeLocked?'1':'0');}catch(e){}
+  if(!_routeLocked&&!options.skipRefresh) restoreRouteEditHitAreas();
+  if(!options.silent){
+    notifyRouteEdit(_routeLocked?'🔒 コースを固定しました':'🔓 コース編集を有効にしました');
+  }
+  return _routeLocked;
+}
+
+function toggleRouteLock(){
+  if(waypoints.length<2){
+    notifyRouteEdit('コース作成後に固定できます');
+    return;
+  }
+  setRouteLocked(!isRouteLocked());
+  renderWpList();
+}
 
 /* ── 往復合計距離表示 ── */
 function updateRtLabel(){
@@ -3995,6 +4081,7 @@ function updateFsMiniPanel(){
 function setBlueDot(lat,lng){
   if(!gmap) return;
   userLat=lat; userLon=lng;
+  locationSet=true;
   const pos={lat,lng};
   if(!_blueDot){
     _blueDotRing=new google.maps.Marker({
@@ -4025,6 +4112,32 @@ function setBlueDot(lat,lng){
   const btn=document.getElementById('gps-retry-btn');
   if(btn) btn.style.display='block';
   try{renderDaylight();}catch(e){}
+}
+
+function returnToCurrentLocation(){
+  if(!gmap) return;
+  const focusPosition=position=>{
+    if(!position) return;
+    gmap.panTo(position);
+    const zoom=Number(gmap.getZoom&&gmap.getZoom());
+    if(!Number.isFinite(zoom)||zoom<15) gmap.setZoom(15);
+    notifyRouteEdit('◎ 現在地へ戻りました');
+  };
+  const known=_blueDot&&typeof _blueDot.getPosition==='function'?_blueDot.getPosition():null;
+  if(known){focusPosition(known);return;}
+  if(!navigator.geolocation){alert('このブラウザはGPSに対応していません');return;}
+  notifyRouteEdit('📍 現在地を取得中…');
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      setBlueDot(pos.coords.latitude,pos.coords.longitude);
+      focusPosition({lat:pos.coords.latitude,lng:pos.coords.longitude});
+    },
+    err=>{
+      if(err.code===1) alert('位置情報の許可が必要です。ブラウザ設定で位置情報を許可してください。');
+      else notifyRouteEdit('現在地を取得できませんでした');
+    },
+    {timeout:10000,enableHighAccuracy:true,maximumAge:5000}
+  );
 }
 
 function retryGPS(){
@@ -4951,6 +5064,7 @@ function initMap(){
     if(_poiSelectMode) return; // POIエリア選択中はwaypoint追加をロック
     if(sharedIW&&sharedIW.getMap()){sharedIW.close();return;}
     if(_routeCalculating) return;
+    if(routeMutationBlocked()) return;
     if(_forceWaypointMode) addForcedWaypoint(e.latLng);
     else addWaypoint(e.latLng);
   });
@@ -4960,6 +5074,7 @@ function initMap(){
   gmap.addListener('rightclick',(e)=>{
     if(window.__natureMapClickLocked) return;
     if(_poiSelectMode) return; // POIエリア選択中はwaypoint追加をロック
+    if(routeMutationBlocked()) return;
     addWaypoint(e.latLng);
   });
   // 長押し廃止（誤作動の原因）
@@ -5081,6 +5196,7 @@ function showPointAsGoalBanner(latLng,label='地点'){
 
 function setGpsAsStart(){
   if(_gpsLat===null) return;
+  if(routeMutationBlocked()) return;
   if(_routeCalculating){
     if(typeof showToast==='function') showToast('ルート計算が終わってからもう一度押してください');
     return;
@@ -5216,6 +5332,7 @@ function updateGoalFlagBtn(){
 
 function toggleGoal(){
   if(waypoints.length<2) return;
+  if(routeMutationBlocked()) return;
   goalFixed=!goalFixed;
   // マーカーの色を全て再描画
   markers.forEach(m=>m.setMap(null));
@@ -5231,7 +5348,9 @@ let _routeCalculating=false; // 計算中フラグ（連続クリック防止）
 window._routeCalcSeq=Number.isFinite(window._routeCalcSeq)?window._routeCalcSeq:0; // 初回計算をNaNにしない
 
 function toggleForceWaypointMode(force){
-  _forceWaypointMode = (typeof force==='boolean') ? force : !_forceWaypointMode;
+  const nextMode=(typeof force==='boolean')?force:!_forceWaypointMode;
+  if(nextMode&&routeMutationBlocked()) return;
+  _forceWaypointMode=nextMode;
   const btn=document.getElementById('force-waypoint-btn');
   const fbtn=document.getElementById('force-waypoint-float');
   const hint=document.getElementById('route-edit-hint');
@@ -5293,6 +5412,7 @@ function notifyRouteEdit(message){
 }
 
 function routeEditInteractionLocked(){
+  if(isRouteLocked()) return true;
   if(_routeCalculating) return true;
   if(window.__natureMapClickLocked||_poiSelectMode) return true;
   if(sharedIW&&sharedIW.getMap&&sharedIW.getMap()) return true;
@@ -5331,6 +5451,7 @@ function insertRouteEditWaypoint(segmentIndex,clickedPoint,segmentPath,options={
 
 function setupMergedRouteEditOverlays(results,routeRequestId,options={}){
   clearRouteEditOverlays();
+  if(isRouteLocked()) return;
   if(!Array.isArray(results)||!gmap) return;
   results.forEach((result,segmentIndex)=>{
     const path=result&&result.routes&&result.routes[0]&&result.routes[0].overview_path;
@@ -5372,6 +5493,7 @@ function shiftManualSegmentsForInsert(insertIdx){
 }
 
 function addForcedWaypoint(latLng){
+  if(routeMutationBlocked()) return;
   if(waypoints.length<2){toggleForceWaypointMode(false);return;}
   saveHistory();
   const segIdx=nearestWaypointSegmentIndex(latLng);
@@ -5396,6 +5518,7 @@ function isNearStartPoint(latLng){
 
 function addWaypoint(latLng){
   if(_routeCalculating) return; // 計算中は無視
+  if(routeMutationBlocked()) return;
 
   // 既にコースがあり、スタート付近を再選択した場合は、
   // 新しい通常地点ではなく「スタート地点をゴール」として閉じる。
@@ -5488,7 +5611,7 @@ function createMarker(latLng, idx){
   const color=isFirst?'#4ade80':isLast?'#f87171':isForce?'#d97706':'#378add';
   const label=isFirst?'S':isLast?'G':isForce?'◆':String(idx);
   const marker=new google.maps.Marker({
-    position:latLng, map:gmap, draggable:true, zIndex:100,
+    position:latLng, map:gmap, draggable:!isRouteLocked(), zIndex:100,
     title:isForce?'強制経由点':'地点 '+label,
     label:{text:label, color:'#fff', fontSize:'10px', fontWeight:'bold'},
     icon:{path:google.maps.SymbolPath.CIRCLE, scale:12,
@@ -5496,10 +5619,12 @@ function createMarker(latLng, idx){
   });
   // マーカードラッグで地点更新
   marker.addListener('dragstart',()=>{
+    if(routeMutationBlocked()) return;
     // 「戻る」でドラッグ前の区間へ戻せるよう、移動前を履歴へ保存する。
     saveHistory();
   });
   marker.addListener('dragend',(e)=>{
+    if(routeMutationBlocked()){marker.setPosition(waypoints[idx]);return;}
     waypoints[idx]=e.latLng;
     window.__gpxPendingRouteEdit=false;
     if(waypoints.length>=2) calcRoute();
@@ -5508,6 +5633,7 @@ function createMarker(latLng, idx){
   });
   // マーカー右クリックで削除
   marker.addListener('rightclick',()=>{
+    if(routeMutationBlocked()) return;
     removeWaypoint(idx);
   });
   // マーカーホバー
@@ -5540,6 +5666,7 @@ function createMarker(latLng, idx){
       </div>`
     });
     marker.addListener('click',()=>{
+      if(routeMutationBlocked()) return;
       if(waypoints.length>=2){
         showPointAsGoalBanner(waypoints[0],'スタート地点');
         return;
@@ -5566,6 +5693,7 @@ function remapManualSegmentsForRemove(idx,oldLength){
 }
 
 function removeWaypoint(idx){
+  if(routeMutationBlocked()) return;
   // 地点削除もUndo対象にする。削除前のコース状態を保存。
   saveHistory();
   const oldLength=waypoints.length;
@@ -5593,6 +5721,7 @@ function renderWpList(){
   const list=document.getElementById('wp-list');
   if(waypoints.length===0){wrap.style.display='none';return;}
   wrap.style.display='block';
+  const routeLocked=isRouteLocked();
 
   // legDists：mergedLegDistsがあればそれを優先、なければlastRouteResultから
   const legDists=[];
@@ -5655,8 +5784,8 @@ function renderWpList(){
       <div style="font-size:10px;color:var(--text2)">${distStr}</div>
       <div style="font-size:10px;font-weight:600;color:${isFirst?'#4ade80':isLast?'#f87171':'var(--text)'}">${timeStr}</div>
       <div style="font-size:10px;color:var(--text3)">${gainStr}</div>
-      ${i===0?'<span></span>':`<button onclick="toggleManualSegment(${i-1})" title="前の地点からこの地点までを自動／手動切替" style="padding:2px 3px;border:0.5px solid var(--border2);border-radius:4px;background:${segManual?'var(--amberbg)':'var(--bg)'};color:${segManual?'var(--amber)':'var(--text3)'};font-size:9px;cursor:pointer">${segManual?'✏手動':'自動'}</button>`}
-      <button onclick="removeWaypoint(${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;padding:0;line-height:1">✕</button>
+      ${i===0?'<span></span>':`<button onclick="toggleManualSegment(${i-1})" ${routeLocked?'disabled':''} title="前の地点からこの地点までを自動／手動切替" style="padding:2px 3px;border:0.5px solid var(--border2);border-radius:4px;background:${segManual?'var(--amberbg)':'var(--bg)'};color:${segManual?'var(--amber)':'var(--text3)'};font-size:9px;cursor:${routeLocked?'not-allowed':'pointer'};opacity:${routeLocked?'.4':'1'}">${segManual?'✏手動':'自動'}</button>`}
+      <button onclick="removeWaypoint(${i})" ${routeLocked?'disabled':''} style="background:none;border:none;color:var(--text3);cursor:${routeLocked?'not-allowed':'pointer'};opacity:${routeLocked?'.35':'1'};font-size:11px;padding:0;line-height:1">✕</button>
     </div>`;
   }).join('');
 }
@@ -5712,6 +5841,7 @@ function getRouteProfile(){
 }
 
 function setRouteMode(value){
+  if(routeMutationBlocked()) return;
   const el=document.getElementById('route-mode');
   if(el) el.value=value;
   document.querySelectorAll('[data-route-mode-btn]').forEach(btn=>{
@@ -5725,6 +5855,7 @@ function setRouteMode(value){
 
 function toggleManualSegment(segIdx){
   if(segIdx<0 || segIdx>=waypoints.length-1) return;
+  if(routeMutationBlocked()) return;
   saveHistory();
   if(manualSegments[segIdx]) delete manualSegments[segIdx];
   else manualSegments[segIdx]=true;
@@ -5816,6 +5947,9 @@ function mergeAndProcessRoutes(results,routeRequestId){
   window._routeDistanceIndex=null;
   lastRouteResult=results[0];
   window._mergedLegDists=allLegs.map(l=>l.distance.value/1000);
+  window._lastRouteEditResults=results;
+  window._lastRouteEditRequestId=routeRequestId;
+  window._gpxImportedPath=null;
 
   // DirectionsRendererをクリアして自前Polylineで描画
   if(window._mergedPolyline) window._mergedPolyline.setMap(null);
@@ -5832,7 +5966,8 @@ function mergeAndProcessRoutes(results,routeRequestId){
   });
 
   // 複数区間を結合した現在の描画方式にも、区間ごとの編集領域を付与する。
-  setupMergedRouteEditOverlays(results,routeRequestId);
+  if(isRouteLocked()) clearRouteEditOverlays();
+  else setupMergedRouteEditOverlays(results,routeRequestId);
 
   // マーカー再描画
   markers.forEach(m=>m.setMap(null)); markers=[];
@@ -5879,7 +6014,8 @@ function mergeAndProcessRoutes(results,routeRequestId){
 function processRoute(result){
   lastRouteResult=result;
   directionsRenderer.setDirections(result);
-  setupRouteDragOverlay(result);
+  if(isRouteLocked()) clearRouteEditOverlays();
+  else setupRouteDragOverlay(result);
 
   let totalDist=0;
   result.routes[0].legs.forEach(leg=>totalDist+=leg.distance.value);
@@ -5917,6 +6053,7 @@ function setupRouteDragOverlay(result){
 
   overlay.addListener('click',(e)=>{
     if(_poiSelectMode) return; // POIエリア選択中はwaypoint追加をロック
+    if(routeMutationBlocked()) return;
     const clickLl=e.latLng;
 
     // ルートパス上でクリック地点に最近傍のセグメントを特定
@@ -6362,7 +6499,8 @@ function captureRouteState(){
     waypoints:waypoints.map(ll=>({lat:ll.lat(),lng:ll.lng()})),
     waypointKinds:[...waypointKinds],
     manualSegments:{...manualSegments},
-    goalFixed:!!goalFixed
+    goalFixed:!!goalFixed,
+    routeLocked:isRouteLocked()
   };
 }
 
@@ -6373,12 +6511,14 @@ function saveHistory(){
 }
 
 function undoRoute(){
+  if(routeMutationBlocked()) return;
   if(historyStack.length===0) return;
   redoStack.push(captureRouteState());
   applyWaypointState(historyStack.pop());
 }
 
 function redoRoute(){
+  if(routeMutationBlocked()) return;
   if(redoStack.length===0) return;
   historyStack.push(captureRouteState());
   applyWaypointState(redoStack.pop());
@@ -6405,6 +6545,10 @@ function applyWaypointState(state){
   while(waypointKinds.length<waypoints.length) waypointKinds.push('normal');
   manualSegments=(state&&state.manualSegments)?{...state.manualSegments}:{};
   if(state&&typeof state.goalFixed==='boolean') goalFixed=state.goalFixed;
+  const restoredLock=state&&typeof state.routeLocked==='boolean'
+    ?state.routeLocked
+    :localStorage.getItem('rpp_route_locked')==='1';
+  setRouteLocked(restoredLock,{silent:true,skipRefresh:true});
   if(typeof updateGpsBannerMode==='function') updateGpsBannerMode();
   waypoints.forEach((ll,i)=>createMarker(ll,i));
 
@@ -6431,6 +6575,10 @@ function hardClearRoute(){
   waypoints=[];
   waypointKinds=[];
   manualSegments={};
+  _routeLocked=false;
+  window._lastRouteEditResults=null;
+  window._lastRouteEditRequestId=0;
+  window._gpxImportedPath=null;
   window.__gpxPendingRouteEdit=false;
   toggleForceWaypointMode(false);
   markers.forEach(m=>m.setMap(null)); markers=[];
@@ -6460,7 +6608,7 @@ function hardClearRoute(){
   document.getElementById('ri-dist').textContent='—';
   document.getElementById('ri-elev').textContent='—';
   // ④ localStorage の地図キャッシュも完全クリア
-  ['rpp_route_cache'].forEach(k=>localStorage.removeItem(k));
+  ['rpp_route_cache','rpp_route_locked'].forEach(k=>localStorage.removeItem(k));
   activePOIs.clear();
   document.querySelectorAll('.poi-icon-btn,.poi-list-btn,.poi-float-btn').forEach(b=>b.classList.remove('active'));
 
@@ -6641,6 +6789,11 @@ function _resetRouteForGPXImport(){
   // GPX読込専用の軽量クリア。hardClearRoute() はページreloadを行うため使用しない。
   window._routeCalcSeq=(window._routeCalcSeq||0)+1;
   waypoints=[]; waypointKinds=[]; manualSegments={};
+  _routeLocked=false;
+  window._lastRouteEditResults=null;
+  window._lastRouteEditRequestId=0;
+  window._gpxImportedPath=null;
+  updateRouteLockUI();
   window.__gpxPendingRouteEdit=false;
   markers.forEach(m=>m&&m.setMap(null)); markers=[];
   clearRouteEditOverlays();
@@ -6669,6 +6822,10 @@ function _sampleArray(arr,maxN){
 }
 
 function setupGPXRouteEditOverlays(path,routeRequestId){
+  if(isRouteLocked()){
+    clearRouteEditOverlays();
+    return;
+  }
   if(!Array.isArray(path)||path.length<2||waypoints.length<2){
     clearRouteEditOverlays();
     return;
@@ -6778,6 +6935,7 @@ function importGPXText(txt, filename){
   // 表示負荷だけ抑えるため最大1200点へ間引く。
   const drawPts=_sampleArray(pts,1200);
   const path=drawPts.map(p=>new google.maps.LatLng(p.lat,p.lng));
+  window._gpxImportedPath=path;
   window._mergedPolyline=new google.maps.Polyline({
     path, strokeColor:'#e24b4a', strokeWeight:4, strokeOpacity:0.88, map:gmap,
     clickable:false, zIndex:420
@@ -6815,7 +6973,10 @@ function importGPXText(txt, filename){
   }
 
   const source=document.getElementById('mcp-source');
-  if(source) source.textContent='📂 GPX: '+(filename||'読み込み');
+  if(source) source.textContent='🔒 GPX: '+(filename||'読み込み');
+  setRouteLocked(true,{silent:true});
+  renderWpList();
+  notifyRouteEdit('🔒 GPXコースを読み込み、誤操作防止のため固定しました');
 }
 
 /* ── ベアリング ── */
@@ -7869,6 +8030,7 @@ function onEndChange(){
 
 // S地点をゴールに設定（一筆書きで戻る）
 function setStartAsGoal(){
+  if(routeMutationBlocked()) return;
   if(waypoints.length<2){alert('経由地を1つ以上追加してからゴール設定してください');return;}
   const startLl=waypoints[0];
   // すでにゴールがスタートと同じなら解除
@@ -7892,6 +8054,7 @@ function setStartAsGoal(){
 }
 
 function setRoundTrip(){
+  if(routeMutationBlocked()) return;
   const sel=document.getElementById('r-roundtrip');
   if(!sel) return;
   sel.value= sel.value==='1'?'0':'1';
@@ -10077,6 +10240,7 @@ body.pc-mode .ride-settings-col{overflow-y:auto}
         waypointKinds:Array.isArray(window.waypointKinds)?[...window.waypointKinds]:[],
         manualSegments:(window.manualSegments&&typeof window.manualSegments==='object')?{...window.manualSegments}:{},
         goalFixed:!!window.goalFixed,
+        routeLocked:typeof window.isRouteLocked==='function'?window.isRouteLocked():false,
         routeMode:(document.getElementById('route-mode')||{}).value||'cycle',
         roundTrip:(document.getElementById('r-roundtrip')||{}).value||'0'
       };
@@ -10666,6 +10830,7 @@ function findNearestRoutablePoint(start,target,callback){
 }
 
 function replaceRouteWithNaturalDestination(start,destination,label){
+  if(routeMutationBlocked()) return;
   if(waypoints.length>1&&!confirm('現在のコースを「'+label+'」へのルートに置き換えますか？')) return;
   if(typeof saveHistory==='function') saveHistory();
   markers.forEach(function(marker){ if(marker) marker.setMap(null); });
@@ -10688,6 +10853,7 @@ function replaceRouteWithNaturalDestination(start,destination,label){
 }
 
 function routeToNaturalTarget(target,label){
+  if(routeMutationBlocked()) return;
   const start=naturalStartPoint();
   if(!start){
     natureMessage('先に地図上でスタート地点を1点置くか、GPS位置を取得してください');
