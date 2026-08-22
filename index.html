@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RIDE & RUN Planner v9.05 PC FOCUS BAR</title>
+<title>RIDE & RUN Planner v9.06 ALIGNED GPX GPS</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -351,7 +351,7 @@ body.sp-mode #map-poi-floating{
   box-shadow:0 2px 8px rgba(0,0,0,.18);backdrop-filter:blur(5px)
 }
 .poi-range-quick{
-  width:42px!important;min-width:42px!important;padding:5px 1px!important;border:0!important;
+  width:42px!important;min-width:42px!important;height:38px!important;min-height:38px!important;padding:5px 1px!important;border:0!important;
   border-radius:8px!important;background:rgba(255,255,255,.94)!important;color:#222!important;
   box-shadow:0 2px 9px rgba(0,0,0,.22);font-size:9px!important;font-weight:800!important;
   text-align:center;text-align-last:center
@@ -394,7 +394,7 @@ body.pc-mode #map-poi-floating{display:none!important}
   .map-float-stack{gap:3px}
   .map-poi-stack{margin-top:48px}
   .map-float-stack-label{width:38px}
-  .poi-range-quick{width:38px!important;min-width:38px!important}
+  .poi-range-quick{width:38px!important;min-width:38px!important;height:34px!important;min-height:34px!important}
   .poi-float-btn{width:38px;min-height:34px;font-size:15px;border-radius:8px}
   .poi-float-btn div{font-size:7px}
 }
@@ -413,7 +413,13 @@ body.map-focus-mode #gmap{
 body.map-focus-mode #map-stats-bar,
 body.map-focus-mode #gps-retry-btn{display:none!important}
 body.map-focus-mode .gm-style-mtc{display:none!important}
-body.map-focus-mode #map-poi-floating{display:flex!important;position:absolute!important;top:max(8px,env(safe-area-inset-top))!important}
+body.map-focus-mode #map-poi-floating{
+  display:flex!important;position:absolute!important;top:max(8px,env(safe-area-inset-top))!important;
+  left:8px!important;right:8px!important;width:auto!important;align-items:flex-start!important;
+  justify-content:space-between!important;pointer-events:none!important
+}
+body.map-focus-mode .map-poi-stack{margin-top:0!important}
+body.map-focus-mode .map-route-stack{margin-left:auto!important}
 body.map-focus-mode #fs-mini-panel{
   display:flex!important;position:absolute!important;
   top:max(8px,env(safe-area-inset-top))!important;bottom:auto!important;
@@ -792,7 +798,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
 <!-- GPS再取得ボタン（常時表示） -->
 <button id="gps-retry-btn" onclick="returnToCurrentLocation()" title="現在地へ戻る" aria-label="現在地へ戻る" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">◎</button>
 <header>
-  <h1>RIDE &amp; RUN Planner <span class="ver">v9.05 PC FOCUS BAR</span></h1>
+  <h1>RIDE &amp; RUN Planner <span class="ver">v9.06 ALIGNED GPX GPS</span></h1>
   <span class="sub">Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
@@ -4048,6 +4054,7 @@ let _lastRouteLockNoticeAt=0;
 window._lastRouteEditResults=null;
 window._lastRouteEditRequestId=0;
 window._gpxImportedPath=null;
+window.__gpxGpsBannerSuppressed=false;
 
 function isRouteLocked(){
   return !!_routeLocked&&Array.isArray(waypoints)&&waypoints.length>=2;
@@ -4246,7 +4253,8 @@ function setBlueDot(lat,lng){
     _blueDot.addListener('click',()=>{
       showStartBanner(userLat,userLon,{
         forceGoal:hasPlannerStartPoint(),
-        label:'現在地'
+        label:'現在地',
+        explicit:true
       });
     });
   } else {
@@ -4294,7 +4302,8 @@ function retryGPS(){
       gmap.setCenter({lat:pos.coords.latitude,lng:pos.coords.longitude});
       showStartBanner(pos.coords.latitude,pos.coords.longitude,{
         forceGoal:hasPlannerStartPoint(),
-        label:'現在地'
+        label:'現在地',
+        explicit:true
       });
     },
     err=>{
@@ -5319,6 +5328,13 @@ function showStartBanner(lat,lng,options={}){
   _gpsBannerLabel=options.label||'現在地';
   _gpsBannerAuto=!!options.auto;
 
+  // GPX読込後は完成コースとして扱い、GPSの自動案内を繰り返さない。
+  // 青丸などを利用者が明示タップした場合だけ、ゴール候補として案内できる。
+  if(window.__gpxGpsBannerSuppressed&&!options.explicit){
+    hideGpsBanner();
+    return;
+  }
+
   // GPS初回取得の自動案内は、画面上または保存済みのスタートがある場合は出さない。
   // これにより、コース復元よりGPSが先に完了しても「スタートに設定」が点滅しない。
   if(_gpsBannerAuto&&hasStoredStartPoint()){
@@ -5355,7 +5371,7 @@ function updateGpsBannerMode(){
 
 function showPointAsGoalBanner(latLng,label='地点'){
   if(!latLng) return;
-  showStartBanner(latLng.lat(),latLng.lng(),{forceGoal:true,label});
+  showStartBanner(latLng.lat(),latLng.lng(),{forceGoal:true,label,explicit:true});
 }
 
 function setGpsAsStart(){
@@ -6114,6 +6130,7 @@ function mergeAndProcessRoutes(results,routeRequestId){
   window._lastRouteEditResults=results;
   window._lastRouteEditRequestId=routeRequestId;
   window._gpxImportedPath=null;
+  window.__gpxGpsBannerSuppressed=false;
 
   // DirectionsRendererをクリアして自前Polylineで描画
   if(window._mergedPolyline) window._mergedPolyline.setMap(null);
@@ -6754,6 +6771,7 @@ function hardClearRoute(){
   window._lastRouteEditResults=null;
   window._lastRouteEditRequestId=0;
   window._gpxImportedPath=null;
+  window.__gpxGpsBannerSuppressed=false;
   window.__gpxPendingRouteEdit=false;
   toggleForceWaypointMode(false);
   markers.forEach(m=>m.setMap(null)); markers=[];
@@ -6968,6 +6986,8 @@ function _resetRouteForGPXImport(){
   window._lastRouteEditResults=null;
   window._lastRouteEditRequestId=0;
   window._gpxImportedPath=null;
+  window.__gpxGpsBannerSuppressed=true;
+  hideGpsBanner();
   updateRouteLockUI();
   window.__gpxPendingRouteEdit=false;
   markers.forEach(m=>m&&m.setMap(null)); markers=[];
@@ -7149,6 +7169,8 @@ function importGPXText(txt, filename){
 
   const source=document.getElementById('mcp-source');
   if(source) source.textContent='🔒 GPX: '+(filename||'読み込み');
+  window.__gpxGpsBannerSuppressed=true;
+  hideGpsBanner();
   setRouteLocked(true,{silent:true});
   renderWpList();
   notifyRouteEdit('🔒 GPXコースを読み込み、誤操作防止のため固定しました');
