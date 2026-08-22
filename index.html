@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RIDE & RUN Planner v9.02 LOCATION ROUTE LOCK</title>
+<title>RIDE & RUN Planner v9.03 MAP FOCUS</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -315,17 +315,37 @@ body.pc-mode .ride-settings-col{padding-top:0}
   .course-setting-tile{grid-column:span 2!important}
 }
 
-/* ── v8.12: スマホ地図上固定POIバー（右上配置） ── */
+/* ── v9.03: スマホ地図上コマンドを左右へ分離 ── */
 #map-poi-floating{display:none}
 body.sp-mode #map-poi-floating{
   display:flex;
   position:absolute;
   top:10px;
-  right:10px;
+  left:8px;
+  right:8px;
   z-index:25;
+  align-items:flex-start;
+  justify-content:space-between;
+  pointer-events:none;
+}
+.map-float-stack{
+  display:flex;
   flex-direction:column;
   gap:4px;
   pointer-events:auto;
+}
+.map-poi-stack{margin-top:52px}
+.map-route-stack{margin-left:auto}
+.map-float-stack-label{
+  width:42px;padding:3px 1px;border-radius:7px;background:rgba(20,20,20,.78);
+  color:#fff;text-align:center;font-size:7px;font-weight:800;letter-spacing:.04em;
+  box-shadow:0 2px 8px rgba(0,0,0,.18);backdrop-filter:blur(5px)
+}
+.poi-range-quick{
+  width:42px!important;min-width:42px!important;padding:5px 1px!important;border:0!important;
+  border-radius:8px!important;background:rgba(255,255,255,.94)!important;color:#222!important;
+  box-shadow:0 2px 9px rgba(0,0,0,.22);font-size:9px!important;font-weight:800!important;
+  text-align:center;text-align-last:center
 }
 .poi-float-btn{
   width:42px;
@@ -356,11 +376,66 @@ body.sp-mode #map-poi-floating{
 .poi-float-btn.cmd-gpx{background:rgba(20,20,20,.88);color:#fff}
 .poi-float-btn.cmd-gpx div{color:#fff}
 .poi-float-sep{height:5px;width:42px}
+.poi-float-btn.map-focus-active{background:#2563eb;color:#fff;outline:2px solid rgba(255,255,255,.88)}
+.poi-float-btn.map-focus-active div{color:#fff}
 body.pc-mode #map-poi-floating{display:none!important}
 @media(max-width:380px){
-  body.sp-mode #map-poi-floating{top:8px;right:8px;gap:3px}
+  body.sp-mode #map-poi-floating{top:8px;left:6px;right:6px}
+  .map-float-stack{gap:3px}
+  .map-poi-stack{margin-top:48px}
+  .map-float-stack-label{width:38px}
+  .poi-range-quick{width:38px!important;min-width:38px!important}
   .poi-float-btn{width:38px;min-height:34px;font-size:15px;border-radius:8px}
   .poi-float-btn div{font-size:7px}
+}
+
+/* 地図集中表示：iOS Safariでも使えるアプリ内最大化 */
+body.map-focus-mode{overflow:hidden!important;overscroll-behavior:none}
+body.map-focus-mode #map-stage{
+  position:fixed!important;inset:0!important;z-index:99980!important;
+  width:100vw!important;height:100dvh!important;margin:0!important;
+  background:#111;border-radius:0!important
+}
+body.map-focus-mode #gmap{
+  width:100%!important;height:100dvh!important;min-height:100dvh!important;
+  border:0!important;border-radius:0!important
+}
+body.map-focus-mode #map-stats-bar,
+body.map-focus-mode #gps-retry-btn{display:none!important}
+body.map-focus-mode .gm-style-mtc{display:none!important}
+body.map-focus-mode #map-poi-floating{display:flex!important;position:absolute!important;top:max(8px,env(safe-area-inset-top))!important}
+body.map-focus-mode #fs-mini-panel{
+  display:flex!important;position:absolute!important;
+  top:max(8px,env(safe-area-inset-top))!important;bottom:auto!important;
+  left:50%!important;transform:translateX(-50%)!important;
+  min-width:0!important;width:auto!important;max-width:calc(100vw - 126px)!important;
+  padding:7px 9px!important;border-radius:11px!important;align-items:center;gap:9px;
+  z-index:60!important;white-space:nowrap
+}
+body.map-focus-mode #fs-mini-panel .fs-metric-row{display:flex;gap:10px;align-items:center;margin:0!important}
+body.map-focus-mode #fs-mini-panel .fs-metric{min-width:54px}
+body.map-focus-mode #fs-mini-panel .fs-metric-label{font-size:8px;color:rgba(255,255,255,.58)}
+body.map-focus-mode #fs-mini-panel .fs-metric-value{font-size:14px;font-weight:800;color:#fff}
+body.map-focus-mode #fs-mini-panel .fs-focus-actions{display:flex;gap:4px}
+body.map-focus-mode #fs-mini-panel .fs-focus-actions button{
+  border:0;border-radius:7px;padding:7px 8px;background:rgba(255,255,255,.16);
+  color:#fff;font-size:11px;font-weight:800;cursor:pointer
+}
+body.map-focus-mode #fs-mini-panel .fs-focus-actions button:last-child{background:#2563eb}
+body.map-focus-mode #elev-wrap{bottom:max(0px,env(safe-area-inset-bottom))!important;z-index:50!important}
+body.map-focus-mode #route-info{display:none!important}
+body.map-focus-mode #elev-canvas{background:rgba(7,12,20,.78)!important;touch-action:none}
+body.map-focus-mode #elev-focus-hint{display:block!important}
+body.map-focus-mode #map-hover{bottom:112px!important;right:58px!important;z-index:55!important}
+body.map-focus-mode #goal-flag-btn{display:none!important}
+body.map-focus-mode #poi-radius-map-command{top:62px!important;z-index:61!important}
+@media(max-width:520px){
+  body.map-focus-mode #fs-mini-panel{max-width:calc(100vw - 112px)!important;gap:6px;padding:6px 7px!important}
+  body.map-focus-mode #fs-mini-panel .fs-metric-row{gap:7px}
+  body.map-focus-mode #fs-mini-panel .fs-metric{min-width:45px}
+  body.map-focus-mode #fs-mini-panel .fs-metric:nth-child(4){display:none}
+  body.map-focus-mode #fs-mini-panel .fs-metric-value{font-size:12px}
+  body.map-focus-mode #fs-mini-panel .fs-focus-actions button{padding:6px;font-size:10px}
 }
 
 
@@ -699,7 +774,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
 <!-- GPS再取得ボタン（常時表示） -->
 <button id="gps-retry-btn" onclick="returnToCurrentLocation()" title="現在地へ戻る" aria-label="現在地へ戻る" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">◎</button>
 <header>
-  <h1>RIDE &amp; RUN Planner <span class="ver">v9.02 LOCATION ROUTE LOCK</span></h1>
+  <h1>RIDE &amp; RUN Planner <span class="ver">v9.03 MAP FOCUS</span></h1>
   <span class="sub">Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
@@ -806,7 +881,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
     <!-- ルート統計バー：スクロールしても固定（sticky） -->
 
     <!-- 地図 -->
-    <div style="position:relative">
+    <div id="map-stage" style="position:relative">
       <div id="gmap" style="width:100%;height:400px;border-radius:var(--rs);border:0.5px solid var(--border);background:var(--bg2)"></div>
 
       <div id="river-control-bar" class="river-control-bar" aria-label="九州の河川・山表示">
@@ -900,24 +975,33 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
       </button>
 
       <!-- スマホ専用：地図上固定POIショートカットバー -->
-      <div id="map-poi-floating" aria-label="POI shortcut buttons">
-        <button class="poi-float-btn cmd-danger" onclick="if(confirm('コースを完全に削除して初期状態へ戻しますか？')) hardClearRoute()" title="コース削除・初期化">🗑️<div>削除</div></button>
-        <button class="poi-float-btn" onclick="undoRoute()" title="直前の地点操作を戻す">↩️<div>戻る</div></button>
-        <button class="poi-float-btn" onclick="redoRoute()" title="戻した地点操作をやり直す">↪️<div>進む</div></button>
-        <button class="poi-float-btn" id="current-location-float" onclick="returnToCurrentLocation()" title="現在地へ地図を戻す">◎<div>現在地</div></button>
-        <button class="poi-float-btn" id="route-lock-float" onclick="toggleRouteLock()" title="コースを固定する">🔓<div>編集</div></button>
-        <button class="poi-float-btn" id="force-waypoint-float" onclick="toggleForceWaypointMode()" title="通したい道路に強制経由点を追加">◆<div>経由</div></button>
-        <button class="poi-float-btn cmd-gpx" onclick="downloadGPX()" title="GPX保存">💾<div>GPX</div></button>
-        <button class="poi-float-btn cmd-gpx" onclick="triggerGPXImport()" title="GPX読込">📂<div>読込</div></button>
-        <div class="poi-float-sep" aria-hidden="true"></div>
-        <button class="poi-float-btn" data-poi-label="コンビニ" onclick="selectPOICategory('コンビニ')" title="コンビニ">🏪<div>CVS</div></button>
-        <button class="poi-float-btn" data-poi-label="カフェ" onclick="selectPOICategory('カフェ')" title="カフェ">☕<div>Café</div></button>
-        <button class="poi-float-btn" data-poi-label="レストラン" onclick="selectPOICategory('レストラン')" title="食事">🍽️<div>食事</div></button>
-        <button class="poi-float-btn" data-poi-label="公園" onclick="selectPOICategory('公園')" title="公園">🌳<div>公園</div></button>
-        <button class="poi-float-btn" data-poi-label="絶景" onclick="selectPOICategory('絶景')" title="絶景">🏔️<div>絶景</div></button>
-        <button class="poi-float-btn" data-poi-label="史跡" onclick="selectPOICategory('史跡')" title="史跡">🏯<div>史跡</div></button>
-        <button class="poi-float-btn" data-poi-label="名所・観光" onclick="selectPOICategory('名所・観光')" title="名所・観光">⛩️<div>名所</div></button>
-        <button class="poi-float-btn" data-poi-label="温泉" onclick="selectPOICategory('温泉')" title="温泉">♨️<div>温泉</div></button>
+      <div id="map-poi-floating" aria-label="地図ショートカット">
+        <div class="map-float-stack map-poi-stack" aria-label="POI検索">
+          <div class="map-float-stack-label">POI</div>
+          <select id="poi-radius-quick-select" class="poi-range-quick" onchange="setQuickPoiRadius(this.value)" title="POI検索範囲" aria-label="POI検索範囲">
+            <option value="1000">1km</option><option value="2000">2km</option><option value="3000">3km</option><option value="4000">4km</option><option value="5000">5km</option><option value="6000">6km</option><option value="7000">7km</option><option value="8000">8km</option><option value="9000">9km</option><option value="10000">10km</option>
+          </select>
+          <button class="poi-float-btn" data-poi-label="コンビニ" onclick="selectPOICategory('コンビニ')" title="コンビニ">🏪<div>CVS</div></button>
+          <button class="poi-float-btn" data-poi-label="カフェ" onclick="selectPOICategory('カフェ')" title="カフェ">☕<div>Café</div></button>
+          <button class="poi-float-btn" data-poi-label="レストラン" onclick="selectPOICategory('レストラン')" title="食事">🍽️<div>食事</div></button>
+          <button class="poi-float-btn" data-poi-label="公園" onclick="selectPOICategory('公園')" title="公園">🌳<div>公園</div></button>
+          <button class="poi-float-btn" data-poi-label="絶景" onclick="selectPOICategory('絶景')" title="絶景">🏔️<div>絶景</div></button>
+          <button class="poi-float-btn" data-poi-label="史跡" onclick="selectPOICategory('史跡')" title="史跡">🏯<div>史跡</div></button>
+          <button class="poi-float-btn" data-poi-label="名所・観光" onclick="selectPOICategory('名所・観光')" title="名所・観光">⛩️<div>名所</div></button>
+          <button class="poi-float-btn" data-poi-label="温泉" onclick="selectPOICategory('温泉')" title="温泉">♨️<div>温泉</div></button>
+        </div>
+        <div class="map-float-stack map-route-stack" aria-label="コース操作">
+          <div class="map-float-stack-label">ROUTE</div>
+          <button class="poi-float-btn cmd-danger" onclick="if(confirm('コースを完全に削除して初期状態へ戻しますか？')) hardClearRoute()" title="コース削除・初期化">🗑️<div>削除</div></button>
+          <button class="poi-float-btn" onclick="undoRoute()" title="直前の地点操作を戻す">↩️<div>戻る</div></button>
+          <button class="poi-float-btn" onclick="redoRoute()" title="戻した地点操作をやり直す">↪️<div>進む</div></button>
+          <button class="poi-float-btn" id="current-location-float" onclick="returnToCurrentLocation()" title="現在地へ地図を戻す">◎<div>現在地</div></button>
+          <button class="poi-float-btn" id="route-lock-float" onclick="toggleRouteLock()" title="コースを固定する">🔓<div>編集</div></button>
+          <button class="poi-float-btn" id="force-waypoint-float" onclick="toggleForceWaypointMode()" title="通したい道路に強制経由点を追加">◆<div>経由</div></button>
+          <button class="poi-float-btn cmd-gpx" onclick="downloadGPX()" title="GPX保存">💾<div>GPX</div></button>
+          <button class="poi-float-btn cmd-gpx" onclick="triggerGPXImport()" title="GPX読込">📂<div>読込</div></button>
+          <button class="poi-float-btn" id="map-focus-toggle" onclick="toggleMapFocusMode()" title="地図を最大化">⛶<div>最大化</div></button>
+        </div>
       </div>
       <input id="gpx-import-file" type="file" accept=".gpx,application/gpx+xml,text/xml,application/xml" style="display:none" onchange="readGPXFile(this.files&&this.files[0]);this.value=''">
 
@@ -934,42 +1018,17 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
         </div>
       </div>
 
-      <!-- 全画面時ミニパネル -->
-      <div id="fs-mini-panel" style="display:none;position:fixed;bottom:60px;left:10px;z-index:9999;background:rgba(10,10,10,0.88);backdrop-filter:blur(8px);border-radius:10px;padding:10px 14px;min-width:200px;pointer-events:auto">
-        <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px">
-          <div style="color:#fff">
-            <div style="font-size:9px;opacity:.5;text-transform:uppercase">距離</div>
-            <div style="font-size:18px;font-weight:600;color:#fff" id="fsp-dist">—</div>
-          </div>
-          <div style="color:#fff">
-            <div style="font-size:9px;opacity:.5;text-transform:uppercase">標高</div>
-            <div style="font-size:18px;font-weight:600;color:#fff" id="fsp-elev">—</div>
-          </div>
-          <div>
-            <div style="font-size:9px;opacity:.5;text-transform:uppercase;color:#fff">到着</div>
-            <div style="font-size:18px;font-weight:600;color:#fb923c" id="fsp-arrive">—</div>
-          </div>
+      <!-- 地図集中表示：上部の最小限メトリクス -->
+      <div id="fs-mini-panel" style="display:none;background:rgba(10,10,10,0.88);backdrop-filter:blur(8px);pointer-events:auto">
+        <div class="fs-metric-row">
+          <div class="fs-metric"><div class="fs-metric-label">距離</div><div class="fs-metric-value" id="fsp-dist">—</div></div>
+          <div class="fs-metric"><div class="fs-metric-label">所要時間</div><div class="fs-metric-value" id="fsp-time" style="color:#4ade80">—</div></div>
+          <div class="fs-metric"><div class="fs-metric-label">獲得標高</div><div class="fs-metric-value" id="fsp-elev">—</div></div>
+          <div class="fs-metric"><div class="fs-metric-label">到着</div><div class="fs-metric-value" id="fsp-arrive" style="color:#fb923c">—</div></div>
         </div>
-        <div style="display:flex;gap:3px;flex-wrap:wrap">
-          <button onclick="togglePOI('コンビニ')" style="padding:3px 6px;border:none;border-radius:4px;background:rgba(255,255,255,.15);color:#fff;font-size:12px;cursor:pointer">🏪</button>
-          <button onclick="togglePOI('カフェ')" style="padding:3px 6px;border:none;border-radius:4px;background:rgba(255,255,255,.15);color:#fff;font-size:12px;cursor:pointer">☕</button>
-          <button onclick="togglePOI('レストラン')" style="padding:3px 6px;border:none;border-radius:4px;background:rgba(255,255,255,.15);color:#fff;font-size:12px;cursor:pointer">🍽️</button>
-          <button onclick="togglePOI('公園')" style="padding:3px 6px;border:none;border-radius:4px;background:rgba(255,255,255,.15);color:#fff;font-size:12px;cursor:pointer">🌳</button>
-          <button onclick="togglePOI('絶景')" style="padding:3px 6px;border:none;border-radius:4px;background:rgba(255,255,255,.15);color:#fff;font-size:12px;cursor:pointer">🏔️</button>
-          <button onclick="togglePOI('史跡')" style="padding:3px 6px;border:none;border-radius:4px;background:rgba(255,255,255,.15);color:#fff;font-size:12px;cursor:pointer">🏯</button>
-          <button onclick="togglePOI('名所・観光')" style="padding:3px 6px;border:none;border-radius:4px;background:rgba(255,255,255,.15);color:#fff;font-size:12px;cursor:pointer">⛩️</button>
-          <button onclick="togglePOI('温泉')" style="padding:3px 6px;border:none;border-radius:4px;background:rgba(255,255,255,.15);color:#fff;font-size:12px;cursor:pointer">♨️</button>
-        </div>
-        <div class="fs-command-row">
-          <button onclick="undoRoute()">↩ 戻す</button>
-          <button onclick="redoRoute()">↪ 進む</button>
-          <button onclick="manualSync()">🔄 再計算</button>
-          <button class="fs-gpx" onclick="downloadGPX()">GPX保存</button>
-          <button onclick="showSaveDialog()">💾 保存</button>
-          <button class="fs-course" onclick="openSettingsModal()">🚴‍♂️🏃 条件設定</button>
-          <button onclick="setRouteMode('cycle')">🚲 自転車</button>
-          <button onclick="setRouteMode('road')">🛣 一般車道</button>
-          <button onclick="setRouteMode('toll')">🚘 有料道路</button>
+        <div class="fs-focus-actions">
+          <button onclick="fitRouteInFocus()" title="コース全体を表示">全体</button>
+          <button onclick="toggleMapFocusMode(false)" title="最大化を終了">×</button>
         </div>
       </div>
       <div id="map-hover" style="display:none;position:absolute;bottom:60px;right:52px;background:rgba(0,0,0,0.82);color:#fff;border-radius:6px;padding:7px 10px;font-size:11px;line-height:1.6;pointer-events:none;z-index:20;text-align:right">
@@ -1005,6 +1064,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
         <div style="position:relative;pointer-events:auto">
           <canvas id="elev-canvas" height="56"
             style="width:100%;display:block;cursor:crosshair;background:rgba(10,10,10,0.65);backdrop-filter:blur(4px)"></canvas>
+          <div id="elev-focus-hint" style="display:none;position:absolute;top:4px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.82);font-size:9px;font-weight:800;pointer-events:none;white-space:nowrap">標高図をタップ → 地図の地点へ移動</div>
           <div id="elev-cursor" style="display:none;position:absolute;top:0;bottom:0;width:1px;background:rgba(255,100,80,0.85);pointer-events:none"></div>
         </div>
       </div>
@@ -4024,8 +4084,10 @@ function setRouteLocked(locked,options={}){
     toggleForceWaypointMode(false);
     clearRouteEditOverlays();
   }
-  markers.forEach(marker=>{
+  markers.forEach((marker,index)=>{
     if(marker&&typeof marker.setDraggable==='function') marker.setDraggable(!_routeLocked);
+    const keepEndpoint=index===0||(goalFixed&&index===waypoints.length-1&&waypoints.length>1);
+    if(marker&&typeof marker.setVisible==='function') marker.setVisible(!_routeLocked||keepEndpoint);
   });
   updateRouteLockUI();
   try{localStorage.setItem('rpp_route_locked',_routeLocked?'1':'0');}catch(e){}
@@ -4064,18 +4126,82 @@ function updateRtLabel(){
 /* ══ GPS 現在地あおまる（グローバルスコープ） ══ */
 let _blueDot=null, _blueDotRing=null;
 
+let _mapFocusPreviousScrollY=0;
+
+function isMapFocusActive(){
+  return document.body.classList.contains('map-focus-mode')||!!(document.fullscreenElement||document.webkitFullscreenElement);
+}
+
 function updateFsMiniPanel(){
-  const isFs=!!(document.fullscreenElement||document.webkitFullscreenElement);
+  const isFs=isMapFocusActive();
   const panel=document.getElementById('fs-mini-panel');
   if(!panel) return;
-  panel.style.display=isFs?'block':'none';
+  panel.style.display=isFs?'flex':'none';
+  const toggle=document.getElementById('map-focus-toggle');
+  if(toggle){
+    toggle.classList.toggle('map-focus-active',isFs);
+    toggle.innerHTML=isFs?'↙<div>戻す</div>':'⛶<div>最大化</div>';
+    toggle.title=isFs?'地図最大化を終了':'地図を最大化';
+  }
   if(isFs&&window._routeData){
     const d=window._routeData;
     document.getElementById('fsp-dist').textContent=(+d.distKm).toFixed(1)+' km';
     document.getElementById('fsp-elev').textContent=Math.round(d.gainM)+' m';
+    const time=document.getElementById('msb-time');
     const arr=document.getElementById('msb-arrive');
+    document.getElementById('fsp-time').textContent=time?time.textContent:'—';
     document.getElementById('fsp-arrive').textContent=arr?arr.textContent:'—';
   }
+}
+
+function fitRouteInFocus(){
+  if(!gmap||!window.google||!google.maps) return;
+  const path=Array.isArray(lastRoutePath)&&lastRoutePath.length?lastRoutePath:waypoints;
+  if(!Array.isArray(path)||!path.length){
+    notifyRouteEdit('コースを作成すると全体表示できます');
+    return;
+  }
+  if(path.length===1){
+    gmap.panTo(path[0]);
+    gmap.setZoom(Math.max(15,gmap.getZoom()||15));
+    return;
+  }
+  const bounds=new google.maps.LatLngBounds();
+  path.forEach(point=>point&&bounds.extend(point));
+  try{gmap.fitBounds(bounds,{top:86,right:62,bottom:118,left:62});}
+  catch(e){gmap.fitBounds(bounds,70);}
+}
+
+function toggleMapFocusMode(force){
+  const next=typeof force==='boolean'?force:!document.body.classList.contains('map-focus-mode');
+  const canvas=document.getElementById('elev-canvas');
+  if(next){
+    _mapFocusPreviousScrollY=window.scrollY||0;
+    document.body.classList.add('map-focus-mode');
+    if(canvas) canvas.height=84;
+  }else{
+    document.body.classList.remove('map-focus-mode');
+    if(canvas) canvas.height=56;
+  }
+  updateFsMiniPanel();
+  setTimeout(()=>{
+    if(gmap&&window.google) google.maps.event.trigger(gmap,'resize');
+    if(lastElevResults&&canvas) drawElevProfile(lastElevResults);
+    if(next) fitRouteInFocus();
+    else{
+      if(typeof setPCHeights==='function') setPCHeights();
+      window.scrollTo(0,_mapFocusPreviousScrollY);
+    }
+  },80);
+}
+
+function setQuickPoiRadius(value){
+  const meters=Math.max(1000,Math.min(10000,Math.round((Number(value)||1000)/1000)*1000));
+  ['poi-radius-sel','poi-radius-map-select','poi-radius-quick-select'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.value=String(meters);
+  });
+  try{localStorage.setItem('rpp_poi_radius',String(meters));}catch(e){}
 }
 
 function setBlueDot(lat,lng){
@@ -5082,6 +5208,21 @@ function initMap(){
   // 標高プロファイルのホバーイベント
   const ec=document.getElementById('elev-canvas');
   ec.addEventListener('mousemove',onElevHover);
+  let elevPointerActive=false;
+  ec.addEventListener('pointerdown',e=>{
+    elevPointerActive=true;
+    try{ec.setPointerCapture(e.pointerId);}catch(err){}
+    onElevHover(e,isMapFocusActive());
+    if(e.cancelable) e.preventDefault();
+  });
+  ec.addEventListener('pointermove',e=>{
+    if(!elevPointerActive||e.pointerType==='mouse') return;
+    onElevHover(e,false);
+    if(e.cancelable) e.preventDefault();
+  });
+  const endElevPointer=()=>{elevPointerActive=false;};
+  ec.addEventListener('pointerup',endElevPointer);
+  ec.addEventListener('pointercancel',endElevPointer);
   ec.addEventListener('mouseleave',()=>{
     document.getElementById('elev-cursor').style.display='none';
     if(hoverPolyline){hoverPolyline.setMap(null);hoverPolyline=null;}
@@ -5090,6 +5231,9 @@ function initMap(){
   // 全画面ミニパネル制御
   document.addEventListener('fullscreenchange', updateFsMiniPanel);
   document.addEventListener('webkitfullscreenchange', updateFsMiniPanel);
+  document.addEventListener('keydown',e=>{
+    if(e.key==='Escape'&&document.body.classList.contains('map-focus-mode')) toggleMapFocusMode(false);
+  });
 
   // GPS起動（グローバル関数で呼ぶ）
   startGPS();
@@ -5611,7 +5755,7 @@ function createMarker(latLng, idx){
   const color=isFirst?'#4ade80':isLast?'#f87171':isForce?'#d97706':'#378add';
   const label=isFirst?'S':isLast?'G':isForce?'◆':String(idx);
   const marker=new google.maps.Marker({
-    position:latLng, map:gmap, draggable:!isRouteLocked(), zIndex:100,
+    position:latLng, map:gmap, draggable:!isRouteLocked(), visible:!isRouteLocked()||isFirst||isLast, zIndex:100,
     title:isForce?'強制経由点':'地点 '+label,
     label:{text:label, color:'#fff', fontSize:'10px', fontWeight:'bold'},
     icon:{path:google.maps.SymbolPath.CIRCLE, scale:12,
@@ -6190,12 +6334,12 @@ function getRouteInfoAtLatLng(ll){
 }
 
 /* ── 標高プロファイルホバー ── */
-function onElevHover(e){
+function onElevHover(e,centerMap=false){
   if(!lastElevResults||!lastRoutePath) return;
   const canvas=document.getElementById('elev-canvas');
   const rect=canvas.getBoundingClientRect();
-  const px=e.clientX-rect.left;
-  const ratio=px/rect.width;
+  const px=Math.max(0,Math.min(rect.width,e.clientX-rect.left));
+  const ratio=rect.width?px/rect.width:0;
   const idx=Math.round(ratio*(lastElevResults.length-1));
   if(idx<0||idx>=lastElevResults.length) return;
 
@@ -6213,6 +6357,7 @@ function onElevHover(e){
     icon:{path:google.maps.SymbolPath.CIRCLE, scale:7,
           fillColor:'#ff6440', fillOpacity:1, strokeColor:'#fff', strokeWeight:2}
   });
+  if(centerMap&&gmap) gmap.panTo(ll);
 
   // 地点情報
   const {km,elev,gain,grade}=getRouteInfoAtLatLng(ll);
@@ -6222,6 +6367,7 @@ function onElevHover(e){
   document.getElementById('mh-elev').textContent=`⛰️ ${elev.toFixed(0)} m`;
   document.getElementById('mh-gain').textContent=`📈 累計+${gain.toFixed(0)} m`;
   document.getElementById('mh-grade').textContent=`📐 斜度 ${grade.toFixed(1)}%`;
+  return ll;
 }
 
 /* ── 標高プロファイル描画 ── */
@@ -9793,9 +9939,14 @@ body.pc-mode .ride-settings-col{overflow-y:auto}
     var stored=localStorage.getItem('rpp_poi_radius') || (base&&base.value) || '1000';
     select.value=String(Math.max(1000,Math.min(10000,Number(stored)||1000)));
     if(base) base.value=select.value;
+    var quick=document.getElementById('poi-radius-quick-select');
+    if(quick) quick.value=select.value;
     select.addEventListener('change',function(){
-      if(base) base.value=select.value;
-      localStorage.setItem('rpp_poi_radius',select.value);
+      if(typeof window.setQuickPoiRadius==='function') window.setQuickPoiRadius(select.value);
+      else{
+        if(base) base.value=select.value;
+        localStorage.setItem('rpp_poi_radius',select.value);
+      }
     });
     host.appendChild(command);
   }
