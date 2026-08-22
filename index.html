@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RIDE & RUN Planner v9.00 GPX SEGMENT EDIT</title>
+<title>RIDE & RUN Planner v9.01 GRADE DAYLIGHT FIX</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -697,7 +697,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
 <!-- GPS再取得ボタン（常時表示） -->
 <button id="gps-retry-btn" onclick="retryGPS()" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">📍</button>
 <header>
-  <h1>RIDE &amp; RUN Planner <span class="ver">v9.00 GPX SEGMENT EDIT</span></h1>
+  <h1>RIDE &amp; RUN Planner <span class="ver">v9.01 GRADE DAYLIGHT FIX</span></h1>
   <span class="sub">Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
@@ -3569,9 +3569,12 @@ function brightnessColor(lv, alpha=1){
 
 function hToHHMM(h){
   if(h===null||h===undefined) return '—';
-  const hh=Math.floor(h)%24;
-  const mm=Math.round((h%1)*60);
-  return `${String(hh).padStart(2,'0')}:${String(mm<60?mm:0).padStart(2,'0')}`;
+  const totalMinutes=Math.round(Number(h)*60);
+  if(!Number.isFinite(totalMinutes)) return '—';
+  const normalized=((totalMinutes%1440)+1440)%1440;
+  const hh=Math.floor(normalized/60);
+  const mm=normalized%60;
+  return `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
 }
 
 /* ── 都道府県セレクト → 座標セット ── */
@@ -3651,11 +3654,20 @@ function renderDaylight(){
   // ホバー用データ保存
   window._dlHoverData={tw,startH,endH,dist,moveSpd,phases};
 
-  // 時刻Canvasにホバーイベント設定
+  // 時刻Canvasにマウス／タッチ共通の位置表示を設定
   const tc=document.getElementById('dl-time-canvas');
   if(tc){
     tc.onmousemove=onTimeCanvasHover;
-    tc.onmouseleave=()=>{
+    tc.onpointerdown=onTimeCanvasHover;
+    tc.onclick=onTimeCanvasHover;
+    tc.onpointerleave=(event)=>{
+      // タッチ後は結果を残し、マウスが外れた時だけ閉じる。
+      if(event.pointerType&&event.pointerType!=='mouse') return;
+      const t=document.getElementById('dl-time-tooltip');
+      if(t) t.style.display='none';
+    };
+    tc.onmouseleave=(event)=>{
+      if(event.pointerType&&event.pointerType!=='mouse') return;
       const t=document.getElementById('dl-time-tooltip');
       if(t) t.style.display='none';
     };
@@ -3670,8 +3682,14 @@ function onTimeCanvasHover(e){
   const wrap=document.getElementById('dl-time-wrap');
   if(!canvas||!wrap) return;
   const rect=canvas.getBoundingClientRect();
-  const px=e.clientX-rect.left+wrap.scrollLeft;
-  const ratio=Math.max(0,Math.min(1,px/canvas.width));
+  const clientX=Number.isFinite(e.clientX)?e.clientX:
+    (e.touches&&e.touches[0]?e.touches[0].clientX:
+    (e.changedTouches&&e.changedTouches[0]?e.changedTouches[0].clientX:NaN));
+  if(!Number.isFinite(clientX)||!(rect.width>0)) return;
+  // getBoundingClientRect()はCSS上の実表示幅。canvas.widthはDPR倍なので位置計算には使わない。
+  // スクロール時もcanvasのleft自体が移動するため、scrollLeftを重ねて加算しない。
+  const cssX=clientX-rect.left;
+  const ratio=Math.max(0,Math.min(1,cssX/rect.width));
 
   // 現在の表示範囲を計算
   const span=d.endH-d.startH+1;
@@ -3679,9 +3697,12 @@ function onTimeCanvasHover(e){
   const h=viewStart+ratio*span;
   const hMod=((h%24)+24)%24;
 
-  // 走行距離を計算（スタートからの経過時間×速度）
-  const elapsedH=Math.max(0,h-d.startH);
-  const km=(elapsedH*d.moveSpd).toFixed(1);
+  // 発着範囲内の比率から、予想経過時間と予想経過距離を同じ基準で算出。
+  const rideHours=Math.max(0.001,d.endH-d.startH);
+  const rideRatio=Math.max(0,Math.min(1,(h-d.startH)/rideHours));
+  const elapsedMinutes=Math.round(rideRatio*rideHours*60);
+  const elapsedLabel=`${Math.floor(elapsedMinutes/60)}:${String(elapsedMinutes%60).padStart(2,'0')}`;
+  const km=(rideRatio*d.dist).toFixed(1);
 
   // 翌日薄明
   const tw=d.tw;
@@ -3692,16 +3713,20 @@ function onTimeCanvasHover(e){
   else if(hMod<(h>=24?td2:tw).civilRise%24||hMod>(h>=24?td2:tw).civilSet%24) status='🌅';
   else if(hMod>(h>=24?td2:tw).sunset%24) status='🌆';
 
-  const dayLabel=h>=24?' +1日':'';
+  const dayOffset=Math.floor(h/24);
+  const dayLabel=dayOffset>0?` +${dayOffset}日`:dayOffset<0?` ${Math.abs(dayOffset)}日前`:'';
   const tip=document.getElementById('dl-time-tooltip');
   if(!tip) return;
   tip.style.display='block';
   // ツールチップをマウス位置に追従
   const wrapRect=wrap.getBoundingClientRect();
-  const tipX=Math.max(60,Math.min(wrapRect.width-100,e.clientX-wrapRect.left));
+  const visibleX=clientX-wrapRect.left;
+  const minX=wrap.scrollLeft+72;
+  const maxX=wrap.scrollLeft+Math.max(72,wrap.clientWidth-92);
+  const tipX=Math.max(minX,Math.min(maxX,wrap.scrollLeft+visibleX));
   tip.style.left=tipX+'px';
   tip.style.transform='translateX(-50%)';
-  tip.textContent=`${status} ${String(Math.floor(hMod)).padStart(2,'0')}:${String(Math.round(hMod%1*60)).padStart(2,'0')}${dayLabel} — ${km}km地点`;
+  tip.textContent=`${status} ${hToHHMM(h)}${dayLabel}｜経過 ${elapsedLabel}｜${km} km`;
 }
 
 function drawTimeCanvas(tw, startH, endH, dist, moveSpd){
@@ -6169,9 +6194,12 @@ function robustGradeStats(elevations,totalM){
   // 単発の残存外れ値を最大値にしない。十分な点数があれば上位2%点を実用最大値とする。
   const sorted=grades.slice().sort((a,b)=>a-b);
   const maxIndex=sorted.length>=20?Math.max(0,Math.ceil(sorted.length*0.98)-1):sorted.length-1;
-  const maxGrade=sorted[maxIndex];
+  const rawMaxGrade=sorted[maxIndex];
+  // 舗装路向けプランナーでは35%超を標高測位ノイズとして扱う。
+  // その前段で約100m窓・中央値・上位外れ値除去を行うため、通常の急坂は維持される。
+  const maxGrade=Math.min(35,Math.max(0,rawMaxGrade));
   const steepPct=grades.filter(g=>g>5).length/grades.length*100;
-  return {values,maxGrade,steepPct,windowM:actualWindowM};
+  return {values,maxGrade,rawMaxGrade,steepPct,windowM:actualWindowM,clamped:rawMaxGrade>35};
 }
 
 /* ── 標高 → プランナー反映 ── */
@@ -6664,30 +6692,27 @@ function setupGPXRouteEditOverlays(path,routeRequestId){
 function _applyGPXMetrics(gpxPts, path, filename){
   const totalM=_gpxPathDistanceMeters(path);
   const distKm=totalM/1000;
-  let gain=0, maxElev=-Infinity, maxGrade=0;
-  let haveElev=false;
+  let gain=0;
   const DEADBAND=1.0;
-  for(let i=0;i<gpxPts.length;i++){
-    const e=gpxPts[i].ele;
-    if(Number.isFinite(e)){haveElev=true;maxElev=Math.max(maxElev,e);}
-    if(i===0) continue;
-    const e0=gpxPts[i-1].ele, e1=gpxPts[i].ele;
-    if(Number.isFinite(e0)&&Number.isFinite(e1)){
-      const de=e1-e0;
-      if(de>DEADBAND) gain+=de;
-      const a=new google.maps.LatLng(gpxPts[i-1].lat,gpxPts[i-1].lng);
-      const b=new google.maps.LatLng(gpxPts[i].lat,gpxPts[i].lng);
-      const dm=google.maps.geometry.spherical.computeDistanceBetween(a,b);
-      // 極短区間のGPSノイズは最大勾配判定から除外
-      if(dm>=12){ maxGrade=Math.max(maxGrade,Math.abs(de)/dm*100); }
-    }
+  const validElevPts=gpxPts.filter(point=>Number.isFinite(point.ele));
+  const haveElev=validElevPts.length>0;
+  // 大容量GPXでも安定するよう最大2000点へ均等間引きし、通常ルートと同じ
+  // 中央値フィルタ＋約100m窓＋外れ値除外で斜度を計算する。
+  const metricPts=_sampleArray(validElevPts,2000);
+  const gradeStats=robustGradeStats(metricPts.map(point=>point.ele),totalM);
+  const filteredElevations=gradeStats.values;
+  for(let i=1;i<filteredElevations.length;i++){
+    const diff=filteredElevations[i]-filteredElevations[i-1];
+    if(diff>DEADBAND) gain+=diff;
   }
+  const maxElev=filteredElevations.length?Math.max(...filteredElevations):NaN;
+  const maxGrade=gradeStats.maxGrade;
   const gainM=Math.round(gain);
   const avgGrade=totalM>0 ? gainM/totalM*100 : 0;
   const bearing=path.length>1?calcBearing(path[0].lat(),path[0].lng(),path[path.length-1].lat(),path[path.length-1].lng()):0;
   const profile=maxGrade<3?'🟢 平坦メイン':maxGrade<8?'🟡 丘陵ルート':maxGrade<15?'🟠 山岳ルート':'🔴 激坂含む';
 
-  window._routeData={distKm, gainM, bearing, maxGrade, avgGrade, source:'gpx', filename:filename||''};
+  window._routeData={distKm, gainM, bearing, maxGrade, avgGrade,gradeWindowM:gradeStats.windowM,source:'gpx', filename:filename||''};
   lastRoutePath=path;
   window._routeDistanceIndex=null;
   scheduleRouteRestrictionCheck();
@@ -6713,6 +6738,9 @@ function _applyGPXMetrics(gpxPts, path, filename){
   setT('ri-maxelev',haveElev&&Number.isFinite(maxElev)?Math.round(maxElev)+' m':'—');
   setT('ri-bearing',bearingToLabel(bearing)); setT('ri-profile',profile);
   setT('msb-dist',distText); setT('msb-elev',gainText); setT('msb-avggrade',avgText); setT('msb-grade',maxGradeText);
+  const gradeTitle='約'+Math.round(gradeStats.windowM||0)+'m区間で平滑化した最大斜度'+(gradeStats.clamped?'（異常値を除外）':'');
+  const riGrade=document.getElementById('ri-maxgrade'); if(riGrade) riGrade.title=gradeTitle;
+  const msbGrade=document.getElementById('msb-grade'); if(msbGrade) msbGrade.title=gradeTitle;
 
   // planner / modal / MCPへ即時反映
   const rd=document.getElementById('r-dist'); if(rd) rd.value=distKm.toFixed(2);
@@ -7438,20 +7466,19 @@ let _lastTwPhases=[];
 function onTimeCanvasScroll(el){
   const wrap=el;
   const canvas=document.getElementById('dl-time-canvas');
-  const totalW=canvas.width||wrap.offsetWidth;
-  const scrollRatio=wrap.scrollLeft/(totalW-wrap.offsetWidth||1);
+  if(!canvas||!wrap) return;
+  // canvas.widthはdevicePixelRatio倍。スクロールと表示時刻はCSS幅で計算する。
+  const totalW=canvas.scrollWidth||parseFloat(canvas.style.width)||canvas.getBoundingClientRect().width||wrap.clientWidth;
+  const viewportW=wrap.clientWidth||wrap.offsetWidth;
+  const scrollRatio=Math.max(0,Math.min(1,wrap.scrollLeft/Math.max(1,totalW)));
 
   // 現在表示中の時刻範囲を計算
-  const startStr=document.getElementById('r-start').value||'08:00';
-  const [sh,sm]=startStr.split(':').map(Number);
-  const startH=sh+sm/60;
-  const totalCard=document.querySelector('#r-results .card:nth-child(2) .cv');
-  let totalMins=120;
-  if(totalCard){const m=totalCard.textContent.match(/(\d+):(\d+)/);if(m)totalMins=+m[1]*60+ +m[2];}
-  const endH=startH+totalMins/60;
-  const viewSpan=endH-startH+1;
-  const viewStart=startH-0.5+scrollRatio*viewSpan;
-  const viewEnd=viewStart+(wrap.offsetWidth/totalW)*viewSpan;
+  const hoverData=window._dlHoverData;
+  if(!hoverData) return;
+  const fullStart=hoverData.startH-0.5;
+  const viewSpan=hoverData.endH-hoverData.startH+1;
+  const viewStart=fullStart+scrollRatio*viewSpan;
+  const viewEnd=viewStart+(viewportW/Math.max(1,totalW))*viewSpan;
   const viewMid=(viewStart+viewEnd)/2; // 現在表示中央の時刻
 
   // 各アイコンセルをハイライト（現在表示中の時刻を通過済みならアクティブ）
