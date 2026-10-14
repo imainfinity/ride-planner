@@ -11384,5 +11384,96 @@ function routeToMountain(which){
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
 </script>
+
+<script>
+/* v9.07: 平地基準速度の単一正本化
+   - modal-spd / modal-flat-speed / mcp-spd の食い違いで、55km/h等の旧入力が残る問題を防ぐ
+   - 最後に入力・反映した平地速度を最新値として、保存値にも同期する
+*/
+(function(){
+  if(window.__rppV907FlatSpeedSingleSource) return;
+  window.__rppV907FlatSpeedSingleSource = true;
+  var LS_PREF='rpp_user_pref', LS_EXT='rpp_ride_ext_pref', LS_SRC='rpp_flat_speed_latest_source_v907';
+  function el(id){return document.getElementById(id)}
+  function n(v,d){v=parseFloat(v);return Number.isFinite(v)?v:d}
+  function getJSON(k,d){try{return Object.assign({},d,JSON.parse(localStorage.getItem(k)||'{}'))}catch(e){return Object.assign({},d)}}
+  function setJSON(k,o){try{localStorage.setItem(k,JSON.stringify(o))}catch(e){}}
+  function setVal(id,v){var x=el(id);if(x && document.activeElement!==x)x.value=v}
+  function saveSource(src){try{localStorage.setItem(LS_SRC,JSON.stringify({src:src,ts:Date.now()}))}catch(e){}}
+  function readSource(){try{return JSON.parse(localStorage.getItem(LS_SRC)||'{}')}catch(e){return {}}}
+  function syncStored(v){
+    if(!Number.isFinite(v)||v<=0) return;
+    var pref=getJSON(LS_PREF,{}); pref.spd=String(+v.toFixed(1)); pref.rideInputMode='spd'; setJSON(LS_PREF,pref);
+    var ext=getJSON(LS_EXT,{climbFocus:'normal',flatSpeed:''}); ext.flatSpeed=String(+v.toFixed(1)); setJSON(LS_EXT,ext);
+  }
+  function setBoth(v,src){
+    if(!Number.isFinite(v)||v<=0) return v;
+    v=+v.toFixed(1);
+    setVal('modal-spd',v);
+    setVal('modal-flat-speed',v);
+    setVal('mcp-spd',v);
+    setVal('r-movespd',v);
+    if(typeof mcp==='object'){mcp.spd=v;}
+    try{window.baseSpdValue=v;}catch(e){}
+    syncStored(v); saveSource(src||'apply');
+    return v;
+  }
+  function modalCurrent(){
+    var spd=n(el('modal-spd')&&el('modal-spd').value,0);
+    var flat=n(el('modal-flat-speed')&&el('modal-flat-speed').value,0);
+    var pref=getJSON(LS_PREF,{}), ext=getJSON(LS_EXT,{});
+    var pspd=n(pref.spd,0), eflat=n(ext.flatSpeed,0), mspd=n(el('mcp-spd')&&el('mcp-spd').value,0);
+    var src=readSource().src;
+    if(src==='flat' && flat>0) return flat;
+    if(src==='spd' && spd>0) return spd;
+    // 起動直後など旧データが不一致の場合は、基本設定側の pref.spd を優先する。
+    if(pspd>0 && eflat>0 && Math.abs(pspd-eflat)>0.15) return pspd;
+    return flat>0 ? flat : (spd>0 ? spd : (pspd>0 ? pspd : (eflat>0 ? eflat : (mspd>0 ? mspd : 30))));
+  }
+  function normalize(src){
+    var v=modalCurrent();
+    return setBoth(v,src||readSource().src||'normalize');
+  }
+  window.rppNormalizeFlatSpeedSingleSource=normalize;
+
+  document.addEventListener('input',function(ev){
+    var id=ev.target&&ev.target.id;
+    if(id==='modal-spd' || id==='modal-flat-speed'){
+      var src=id==='modal-flat-speed'?'flat':'spd';
+      var v=n(ev.target.value,0);
+      if(v>0) setBoth(v,src);
+    }
+  },true);
+  document.addEventListener('change',function(ev){
+    var id=ev.target&&ev.target.id;
+    if(id==='modal-spd' || id==='modal-flat-speed'){
+      var src=id==='modal-flat-speed'?'flat':'spd';
+      var v=n(ev.target.value,0);
+      if(v>0) setBoth(v,src);
+    }
+  },true);
+
+  var oldOpen=window.openSettingsModal;
+  if(typeof oldOpen==='function'){
+    window.openSettingsModal=function(){
+      var r=oldOpen.apply(this,arguments);
+      setTimeout(function(){normalize('open')},0);
+      return r;
+    };
+  }
+  var oldApply=window.rppApplyRideModalToTop;
+  if(typeof oldApply==='function'){
+    window.rppApplyRideModalToTop=function(closeAfter){
+      normalize('apply');
+      var ret=oldApply.apply(this,arguments);
+      setTimeout(function(){normalize('apply')},0);
+      return ret;
+    };
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){setTimeout(function(){normalize('load')},0)},{once:true});
+  else setTimeout(function(){normalize('load')},0);
+})();
+</script>
+
 </body>
 </html>
