@@ -1020,6 +1020,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
           <button class="poi-float-btn cmd-danger" onclick="if(confirm('コースを完全に削除して初期状態へ戻しますか？')) hardClearRoute()" title="コース削除・初期化">🗑️<div>削除</div></button>
           <button class="poi-float-btn" onclick="undoRoute()" title="直前の地点操作を戻す">↩️<div>戻る</div></button>
           <button class="poi-float-btn" onclick="redoRoute()" title="戻した地点操作をやり直す">↪️<div>進む</div></button>
+          <button class="poi-float-btn" onclick="reverseCourseDirection()" title="スタートとゴールを入れ替える（GPX対応）">🔁<div>反転</div></button>
           <button class="poi-float-btn" id="current-location-float" onclick="returnToCurrentLocation()" title="現在地へ地図を戻す">◎<div>現在地</div></button>
           <button class="poi-float-btn" id="route-lock-float" onclick="toggleRouteLock()" title="コースを固定する">🔓<div>編集</div></button>
           <button class="poi-float-btn" id="force-waypoint-float" onclick="toggleForceWaypointMode()" title="通したい道路に強制経由点を追加">◆<div>経由</div></button>
@@ -1206,6 +1207,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
     <button class="bs" onclick="hardClearRoute()"  style="font-size:11px;padding:4px 8px">🗑</button>
     <button class="bs" onclick="undoRoute()"        style="font-size:11px;padding:4px 8px">↩</button>
     <button class="bs" onclick="redoRoute()"        style="font-size:11px;padding:4px 8px">↪</button>
+    <button class="bs" onclick="reverseCourseDirection()" title="スタート・ゴールを入れ替える（GPX対応）" style="font-size:11px;padding:4px 8px">🔁 反転</button>
     <button class="bs" onclick="returnToCurrentLocation()" title="現在地へ地図を戻す" style="font-size:11px;padding:4px 8px">◎ 現在地</button>
     <button class="course-btn" id="route-lock-inline" onclick="toggleRouteLock()" title="コースを固定する">🔓 編集可能</button>
     <button class="bp" onclick="downloadGPX()" title="作成したコースをGPXで保存" style="font-size:12px;padding:6px 12px;font-weight:800;background:var(--green);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.18)">💾 GPX保存</button>
@@ -6716,6 +6718,71 @@ function redoRoute(){
   applyWaypointState(redoStack.pop());
 }
 
+/* スタート・ゴール入替：通常コースは経由点順を反転、GPXは原本線形を保持して反転 */
+function reverseCourseDirection(){
+  if(waypoints.length<2){notifyRouteEdit('スタートとゴールがあるコースを作成してください');return;}
+  saveHistory();
+  const oldKinds=waypointKinds.slice();
+  const oldSegments={...manualSegments};
+  const wasLocked=isRouteLocked();
+  const wasGPX=!!(window._gpxImportedPath&&window._routeData&&window._routeData.source==='gpx');
+  const priorGPX=wasGPX?window._gpxImportedPath.slice():null;
+  const priorPts=wasGPX&&Array.isArray(window._gpxImportedPoints)?window._gpxImportedPoints.slice():null;
+  const filename=wasGPX?(window._routeData.filename||'import.gpx'):'';
+  // 非同期の旧ルート計算・標高補完による上書きを防ぐ。
+  window._routeCalcSeq=(window._routeCalcSeq||0)+1;
+  clearRouteEditOverlays();
+  if(window._mergedPolyline){window._mergedPolyline.setMap(null);window._mergedPolyline=null;}
+  try{directionsRenderer.setDirections({routes:[]});}catch(e){}
+  waypoints.reverse();
+  waypointKinds=oldKinds.reverse();
+  manualSegments={};
+  const count=waypoints.length-1;
+  for(const [key,value] of Object.entries(oldSegments)){
+    const idx=Number(key);
+    if(value&&Number.isInteger(idx)&&idx>=0&&idx<count) manualSegments[count-1-idx]=true;
+  }
+  // 終端だけをゴールとする。途中の強制経由点は維持する。
+  waypointKinds=waypointKinds.map((kind,i)=>i===waypoints.length-1?'goal':kind==='goal'?'normal':kind);
+  goalFixed=true;
+  markers.forEach(marker=>marker&&marker.setMap(null));markers=[];
+  waypoints.forEach((point,i)=>createMarker(point,i));
+  updateGoalFlagBtn();
+  renderWpList();
+  if(wasGPX){
+    const reversedPath=priorGPX.reverse();
+    window._gpxImportedPath=reversedPath;
+    window._gpxImportedPoints=priorPts?priorPts.reverse():null;
+    lastRoutePath=reversedPath;
+    window._mergedPolyline=new google.maps.Polyline({
+      path:reversedPath,strokeColor:'#e24b4a',strokeWeight:4,strokeOpacity:0.88,
+      map:gmap,clickable:false,zIndex:420
+    });
+    if(window._gpxImportedPoints){
+      _applyGPXMetrics(window._gpxImportedPoints,reversedPath,filename);
+    }else{
+      // 旧状態に標高点の原本がない場合にもプロファイルの向きを合わせる。
+      if(Array.isArray(lastElevResults)){
+        lastElevResults.reverse();
+        try{drawElevProfile(lastElevResults);}catch(e){}
+      }
+      if(window._routeData){
+        const a=reversedPath[0],b=reversedPath[reversedPath.length-1];
+        window._routeData.bearing=calcBearing(a.lat(),a.lng(),b.lat(),b.lng());
+      }
+    }
+    setRouteLocked(wasLocked,{silent:true});
+    if(!wasLocked) setupGPXRouteEditOverlays(reversedPath,window._routeCalcSeq);
+  }else{
+    window._gpxImportedPath=null;
+    window._gpxImportedPoints=null;
+    lastRoutePath=[];lastRouteResult=null;
+    setRouteLocked(wasLocked,{silent:true});
+    calcRoute();
+  }
+  notifyRouteEdit('🔁 スタートとゴールを入れ替えました');
+}
+
 function applyWaypointState(state){
   // Undo/Redoでは差分更新をしない。
   // 地点配列・マーカー・ルート線を履歴の状態から完全に再構築する。
@@ -6986,6 +7053,7 @@ function _resetRouteForGPXImport(){
   window._lastRouteEditResults=null;
   window._lastRouteEditRequestId=0;
   window._gpxImportedPath=null;
+  window._gpxImportedPoints=null;
   window.__gpxGpsBannerSuppressed=true;
   hideGpsBanner();
   updateRouteLockUI();
@@ -7131,6 +7199,7 @@ function importGPXText(txt, filename){
   const drawPts=_sampleArray(pts,1200);
   const path=drawPts.map(p=>new google.maps.LatLng(p.lat,p.lng));
   window._gpxImportedPath=path;
+  window._gpxImportedPoints=pts.map(p=>({...p}));
   window._mergedPolyline=new google.maps.Polyline({
     path, strokeColor:'#e24b4a', strokeWeight:4, strokeOpacity:0.88, map:gmap,
     clickable:false, zIndex:420
