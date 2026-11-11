@@ -4054,7 +4054,7 @@ function toggleRoutePointRegistration(){
   if(_routePointRegisterMode && _forceWaypointMode) toggleForceWaypointMode(false);
   document.getElementById('route-point-float')?.classList.toggle('active',_routePointRegisterMode);
   document.getElementById('route-point-register-btn')?.classList.toggle('on',_routePointRegisterMode);
-  notifyRouteEdit(_routePointRegisterMode?'📍 赤いルート線をタップすると、その地点を経由地として登録します':'地点登録モードを終了しました');
+  notifyRouteEdit(_routePointRegisterMode?'📍 赤いルート線をタップすると、最後の番号の次に地点を追加します':'地点登録モードを終了しました');
 }
 
 let lastRouteResult=null, lastElevResults=null, lastRoutePath=null;
@@ -5615,8 +5615,26 @@ function routeEditInteractionLocked(){
 
 function insertRouteEditWaypoint(segmentIndex,clickedPoint,segmentPath,options={}){
   if(routeEditInteractionLocked()||segmentIndex<0||segmentIndex>=waypoints.length-1) return;
-  const insertIdx=segmentIndex+1;
   const snappedPoint=closestPointOnRoutePath(clickedPoint,segmentPath);
+  // 「📍 地点」モードは、タップ位置が過去の区間上でも末尾に追加する。
+  // 区間編集（◆）だけ従来どおり区間内へ挿入する。
+  if(options.pointRegistration){
+    saveHistory();
+    const oldLast=waypoints.length-1;
+    const wasGoal=goalFixed;
+    if(wasGoal && waypointKinds[oldLast]==='goal') waypointKinds[oldLast]='normal';
+    waypoints.push(snappedPoint);
+    waypointKinds.push(wasGoal?'goal':'normal');
+    markers.forEach(marker=>marker&&marker.setMap(null));
+    markers=[];
+    waypoints.forEach((point,index)=>createMarker(point,index));
+    renderWpList();
+    updateGoalFlagBtn();
+    notifyRouteEdit('📍 地点 '+(waypoints.length-1)+' を最後に追加しました（既存番号は維持）');
+    calcRoute();
+    return;
+  }
+  const insertIdx=segmentIndex+1;
   saveHistory();
   shiftManualSegmentsForInsert(insertIdx);
   waypoints.splice(insertIdx,0,snappedPoint);
