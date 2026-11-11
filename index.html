@@ -10594,6 +10594,27 @@ body.pc-mode .ride-settings-col{overflow-y:auto}
       }
     }
     paintLapUI(lap,metrics);
+    // Keep the right-side route summary on the same finalized LAP snapshot as the top panel.
+    // This is display-only: no route calculation or waypoint state is modified here.
+    if(metrics && metrics.baseDist>0){
+      var summary=el('route-summary-panel');
+      if(summary){
+        summary.style.display='block';
+        var summaryValues={
+          'rsp-dist':metrics.dist.toFixed(1)+' km',
+          'rsp-elev':Math.round(metrics.elev)+' m',
+          'rsp-time':el('mcp-total')?.textContent?.trim(),
+          'rsp-start':el('msb-start')?.textContent?.trim() ||
+            (el('mcp-start-h')?.textContent+':'+el('mcp-start-m')?.textContent),
+          'rsp-arrive':el('msb-arrive')?.textContent?.trim() ||
+            (el('mcp-end-h')?.textContent+':'+el('mcp-end-m')?.textContent)
+        };
+        Object.keys(summaryValues).forEach(function(id){
+          var target=el(id), value=summaryValues[id];
+          if(target && value && !value.includes('undefined')) target.textContent=value;
+        });
+      }
+    }
   }
   window.adjustLapCount=function(delta){window.__rppLapCount=clamp(getLap()+n(delta,0));recalcAll()};
   window.setLapCount=function(v){window.__rppLapCount=clamp(v);recalcAll()};
