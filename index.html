@@ -6137,6 +6137,19 @@ function routeDist(route){
 }
 
 
+/* コース進行方向：既存の赤いルート線に一定間隔で矢印を重ねる。 */
+function courseDirectionIcons(){
+  return [{
+    icon:{
+      path:google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+      scale:2.6,
+      fillColor:'#ffffff',fillOpacity:1,
+      strokeColor:'#b91c1c',strokeOpacity:1,strokeWeight:1.1
+    },
+    offset:'85px',repeat:'170px'
+  }];
+}
+
 function mergeAndProcessRoutes(results,routeRequestId){
   // Undo/Redoや地点変更後に、古い非同期計算結果で地図を上書きしない。
   if(routeRequestId!==window._routeCalcSeq) return;
@@ -6174,6 +6187,7 @@ function mergeAndProcessRoutes(results,routeRequestId){
     strokeColor:'#e24b4a',
     strokeWeight:4,
     strokeOpacity:0.85,
+    icons:courseDirectionIcons(),
     map:gmap,
     clickable:false,
     zIndex:420
@@ -6794,7 +6808,7 @@ function reverseCourseDirection(){
     lastRoutePath=reversedPath;
     window._mergedPolyline=new google.maps.Polyline({
       path:reversedPath,strokeColor:'#e24b4a',strokeWeight:4,strokeOpacity:0.88,
-      map:gmap,clickable:false,zIndex:420
+      icons:courseDirectionIcons(),map:gmap,clickable:false,zIndex:420
     });
     if(window._gpxImportedPoints){
       _applyGPXMetrics(window._gpxImportedPoints,reversedPath,filename);
@@ -7240,7 +7254,7 @@ function importGPXText(txt, filename){
   window._gpxImportedPoints=pts.map(p=>({...p}));
   window._mergedPolyline=new google.maps.Polyline({
     path, strokeColor:'#e24b4a', strokeWeight:4, strokeOpacity:0.88, map:gmap,
-    clickable:false, zIndex:420
+    icons:courseDirectionIcons(),clickable:false, zIndex:420
   });
 
   // 編集用マーカーだけ最大21点。GPX本体の形状・距離計算は全点を使用。
