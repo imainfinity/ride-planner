@@ -1024,6 +1024,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
           <button class="poi-float-btn" id="current-location-float" onclick="returnToCurrentLocation()" title="現在地へ地図を戻す">◎<div>現在地</div></button>
           <button class="poi-float-btn" id="route-lock-float" onclick="toggleRouteLock()" title="コースを固定する">🔓<div>編集</div></button>
           <button class="poi-float-btn" id="force-waypoint-float" onclick="toggleForceWaypointMode()" title="通したい道路に強制経由点を追加">◆<div>経由</div></button>
+          <button class="poi-float-btn" id="route-point-float" onclick="toggleRoutePointRegistration()" title="赤いコース線の上へ通常の地点を登録">📍<div>地点</div></button>
           <button class="poi-float-btn cmd-gpx" onclick="downloadGPX()" title="GPX保存">💾<div>GPX</div></button>
           <button class="poi-float-btn cmd-gpx" onclick="triggerGPXImport()" title="GPX読込">📂<div>読込</div></button>
           <button class="poi-float-btn" id="map-focus-toggle" onclick="toggleMapFocusMode()" title="地図を最大化">⛶<div>最大化</div></button>
@@ -1219,6 +1220,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
       <button type="button" class="course-btn" data-route-mode-btn="road" onclick="setRouteMode('road')">🛣 一般車道</button>
       <button type="button" class="course-btn" data-route-mode-btn="toll" onclick="setRouteMode('toll')">🚘 有料道路</button>
       <button type="button" class="course-btn" id="force-waypoint-btn" onclick="toggleForceWaypointMode()">◆ 強制経由</button>
+      <button type="button" class="course-btn" id="route-point-register-btn" onclick="toggleRoutePointRegistration()">📍 線上に地点</button>
       <span id="route-mode-current" class="hint">自転車優先</span>
       <span id="global-route-safety" class="hint" style="font-weight:800;color:var(--blue)">🇯🇵 日本・国別に自動・km</span>
       <span id="route-edit-hint" class="hint" style="display:none;color:var(--amber);font-weight:700">地図上の通したい道路をクリック</span>
@@ -4045,6 +4047,16 @@ let waypointKinds=[];
 // manualSegments: 区間開始インデックスをキーに、その区間だけ直線で結ぶ
 let manualSegments={};
 let _forceWaypointMode=false;
+let _routePointRegisterMode=false;
+function toggleRoutePointRegistration(){
+  if(isRouteLocked()){notifyRouteEdit('🔒 コースの鍵を解除してから地点を登録してください');return;}
+  _routePointRegisterMode=!_routePointRegisterMode;
+  if(_routePointRegisterMode && _forceWaypointMode) toggleForceWaypointMode(false);
+  document.getElementById('route-point-float')?.classList.toggle('active',_routePointRegisterMode);
+  document.getElementById('route-point-register-btn')?.classList.toggle('on',_routePointRegisterMode);
+  notifyRouteEdit(_routePointRegisterMode?'📍 赤いルート線をタップすると、その地点を経由地として登録します':'地点登録モードを終了しました');
+}
+
 let lastRouteResult=null, lastElevResults=null, lastRoutePath=null;
 let hoverPolyline=null; // ルート線上ホバー用の透明な太いライン
 // 結合ルートの各区間を正しく選択するための透明なタップ領域。
@@ -5608,7 +5620,7 @@ function insertRouteEditWaypoint(segmentIndex,clickedPoint,segmentPath,options={
   saveHistory();
   shiftManualSegmentsForInsert(insertIdx);
   waypoints.splice(insertIdx,0,snappedPoint);
-  waypointKinds.splice(insertIdx,0,'force');
+  waypointKinds.splice(insertIdx,0,options.pointRegistration?'normal':'force');
   markers.forEach(marker=>marker&&marker.setMap(null));
   markers=[];
   waypoints.forEach((point,index)=>createMarker(point,index));
@@ -5619,7 +5631,7 @@ function insertRouteEditWaypoint(segmentIndex,clickedPoint,segmentPath,options={
   }
   renderWpList();
   updateGoalFlagBtn();
-  notifyRouteEdit(options.gpx
+  notifyRouteEdit(options.pointRegistration?'📍 ルート線上に地点を登録しました':options.gpx
     ?'◆ GPX区間編集点を追加しました。通したい道路へドラッグしてください'
     :'◆ 区間編集点を追加しました。通したい道路へドラッグしてください');
   if(options.deferRecalc){
@@ -5646,7 +5658,8 @@ function setupMergedRouteEditOverlays(results,routeRequestId,options={}){
       if(routeRequestId!==window._routeCalcSeq||routeEditInteractionLocked()) return;
       _routeLineTapGuard=true;
       setTimeout(()=>{_routeLineTapGuard=false;},250);
-      insertRouteEditWaypoint(segmentIndex,event.latLng,path,options);
+      insertRouteEditWaypoint(segmentIndex,event.latLng,path,
+        _routePointRegisterMode?{...options,pointRegistration:true}:options);
     });
     overlay.addListener('mouseover',()=>overlay.setOptions({strokeOpacity:0.18}));
     overlay.addListener('mouseout',()=>overlay.setOptions({strokeOpacity:0.01}));
@@ -6238,6 +6251,13 @@ function setupRouteDragOverlay(result){
     if(_poiSelectMode) return; // POIエリア選択中はwaypoint追加をロック
     if(routeMutationBlocked()) return;
     const clickLl=e.latLng;
+    if(_routePointRegisterMode){
+      _routeLineTapGuard=true;
+      setTimeout(()=>{_routeLineTapGuard=false;},250);
+      var segment=nearestWaypointSegmentIndex(clickLl);
+      insertRouteEditWaypoint(segment,clickLl,path,{pointRegistration:true});
+      return;
+    }
 
     // ルートパス上でクリック地点に最近傍のセグメントを特定
     // → そのセグメントが属するlegのインデックスから挿入位置を決定
@@ -10513,6 +10533,48 @@ body.pc-mode .ride-settings-col{overflow-y:auto}
         else if(typeof renderCaloriePanel==='function') renderCaloriePanel(mins,weight);
       }
     }catch(e){}
+    // The calculation paths above may repaint one-lap values after the route was scaled.
+    // Reconcile all top-level distance/elevation widgets from the authoritative LAP total.
+    if(metrics && metrics.baseDist>0){
+      var dist=metrics.dist, elev=metrics.elev;
+      if(window.mcp){mcp.dist=dist;mcp.elev=elev;mcp.source='route';}
+      ['mcp-dist','r-dist'].forEach(function(id){var x=el(id);if(x)x.value=dist;});
+      ['mcp-elev','r-elev'].forEach(function(id){var x=el(id);if(x)x.value=Math.round(elev);});
+      ['mcp-dist-display','mcp-sb-dist-display'].forEach(function(id){var x=el(id);if(x)x.textContent=dist.toFixed(1)+' km';});
+      ['mcp-elev-display','mcp-sb-elev-display'].forEach(function(id){var x=el(id);if(x)x.textContent=Math.round(elev)+' m';});
+      // Time depends on current adjusted moving speed and Ratio, not the previous LAP result.
+      var speed=n((el('mcp-corrected-spd-display')?.textContent||'').replace(/[^0-9.]/g,''),0);
+      var ratio=mode==='ride'?Math.max(.3,Math.min(1,n(el('modal-ratio')?.value,n(el('r-ratio')?.value,85))/100)):1;
+      if(speed>0){
+        var totalMins=dist/speed*60/ratio;
+        window._lastTotalMins=totalMins;
+        var minutes=Math.max(0,Math.round(totalMins));
+        var timeText=Math.floor(minutes/60)+':'+String(minutes%60).padStart(2,'0');
+        ['mcp-total','mcp-sb-total','msb-time','rsp-time'].forEach(function(id){var x=el(id);if(x)x.textContent=timeText;});
+        // The full time synchronization routine uses the selected START/GOAL anchor.
+        // Do not move user-entered anchor time; recalculate only the opposite endpoint.
+        if(window.mcp){
+          var timeMode=localStorage.getItem('rpp_time_mode')||'start-first';
+          var getClock=function(total){total=((Math.round(total)%1440)+1440)%1440;return {h:Math.floor(total/60),m:total%60};};
+          var start,goal;
+          if(timeMode==='goal-first' && Number.isFinite(mcp.endH) && Number.isFinite(mcp.endM)){
+            goal={h:mcp.endH,m:mcp.endM};start=getClock(goal.h*60+goal.m-totalMins);
+            mcp.startH=start.h;mcp.startM=start.m;
+          }else{
+            start={h:Number(mcp.startH)||0,m:Number(mcp.startM)||0};goal=getClock(start.h*60+start.m+totalMins);
+            mcp.endH=goal.h;mcp.endM=goal.m;
+          }
+          [['mcp-start',start],['mcp-end',goal],['mcp-sb-start',start],['mcp-sb-end',goal]].forEach(function(pair){
+            var h=el(pair[0]+'-h'),m=el(pair[0]+'-m');
+            if(h)h.textContent=String(pair[1].h).padStart(2,'0');
+            if(m)m.textContent=String(pair[1].m).padStart(2,'0');
+          });
+          var st=el('msb-start'),ar=el('msb-arrive');
+          if(st)st.textContent=String(start.h).padStart(2,'0')+':'+String(start.m).padStart(2,'0');
+          if(ar)ar.textContent=String(goal.h).padStart(2,'0')+':'+String(goal.m).padStart(2,'0');
+        }
+      }
+    }
     paintLapUI(lap,metrics);
   }
   window.adjustLapCount=function(delta){window.__rppLapCount=clamp(getLap()+n(delta,0));recalcAll()};
