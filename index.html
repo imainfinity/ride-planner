@@ -6699,6 +6699,155 @@ function robustGradeStats(elevations,totalM){
   return {values,maxGrade,rawMaxGrade,steepPct,windowM:actualWindowM,clamped:rawMaxGrade>35};
 }
 
+/* ── 標高急変候補チェック：元データを初期値として保持 ── */
+let elevationAnomalyDialogState=null;
+let elevationAnomalyDialogSuppress=false;
+function detectElevationValleyCandidates(elevations,distances){
+  if(!elevations||elevations.length<5||distances.length!==elevations.length) return [];
+  const found=[];
+  for(let k=2;k<elevations.length-2;k++){
+    const h=elevations[k];
+    if(!Number.isFinite(h)||h>elevations[k-1]||h>=elevations[k+1]) continue;
+    // 検査窓は片側最大350m。強い上下動でも単独の急坂だけでは候補にしない。
+    let left=k-1,right=-1;
+    for(let i=k-1;i>=0&&distances[k]-distances[i]<=350;i--){
+      if(Number.isFinite(elevations[i])&&elevations[i]>elevations[left]) left=i;
+    }
+    const initialDrop=elevations[left]-h;
+    if(initialDrop<25) continue;
+    // 下流側の最大標高を選ぶと実際の登坂まで巻き込むため、
+    // 橋の手前と近い標高へ「最初に戻った地点」を終点にする。
+    const heightTolerance=Math.max(12,initialDrop*0.30);
+    for(let i=k+1;i<elevations.length&&distances[i]-distances[k]<=350;i++){
+      if(!Number.isFinite(elevations[i]))continue;
+      if(Math.abs(elevations[i]-elevations[left])<=heightTolerance){right=i;break;}
+    }
+    if(right<0)continue;
+    const drop=elevations[left]-h, rebound=elevations[right]-h;
+    const span=distances[right]-distances[left];
+    if(drop<25||rebound<25||span<=0||span>600) continue;
+    if(Math.min(drop,rebound)/Math.max(drop,rebound)<0.70) continue;
+    if(Math.max(drop/Math.max(1,distances[k]-distances[left]),rebound/Math.max(1,distances[right]-distances[k]))<0.20) continue;
+    const startElevation=elevations[left],endElevation=elevations[right];
+    // 谷底付近だけが低い場合の「補正候補」を算出。確定的な誤差とは扱わない。
+    const proposed=elevations.slice();
+    for(let i=left+1;i<right;i++){
+      const t=(distances[i]-distances[left])/span;
+      proposed[i]=startElevation+(endElevation-startElevation)*t;
+    }
+    let originalGain=0,proposedGain=0;
+    for(let i=left+1;i<=right;i++){
+      originalGain+=Math.max(0,elevations[i]-elevations[i-1]);
+      proposedGain+=Math.max(0,proposed[i]-proposed[i-1]);
+    }
+    const impact=Math.max(0,originalGain-proposedGain);
+    if(impact<12) continue;
+    found.push({left,right,low:k,drop,rebound,span,impact,startKm:distances[left]/1000,endKm:distances[right]/1000});
+  }
+  // 谷の最深部が複数点にまたがる場合は1件として集約。重複補間を避ける。
+  found.sort((a,b)=>b.impact-a.impact);
+  const picked=[];
+  for(const c of found){
+    if(!picked.some(p=>c.left<=p.right&&c.right>=p.left)) picked.push(c);
+    if(picked.length>=12) break;
+  }
+  return picked.sort((a,b)=>a.left-b.left);
+}
+function ensureElevationAnomalyDialog(){
+  if(document.getElementById('elevation-anomaly-dialog')) return;
+  const style=document.createElement('style');
+  style.textContent=`#elevation-anomaly-dialog{display:none;position:fixed;inset:0;z-index:100060;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.56);backdrop-filter:blur(4px)}
+  #elevation-anomaly-dialog.visible{display:flex}#elevation-anomaly-dialog .eac-card{background:var(--panel,#fff);color:var(--text,#222);border:1px solid var(--border,#ddd);border-radius:15px;width:min(560px,100%);max-height:87vh;overflow:auto;padding:20px;box-shadow:0 18px 54px #0004}
+  #elevation-anomaly-dialog .eac-row{display:flex;align-items:center;gap:10px;padding:10px 3px;border-bottom:1px solid var(--border,#ddd)}
+  #elevation-anomaly-dialog .eac-row input{width:20px;height:20px;flex-shrink:0;accent-color:#317bd4}#elevation-anomaly-dialog .eac-actions{display:flex;gap:9px;flex-wrap:wrap;justify-content:flex-end;margin-top:16px}
+  #elevation-anomaly-dialog button{border-radius:9px;padding:10px 13px;font-weight:700;cursor:pointer;border:1px solid var(--border,#aaa)}
+  #elevation-anomaly-dialog .eac-keep{background:var(--panel,#fff);color:var(--text,#222)}#elevation-anomaly-dialog .eac-apply{background:#2677bf;color:white;border-color:#2677bf}
+  #elevation-anomaly-dialog .eac-apply:disabled{opacity:.4;cursor:not-allowed}`;
+  document.head.appendChild(style);
+  const div=document.createElement('div');div.id='elevation-anomaly-dialog';
+  div.setAttribute('role','dialog');div.setAttribute('aria-modal','true');div.setAttribute('aria-label','標高急変の確認');
+  div.innerHTML=`<div class="eac-card"><div style="display:flex;align-items:start;justify-content:space-between;gap:12px"><div><div style="font-size:18px;font-weight:800">⛰ 標高の急変を検出しました</div><p style="font-size:12px;opacity:.75;margin:7px 0">橋・谷・道路の急勾配などの可能性があります。誤差とは断定できません。</p></div><button type="button" class="eac-close" aria-label="閉じる">×</button></div><p class="eac-summary" style="font-size:13px;margin:12px 0"></p><div class="eac-items"></div><p class="eac-preview" style="font-size:13px;font-weight:700;margin:14px 0 0"></p><p style="font-size:12px;opacity:.72;margin:7px 0">初期状態は元データ維持です。チェックした区間だけ、前後の標高を結ぶ補間を適用します。未知の橋を自動確定する機能ではありません。</p><div class="eac-actions"><button type="button" class="eac-keep">元の標高を維持</button><button type="button" class="eac-apply" disabled>選択箇所を補正して反映</button></div></div>`;
+  document.body.appendChild(div);
+  const close=()=>{div.classList.remove('visible');elevationAnomalyDialogState=null;};
+  div.querySelector('.eac-close').addEventListener('click',close);
+  div.querySelector('.eac-keep').addEventListener('click',close);
+  div.addEventListener('click',e=>{if(e.target===div)close();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&div.classList.contains('visible'))close();});
+  div.querySelector('.eac-items').addEventListener('change',()=>{
+    const state=elevationAnomalyDialogState;if(!state)return;
+    const selected=[...div.querySelectorAll('input.eac-pick:checked')].map(e=>+e.value);
+    div.querySelector('.eac-apply').disabled=!selected.length;
+    const heights=applySelectedElevationValleys(state.heights,state.distances,state.candidates,selected);
+    const revised=Math.round(elevationPositiveGain(heights));
+    div.querySelector('.eac-preview').textContent=`現在 ${Math.round(elevationPositiveGain(state.heights))} m → ${selected.length?'補正後推定 '+revised+' m':'元データ維持'}`;
+  });
+  div.querySelector('.eac-apply').addEventListener('click',()=>{
+    const state=elevationAnomalyDialogState;if(!state)return;
+    // 違うルートへ変更されていたら適用しない。
+    if(state.routePath!==lastRoutePath){close();return;}
+    const selected=[...div.querySelectorAll('input.eac-pick:checked')].map(e=>+e.value);
+    if(!selected.length)return;
+    const heights=applySelectedElevationValleys(state.heights,state.distances,state.candidates,selected);
+    const apply=state.apply;close();
+    elevationAnomalyDialogSuppress=true;
+    try{apply(heights);}finally{elevationAnomalyDialogSuppress=false;}
+  });
+}
+function applySelectedElevationValleys(original,distances,candidates,selected){
+  const output=original.slice();
+  for(const id of selected){
+    const c=candidates[id];if(!c)continue;
+    const span=distances[c.right]-distances[c.left];if(!(span>0))continue;
+    for(let i=c.left+1;i<c.right;i++){
+      const t=(distances[i]-distances[c.left])/span;
+      output[i]=original[c.left]*(1-t)+original[c.right]*t;
+    }
+  }
+  return output;
+}
+function showElevationAnomalyCandidates(heights,distances,apply,routePath){
+  if(elevationAnomalyDialogSuppress) return;
+  const candidates=detectElevationValleyCandidates(heights,distances);
+  if(!candidates.length) return;
+  ensureElevationAnomalyDialog();
+  elevationAnomalyDialogState={heights:heights.slice(),distances:distances.slice(),candidates,apply,routePath};
+  const modal=document.getElementById('elevation-anomaly-dialog');
+  const items=modal.querySelector('.eac-items');items.replaceChildren();
+  for(const [i,c] of candidates.entries()){
+    const row=document.createElement('label');row.className='eac-row';
+    const input=document.createElement('input');input.type='checkbox';input.className='eac-pick';input.value=String(i);input.checked=false;
+    const content=document.createElement('div');
+    content.innerHTML=`<strong>${c.startKm.toFixed(2)}〜${c.endKm.toFixed(2)} km</strong><div style="font-size:12px;opacity:.8">下降 ${c.drop.toFixed(1)}m → 再上昇 ${c.rebound.toFixed(1)}m ／ 区間 ${Math.round(c.span)}m ／ 補正影響目安 −${Math.round(c.impact)}m</div>`;
+    row.append(input,content);items.appendChild(row);
+  }
+  modal.querySelector('.eac-summary').textContent=`${candidates.length}箇所の異常候補があります。元の獲得標高 ${Math.round(elevationPositiveGain(heights))}m。`;
+  modal.querySelector('.eac-preview').textContent='現在の標高データを維持します';
+  modal.querySelector('.eac-apply').disabled=true;
+  modal.classList.add('visible');
+}
+function inspectGoogleElevationAnomalies(elevResults,distKm,path){
+  if(elevationAnomalyDialogSuppress||!elevResults||elevResults.length<5||!path||path.length<2)return;
+  const totalM=buildRouteDistanceIndex(path).totalM;
+  const heights=elevResults.map(p=>Number(p.elevation));
+  const distances=heights.map((_,i)=>totalM*i/(heights.length-1));
+  showElevationAnomalyCandidates(heights,distances,updated=>{
+    const revised=elevResults.map((p,i)=>({...p,elevation:updated[i]}));
+    const source=window._routeData?.source,filename=window._routeData?.filename;
+    processElevation(revised,distKm,path);
+    if(source){window._routeData.source=source;window._routeData.filename=filename;}
+  },path);
+}
+function inspectGPXElevationAnomalies(gpxPts,path,filename){
+  if(elevationAnomalyDialogSuppress||gpxPts.length<5||gpxPts.some(p=>!Number.isFinite(p.ele)))return;
+  const ix=buildRouteDistanceIndex(gpxPts.map(p=>new google.maps.LatLng(p.lat,p.lng)));
+  const heights=gpxPts.map(p=>p.ele);
+  showElevationAnomalyCandidates(heights,ix.cum,updated=>{
+    const corrected=gpxPts.map((p,i)=>({...p,ele:updated[i]}));
+    window._gpxImportedPoints=corrected.map(p=>({...p}));
+    _applyGPXMetrics(corrected,path,filename);
+  },path);
+}
+
 /* ── 標高 → プランナー反映 ── */
 function processElevation(elevResults,distKm,path){
   const elevs=elevResults.map(e=>e.elevation);
@@ -6753,6 +6902,7 @@ function processElevation(elevResults,distKm,path){
   // ★ MCP経由で全UI同期（競合防止）
   mcpSyncFromRoute();
   updateMapStatsBar(distKm, gainM, maxGrade, avgGrade);
+  inspectGoogleElevationAnomalies(elevResults,distKm,path);
 }
 
 function applyDistOnly(distKm){
@@ -7292,9 +7442,9 @@ function _applyGPXMetrics(gpxPts, path, filename){
   window._routeDistanceIndex=null;
   scheduleRouteRestrictionCheck();
 
-  // GPXの標高をそのままプロファイルへ。描画負荷を抑えるため最大180点。
+  // GPX補正箇所もGPX保存へ反映できるよう、標高プロファイルは最大2000点を保持。
   if(haveElev){
-    const elevPts=_sampleArray(gpxPts.filter(p=>Number.isFinite(p.ele)),180);
+    const elevPts=_sampleArray(gpxPts.filter(p=>Number.isFinite(p.ele)),2000);
     const originalPath=gpxPts.map(p=>new google.maps.LatLng(p.lat,p.lng));
     const originalIndex=buildRouteDistanceIndex(originalPath);
     lastElevResults=elevPts.map(p=>{
@@ -7332,6 +7482,7 @@ function _applyGPXMetrics(gpxPts, path, filename){
   try{ mcpSyncFromRoute(); }catch(e){ console.warn('GPX MCP sync',e); }
   try{ updateMapStatsBar(distKm.toFixed(1),haveElev?gainM:0,haveElev?maxGrade:0,haveElev?avgGrade:0); }catch(e){}
   try{ renderWpList(); updateGoalFlagBtn(); }catch(e){}
+  if(haveElev) inspectGPXElevationAnomalies(gpxPts,path,filename);
 }
 
 function importGPXText(txt, filename){
