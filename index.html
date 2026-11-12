@@ -1017,7 +1017,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
         </div>
         <div class="map-float-stack map-route-stack" aria-label="コース操作">
           <div class="map-float-stack-label">ROUTE</div>
-          <button class="poi-float-btn cmd-danger" onclick="if(confirm('コースを完全に削除して初期状態へ戻しますか？')) hardClearRoute()" title="コース削除・初期化">🗑️<div>削除</div></button>
+          <button class="poi-float-btn cmd-danger" style="font-size:23px;min-height:44px" onclick="if(confirm('コースを完全に削除して初期状態へ戻しますか？')) hardClearRoute()" title="コース削除・初期化">🗑️<div>削除</div></button>
           <button class="poi-float-btn" onclick="undoRoute()" title="直前の地点操作を戻す">↩️<div>戻る</div></button>
           <button class="poi-float-btn" onclick="redoRoute()" title="戻した地点操作をやり直す">↪️<div>進む</div></button>
           <button class="poi-float-btn" onclick="reverseCourseDirection()" title="スタートとゴールを入れ替える（GPX対応）">🔁<div>反転</div></button>
@@ -1025,7 +1025,6 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
           <button class="poi-float-btn" id="route-lock-float" onclick="toggleRouteLock()" title="コースを固定する">🔓<div>編集</div></button>
           <button class="poi-float-btn" id="force-waypoint-float" onclick="toggleForceWaypointMode()" title="通したい道路に強制経由点を追加">◆<div>経由</div></button>
           <button class="poi-float-btn" id="route-point-float" onclick="toggleRoutePointRegistration()" title="赤いコース線の上へ通常の地点を登録">📍<div>地点</div></button>
-          <button class="poi-float-btn cmd-gpx" onclick="downloadGPX()" title="GPX保存">💾<div>GPX</div></button>
           <button class="poi-float-btn cmd-gpx" onclick="triggerGPXImport()" title="GPX読込">📂<div>読込</div></button>
           <button class="poi-float-btn" id="map-focus-toggle" onclick="toggleMapFocusMode()" title="地図を最大化">⛶<div>最大化</div></button>
         </div>
@@ -1059,7 +1058,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
         </div>
       </div>
       <div id="map-hover" aria-live="polite">
-        <div id="mh-dist"></div><div id="mh-elev"></div><div id="mh-gain"></div><div id="mh-grade"></div>
+        <div id="mh-dist"></div><div id="mh-elev"></div><div id="mh-gain"></div><div id="mh-grade"></div><div id="mh-time" style="color:#fde68a;font-weight:800"></div>
       </div>
 
       <!-- ゴールフラッグボタン -->
@@ -1205,13 +1204,14 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
   <!-- 🗺️ ルート操作（コンパクト） -->
   <div id="route-mode-warn" style="display:none;font-size:10px;color:#f97316;padding:3px 6px;background:rgba(249,115,22,0.1);border-radius:4px;margin-bottom:4px">※ 一部区間で迂回/歩行ルートを使用中</div>
   <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">
-    <button class="bs" onclick="hardClearRoute()"  style="font-size:11px;padding:4px 8px">🗑</button>
+    <button class="bs" onclick="hardClearRoute()" title="コースを削除" aria-label="コースを削除" style="font-size:20px;line-height:1;padding:5px 10px;min-height:35px">🗑️</button>
     <button class="bs" onclick="undoRoute()"        style="font-size:11px;padding:4px 8px">↩</button>
     <button class="bs" onclick="redoRoute()"        style="font-size:11px;padding:4px 8px">↪</button>
     <button class="bs" onclick="reverseCourseDirection()" title="スタート・ゴールを入れ替える（GPX対応）" style="font-size:11px;padding:4px 8px">🔁 反転</button>
     <button class="bs" onclick="returnToCurrentLocation()" title="現在地へ地図を戻す" style="font-size:11px;padding:4px 8px">◎ 現在地</button>
     <button class="course-btn" id="route-lock-inline" onclick="toggleRouteLock()" title="コースを固定する">🔓 編集可能</button>
     <button class="bp" onclick="downloadGPX()" title="作成したコースをGPXで保存" style="font-size:12px;padding:6px 12px;font-weight:800;background:var(--green);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.18)">💾 GPX保存</button>
+    <button class="bs" type="button" onclick="triggerGPXImport()" title="GPXファイルからコースを読み込む" style="font-size:12px;padding:6px 12px;font-weight:800;min-height:35px">📂 GPX読込</button>
     <button class="bs" type="button" onclick="reverifyGoogleElevation()" title="同じルートの標高をGoogle Elevation APIで再取得して再集計" style="font-size:11px;padding:6px 9px;font-weight:800">⛰ 標高再検証</button>
     <button class="bs" onclick="showSaveDialog()"   style="font-size:11px;padding:4px 8px">💾</button>
     <button class="bp" onclick="manualSync()"       style="font-size:11px;padding:4px 10px">🔄</button>
@@ -5856,6 +5856,7 @@ function createMarker(latLng, idx){
     const distKm=waypoints.slice(0,idx+1).length>1?'—':'スタート';
     showMapHoverBar(popup);
     document.getElementById('mh-dist').textContent=`📍 地点 ${label}`;
+    const hm=document.getElementById('mh-time');if(hm)hm.textContent='';
     document.getElementById('mh-elev').textContent=`緯度 ${latLng.lat().toFixed(4)}`;
     document.getElementById('mh-gain').textContent=`経度 ${latLng.lng().toFixed(4)}`;
     document.getElementById('mh-grade').textContent='';
@@ -6320,6 +6321,7 @@ function setupRouteDragOverlay(result){
     document.getElementById('mh-elev').textContent=`⛰ ${elev.toFixed(0)} m`;
     document.getElementById('mh-gain').textContent=`📈 +${gain.toFixed(0)} m`;
     document.getElementById('mh-grade').textContent=`∠ ${grade.toFixed(1)}%`;
+    updateRouteHoverPassageTime(km);
   });
   overlay.addListener('mouseout',()=>{
     document.getElementById('map-hover').style.display='none';
@@ -6410,6 +6412,34 @@ function getRouteInfoAtLatLng(ll){
   return {km,elev:lastElevResults[elevIdx]?.elevation||0,gain,grade};
 }
 
+/* Profile/route hover: estimated passage clock based on the same top-panel trip time.
+   For multi-lap plans one map position is passed on every lap, so show each passage. */
+function updateRouteHoverPassageTime(km){
+  const target=document.getElementById('mh-time');
+  if(!target) return;
+  const distanceIndex=ensureRouteDistanceIndex();
+  if(!distanceIndex||!(distanceIndex.totalM>0)) {target.textContent='';return;}
+  const totalText=(document.getElementById('mcp-total')?.textContent||'').trim();
+  const match=totalText.match(/^(\d+):(\d{2})$/);
+  const duration=match?Number(match[1])*60+Number(match[2]):Number(window._lastTotalMins);
+  if(!Number.isFinite(duration)||duration<=0){target.textContent='';return;}
+  const sh=Number(document.getElementById('mcp-start-h')?.textContent);
+  const sm=Number(document.getElementById('mcp-start-m')?.textContent);
+  if(!Number.isInteger(sh)||sh<0||sh>23||!Number.isInteger(sm)||sm<0||sm>59){target.textContent='';return;}
+  const lap=Math.max(1,Math.min(10,Number(document.getElementById('lap-count-display')?.textContent)||1));
+  const ratio=Math.max(0,Math.min(1,(Number(km)||0)/(distanceIndex.totalM/1000)));
+  const startMinutes=sh*60+sm;
+  const times=[];
+  for(let i=0;i<lap;i++){
+    const abs=Math.round(startMinutes+duration*(i+ratio)/lap);
+    const clock=((abs%1440)+1440)%1440;
+    const day=Math.floor(abs/1440);
+    times.push(String(Math.floor(clock/60)).padStart(2,'0')+':'+String(clock%60).padStart(2,'0')+(day>0?' 翌日':day<0?' 前日':''));
+  }
+  target.textContent=lap===1?'🕒 通過予定 '+times[0]:
+    '🕒 通過予定 '+times.map((t,i)=>(i+1)+'周 '+t).join(' / ');
+}
+
 function showMapHoverBar(popup=document.getElementById('map-hover')){
   if(!popup) return;
   const elevWrap=document.getElementById('elev-wrap');
@@ -6453,6 +6483,7 @@ function onElevHover(e,centerMap=false){
   document.getElementById('mh-elev').textContent=`⛰️ ${elev.toFixed(0)} m`;
   document.getElementById('mh-gain').textContent=`📈 累計+${gain.toFixed(0)} m`;
   document.getElementById('mh-grade').textContent=`📐 斜度 ${grade.toFixed(1)}%`;
+  updateRouteHoverPassageTime(km);
   return ll;
 }
 
