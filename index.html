@@ -6390,9 +6390,13 @@ function routeDistanceRatioAtLatLng(ll){
 }
 
 /* ── ルート上の任意地点の情報を返す ── */
-function getRouteInfoAtLatLng(ll){
+function getRouteInfoAtLatLng(ll, knownDistanceRatio){
   if(!lastRoutePath||!lastElevResults) return {km:0,elev:0,gain:0,grade:0};
-  const ratio=routeDistanceRatioAtLatLng(ll);
+  // 標高グラフでは走行順序を保持した距離比を使う。
+  // 同じ道路を複数回通過する場合、緯度経度から再検索すると別の通過区間へ飛ぶ。
+  const ratio=Number.isFinite(knownDistanceRatio)
+    ?Math.max(0,Math.min(1,knownDistanceRatio))
+    :routeDistanceRatioAtLatLng(ll);
   const idx=ensureRouteDistanceIndex();
   const km=(idx.totalM*ratio)/1000;
   const elevIdx=Math.max(0,Math.min(lastElevResults.length-1,Math.round(ratio*(lastElevResults.length-1))));
@@ -6455,9 +6459,18 @@ function onElevHover(e,centerMap=false){
   const canvas=document.getElementById('elev-canvas');
   const rect=canvas.getBoundingClientRect();
   const px=Math.max(0,Math.min(rect.width,e.clientX-rect.left));
-  const ratio=rect.width?px/rect.width:0;
-  const idx=Math.round(ratio*(lastElevResults.length-1));
+  const graphRatio=rect.width?px/rect.width:0;
+  const samplePos=graphRatio*(lastElevResults.length-1);
+  const idx=Math.round(samplePos);
   if(idx<0||idx>=lastElevResults.length) return;
+  // GPXは標高点の間隔が等距離とは限らないため、元の累積距離比を補間。
+  // 通過時刻・地図カーソル・標高値を必ず同じ走行距離比で参照する。
+  const a=Math.floor(samplePos),b=Math.min(lastElevResults.length-1,a+1);
+  const ra=Number(lastElevResults[a].distanceRatio);
+  const rb=Number(lastElevResults[b].distanceRatio);
+  const ratio=Number.isFinite(ra)&&Number.isFinite(rb)
+    ?Math.max(0,Math.min(1,ra+(rb-ra)*(samplePos-a)))
+    :graphRatio;
 
   // カーソル線
   const cur=document.getElementById('elev-cursor');
@@ -6476,7 +6489,7 @@ function onElevHover(e,centerMap=false){
   if(centerMap&&gmap) gmap.panTo(ll);
 
   // 地点情報
-  const {km,elev,gain,grade}=getRouteInfoAtLatLng(ll);
+  const {km,elev,gain,grade}=getRouteInfoAtLatLng(ll,ratio);
   const popup=document.getElementById('map-hover');
   showMapHoverBar(popup);
   document.getElementById('mh-dist').textContent=`📍 ${km.toFixed(1)} km`;
