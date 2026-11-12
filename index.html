@@ -1212,6 +1212,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
     <button class="bs" onclick="returnToCurrentLocation()" title="現在地へ地図を戻す" style="font-size:11px;padding:4px 8px">◎ 現在地</button>
     <button class="course-btn" id="route-lock-inline" onclick="toggleRouteLock()" title="コースを固定する">🔓 編集可能</button>
     <button class="bp" onclick="downloadGPX()" title="作成したコースをGPXで保存" style="font-size:12px;padding:6px 12px;font-weight:800;background:var(--green);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.18)">💾 GPX保存</button>
+    <button class="bs" type="button" onclick="reverifyGoogleElevation()" title="同じルートの標高をGoogle Elevation APIで再取得して再集計" style="font-size:11px;padding:6px 9px;font-weight:800">⛰ 標高再検証</button>
     <button class="bs" onclick="showSaveDialog()"   style="font-size:11px;padding:4px 8px">💾</button>
     <button class="bp" onclick="manualSync()"       style="font-size:11px;padding:4px 10px">🔄</button>
     <input type="hidden" id="route-mode" value="cycle">
@@ -6212,30 +6213,15 @@ function mergeAndProcessRoutes(results,routeRequestId){
     warnEl.textContent=hasManual?'※ ✏️手動区間を含みます。通行可否は利用者確認が必要です。':'※ 一部区間で迂回/歩行ルートを使用中';
   }
 
-  // 標高取得：最大150点に間引き（OVER_QUERY_LIMIT回避）
+  // 標高は距離に沿って等間隔に取得する。地点数による単純間引きはカーブの密度に偏る。
   if(fullPath.length<2){ applyDistOnly(distKm); return; }
-  const N=150;
-  const sampled=fullPath.length<=N ? fullPath :
-    Array.from({length:N},(_,i)=>fullPath[Math.round(i*(fullPath.length-1)/(N-1))]);
-
-  function fetchElev(attempt){
+  fetchGoogleRouteElevation(fullPath, (elevResults,status)=>{
     if(routeRequestId!==window._routeCalcSeq) return;
-    elevationService.getElevationAlongPath(
-      {path:sampled, samples:sampled.length},
-      (elevResults,status)=>{
-        if(status==='OK'&&elevResults&&elevResults.length>=2){
-          lastElevResults=elevResults;
-          processElevation(elevResults, distKm, fullPath);
-          renderWpList();
-        } else if(status==='OVER_QUERY_LIMIT'&&attempt<3){
-          setTimeout(()=>fetchElev(attempt+1), 1000*(attempt+1));
-        } else {
-          applyDistOnly(distKm);
-        }
-      }
-    );
-  }
-  fetchElev(0);
+    if(status==='OK'&&elevResults&&elevResults.length>=2){
+      processElevation(elevResults,distKm,fullPath);
+      renderWpList();
+    }else applyDistOnly(distKm);
+  });
 }
 
 /* ── ルート処理（ズーム・pan一切なし） ── */
@@ -6531,6 +6517,90 @@ function drawElevProfile(elevResults){
   ctx.fillText(`${Math.round(minE)}m`,3,H-2);
 }
 
+/* ── 標高の再検証・距離準拠サンプリング（ルート形状は変更しない） ── */
+function resampleElevationPathByDistance(path,maxPoints){
+  if(!path||path.length<3||path.length<=maxPoints) return path;
+  const ix=buildRouteDistanceIndex(path);
+  if(!(ix.totalM>0)) return path;
+  const result=[];let j=1;
+  for(let i=0;i<maxPoints;i++){
+    const d=ix.totalM*i/(maxPoints-1);
+    while(j<ix.cum.length-1&&ix.cum[j]<d) j++;
+    const a=path[j-1],b=path[j];
+    const seg=ix.cum[j]-ix.cum[j-1];
+    const t=seg>0?(d-ix.cum[j-1])/seg:0;
+    result.push(new google.maps.LatLng(a.lat()+(b.lat()-a.lat())*t,a.lng()+(b.lng()-a.lng())*t));
+  }
+  return result;
+}
+function fetchGoogleRouteElevation(path,callback){
+  if(!elevationService||!path||path.length<2){callback(null,'NO_ELEVATION_SERVICE');return;}
+  // Elevation API の1回あたり512標高点の制限内で約50m間隔を目標とする。
+  const dist=buildRouteDistanceIndex(path).totalM;
+  const preferred=Math.max(2,Math.min(450,Math.ceil(dist/50)+1));
+  const run=(count,retry)=>{
+    const samplePath=resampleElevationPathByDistance(path,Math.min(count,450));
+    elevationService.getElevationAlongPath({path:samplePath,samples:count},(results,status)=>{
+      if(status==='OK'&&results&&results.length>=2) callback(results,status);
+      else if(status==='OVER_QUERY_LIMIT'&&retry<2)
+        setTimeout(()=>run(count,retry+1),1000*(retry+1));
+      else if(count>180&&status!=='OVER_QUERY_LIMIT') run(180,0);
+      else callback(null,status);
+    });
+  };
+  run(preferred,0);
+}
+function elevationPositiveGain(values){
+  // 最大斜度用の強い平滑化を獲得標高には流用しない。
+  // Googleの単発ノイズ除去として0.25m未満のみ無視し、連続する小登坂を残す。
+  let sum=0;
+  for(let i=1;i<values.length;i++){
+    const d=values[i]-values[i-1];
+    if(Number.isFinite(d)&&d>=0.25) sum+=d;
+  }
+  return sum;
+}
+function elevationAtRouteDistances(routePath,elevationSamples){
+  const ix=buildRouteDistanceIndex(routePath);
+  const positions=[],heights=[];
+  let last=0;
+  for(const point of elevationSamples||[]){
+    if(!point||!Number.isFinite(point.elevation)||!point.location) continue;
+    const ratio=Number.isFinite(point.distanceRatio)?point.distanceRatio:routeDistanceRatioAtLatLng(point.location);
+    const d=Math.max(last,Math.min(ix.totalM,ratio*ix.totalM));
+    positions.push(d);heights.push(point.elevation);last=d;
+  }
+  if(!positions.length) return routePath.map(()=>null);
+  if(positions.length===1) return routePath.map(()=>heights[0]);
+  const output=[];let j=1;
+  for(const d of ix.cum){
+    while(j<positions.length-1&&positions[j]<d) j++;
+    const span=positions[j]-positions[j-1];
+    const t=span>0?Math.max(0,Math.min(1,(d-positions[j-1])/span)):0;
+    output.push(heights[j-1]*(1-t)+heights[j]*t);
+  }
+  return output;
+}
+function reverifyGoogleElevation(){
+  const path=lastRoutePath;
+  if(!path||path.length<2){alert('先にコースを作成またはGPXを読み込んでください');return;}
+  const previous=window._routeData?Math.round(window._routeData.gainM||0):null;
+  const previousSource=window._routeData?.source||'';
+  const previousFilename=window._routeData?.filename||'';
+  const previousPath=path;
+  fetchGoogleRouteElevation(path,(results,status)=>{
+    if(lastRoutePath!==previousPath){return;} // 再取得中に別ルートへ変わったら破棄
+    if(status!=='OK'||!results){alert('Google標高の取得に失敗しました: '+status);return;}
+    const d=buildRouteDistanceIndex(path).totalM/1000;
+    processElevation(results,d.toFixed(2),path);
+    if(previousSource==='gpx'){
+      window._routeData.source='gpx';window._routeData.filename=previousFilename;
+    }
+    const current=window._routeData.gainM;
+    alert('Google標高を同一コースで再取得しました。\n変更前 '+(previous===null?'—':previous+'m')+' → Google再集計 '+current+'m\n※ Stravaは独自の標高補正を使う場合があります。');
+  });
+}
+
 /* ── 標高ノイズ除去と実走向け最大斜度 ── */
 function medianValue(values){
   const sorted=values.filter(Number.isFinite).sort((a,b)=>a-b);
@@ -6588,19 +6658,13 @@ function robustGradeStats(elevations,totalM){
 /* ── 標高 → プランナー反映 ── */
 function processElevation(elevResults,distKm,path){
   const elevs=elevResults.map(e=>e.elevation);
-  const DEADBAND=1.0; // 1m未満の変動を無視
   const totalM=(+distKm)*1000;
   const gradeStats=robustGradeStats(elevs,totalM);
   const filtered=gradeStats.values;
-
-  let gain=0;
   const maxElev=filtered.length?Math.max(...filtered):0;
-  for(let i=1;i<filtered.length;i++){
-    const diff=filtered[i]-filtered[i-1];
-    if(diff>DEADBAND) gain+=diff; // Deadbandフィルタ
-  }
+  // 上昇量には生のGoogle標高列を使用。最大斜度は既存の平滑化方式を維持。
   const maxGrade=gradeStats.maxGrade;
-  const gainM=Math.round(gain);
+  const gainM=Math.round(elevationPositiveGain(elevs));
   // 平均勾配 = 獲得標高 ÷ 総走行距離。ループコースでも0%にならない「平均登坂負荷」の表示。
   const avgGrade=(+distKm)>0 ? (gainM/((+distKm)*1000)*100) : 0;
   const steepPct=gradeStats.steepPct;
@@ -6630,9 +6694,8 @@ function processElevation(elevResults,distKm,path){
   document.getElementById('ri-maxgrade').textContent=maxGrade.toFixed(1)+'%';
   document.getElementById('ri-maxgrade').title='約'+Math.round(gradeStats.windowM)+'m区間で平滑化した最大斜度';
 
-  const filteredElevResults=elevResults.map((e,i)=>({elevation:filtered[i]!=null?filtered[i]:e.elevation,location:e.location}));
-  lastElevResults=filteredElevResults;
-  drawElevProfile(filteredElevResults);
+  lastElevResults=elevResults.map((e,i)=>({elevation:e.elevation,location:e.location,distanceRatio:elevResults.length>1?i/(elevResults.length-1):0}));
+  drawElevProfile(lastElevResults);
   window._routeData={distKm:+distKm, gainM, bearing, maxGrade, avgGrade, gradeWindowM:gradeStats.windowM};
 
   // 入力欄もルートデータで上書き（常にルートが正）
@@ -7059,9 +7122,11 @@ function downloadGPX(){
   const localDate=`${now.getFullYear()}-${pad2(now.getMonth()+1)}-${pad2(now.getDate())}`;
   const localTime=`${pad2(now.getHours())}${pad2(now.getMinutes())}`;
   const name=`ride_${localDate}_${localTime}`;
+  const routeElevations=lastElevResults?elevationAtRouteDistances(lastRoutePath,lastElevResults):[];
   let trkpts=lastRoutePath.map((ll,i)=>{
-    const elev=lastElevResults?lastElevResults[Math.round(i/(lastRoutePath.length-1)*(lastElevResults.length-1))]?.elevation||0:0;
-    return `    <trkpt lat="${ll.lat().toFixed(7)}" lon="${ll.lng().toFixed(7)}"><ele>${elev.toFixed(1)}</ele></trkpt>`;
+    const elev=routeElevations[i];
+    const ele=Number.isFinite(elev)?`<ele>${elev.toFixed(1)}</ele>`:'';
+    return `    <trkpt lat="${ll.lat().toFixed(7)}" lon="${ll.lng().toFixed(7)}">${ele}</trkpt>`;
   }).join('\n');
 
   const gpx=`<?xml version="1.0" encoding="UTF-8"?>
@@ -7164,8 +7229,6 @@ function setupGPXRouteEditOverlays(path,routeRequestId){
 function _applyGPXMetrics(gpxPts, path, filename){
   const totalM=_gpxPathDistanceMeters(path);
   const distKm=totalM/1000;
-  let gain=0;
-  const DEADBAND=1.0;
   const validElevPts=gpxPts.filter(point=>Number.isFinite(point.ele));
   const haveElev=validElevPts.length>0;
   // 大容量GPXでも安定するよう最大2000点へ均等間引きし、通常ルートと同じ
@@ -7173,13 +7236,9 @@ function _applyGPXMetrics(gpxPts, path, filename){
   const metricPts=_sampleArray(validElevPts,2000);
   const gradeStats=robustGradeStats(metricPts.map(point=>point.ele),totalM);
   const filteredElevations=gradeStats.values;
-  for(let i=1;i<filteredElevations.length;i++){
-    const diff=filteredElevations[i]-filteredElevations[i-1];
-    if(diff>DEADBAND) gain+=diff;
-  }
   const maxElev=filteredElevations.length?Math.max(...filteredElevations):NaN;
   const maxGrade=gradeStats.maxGrade;
-  const gainM=Math.round(gain);
+  const gainM=Math.round(elevationPositiveGain(metricPts.map(point=>point.ele)));
   const avgGrade=totalM>0 ? gainM/totalM*100 : 0;
   const bearing=path.length>1?calcBearing(path[0].lat(),path[0].lng(),path[path.length-1].lat(),path[path.length-1].lng()):0;
   const profile=maxGrade<3?'🟢 平坦メイン':maxGrade<8?'🟡 丘陵ルート':maxGrade<15?'🟠 山岳ルート':'🔴 激坂含む';
@@ -7192,7 +7251,13 @@ function _applyGPXMetrics(gpxPts, path, filename){
   // GPXの標高をそのままプロファイルへ。描画負荷を抑えるため最大180点。
   if(haveElev){
     const elevPts=_sampleArray(gpxPts.filter(p=>Number.isFinite(p.ele)),180);
-    lastElevResults=elevPts.map(p=>({elevation:p.ele,location:new google.maps.LatLng(p.lat,p.lng)}));
+    const originalPath=gpxPts.map(p=>new google.maps.LatLng(p.lat,p.lng));
+    const originalIndex=buildRouteDistanceIndex(originalPath);
+    lastElevResults=elevPts.map(p=>{
+      const idx=gpxPts.indexOf(p);
+      return {elevation:p.ele,location:new google.maps.LatLng(p.lat,p.lng),
+        distanceRatio:originalIndex.totalM>0?originalIndex.cum[Math.max(0,idx)]/originalIndex.totalM:0};
+    });
     try{ drawElevProfile(lastElevResults); }catch(e){}
   }
 
@@ -7276,8 +7341,7 @@ function importGPXText(txt, filename){
   // 標高を持たないGPXだけGoogle Elevationを1回取得。Directions再計算はしない。
   const elevCount=pts.reduce((n,p)=>n+(Number.isFinite(p.ele)?1:0),0);
   if(elevCount<2 && elevationService){
-    const samplePath=_sampleArray(path,120);
-    elevationService.getElevationAlongPath({path:samplePath,samples:samplePath.length},(res,status)=>{
+    fetchGoogleRouteElevation(path,(res,status)=>{
       if(status==='OK'&&res&&res.length>=2){
         lastElevResults=res;
         // 距離と形状はGPXを維持し、標高情報のみ補完
