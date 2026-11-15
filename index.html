@@ -1230,6 +1230,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
       <button type="button" class="course-btn" data-route-mode-btn="road" onclick="setRouteMode('road')">🛣 一般車道</button>
       <button type="button" class="course-btn" data-route-mode-btn="toll" onclick="setRouteMode('toll')">🚘 有料道路</button>
       <button type="button" class="course-btn" id="force-waypoint-btn" onclick="toggleForceWaypointMode()">◆ 強制経由</button>
+      <button type="button" class="course-btn" id="road-trace-btn" onclick="toggleRoadTraceMode()" title="Googleが迂回する道路を地図上で順になぞり、仮想線で距離・標高・時間を試算">✍️ 道路をなぞる：OFF</button>
       <button type="button" class="course-btn" id="hypothetical-crossing-btn" onclick="openHypotheticalRouteDialog()" title="通行止め・Googleが経路を認識できない道路の仮想試算。通行許可や安全確認ではありません">🚧 規制区間の仮想試算：OFF</button>
       <button type="button" class="course-btn" id="route-point-register-btn" onclick="toggleRoutePointRegistration()">📍 線上に地点</button>
       <span id="route-mode-current" class="hint">自転車優先</span>
@@ -1237,7 +1238,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
       <span id="route-edit-hint" class="hint" style="display:none;color:var(--amber);font-weight:700">地図上の通したい道路をクリック</span>
     </div>
   </div>
-    <div class="hint" style="margin:-2px 0 6px;line-height:1.45">区間修正：赤いコース線をタップして◆を追加 → ◆を通したい道路へドラッグ。離れた道路を直接指定する場合は「◆強制経由」。</div>
+    <div class="hint" style="margin:-2px 0 6px;line-height:1.45">区間修正：通常は「◆強制経由」。Googleに迂回される山道は「✍️ 道路をなぞる」をON → 道路の曲がり角を走行順にクリック → OFF。橙の破線は仮想経路であり、通行可否未確認。間違えた点は↩で戻せます。</div>
 
   <!-- 📍 POI（オンデマンド・エリア指定方式） -->
   <div style="margin-bottom:6px">
@@ -5285,7 +5286,8 @@ function initMap(){
     if(sharedIW&&sharedIW.getMap()){sharedIW.close();return;}
     if(_routeCalculating) return;
     if(routeMutationBlocked()) return;
-    if(_forceWaypointMode) addForcedWaypoint(e.latLng);
+    if(_roadTraceMode) addRoadTracePoint(e.latLng);
+    else if(_forceWaypointMode) addForcedWaypoint(e.latLng);
     else addWaypoint(e.latLng);
   });
 
@@ -5603,6 +5605,7 @@ function toggleForceWaypointMode(force){
   if(fbtn) fbtn.classList.toggle('active',_forceWaypointMode);
   if(hint) hint.style.display=_forceWaypointMode?'inline':'none';
   if(gmap) gmap.setOptions({draggableCursor:_forceWaypointMode?'crosshair':null});
+  if(_forceWaypointMode && _roadTraceMode)toggleRoadTraceMode(false);
   if(_forceWaypointMode && waypoints.length<2){
     alert('先にスタートと次の地点を設定してください。強制経由点は既存区間の途中へ追加します。');
     _forceWaypointMode=false;
@@ -5730,7 +5733,8 @@ function setupMergedRouteEditOverlays(results,routeRequestId,options={}){
       const clickPoint=event.latLng;
       const register=()=>{if(routeRequestId!==window._routeCalcSeq||routeEditInteractionLocked())return;insertRouteEditWaypoint(segmentIndex,clickPoint,path,{...options,pointRegistration:true});};
       const edit=()=>{if(routeRequestId!==window._routeCalcSeq||routeEditInteractionLocked())return;insertRouteEditWaypoint(segmentIndex,clickPoint,path,options);};
-      if(_routePointRegisterMode)register();
+      if(_roadTraceMode){addRoadTracePoint(clickPoint,segmentIndex);}
+      else if(_routePointRegisterMode)register();
       else if(_forceWaypointMode)edit();
       else askRoutePointRegistration(register,edit);
     });
@@ -5758,6 +5762,53 @@ function shiftManualSegmentsForInsert(insertIdx){
     else next[i+1]=true;
   });
   manualSegments=next;
+}
+
+// Googleが迂回する実在道路を、ユーザーが地図上で順に指定して仮想トレースする。
+// 道路交通規制の解除、走行可能性の確認、道路への自動スナップは行わない。
+let _roadTraceMode=false;
+let _roadTraceNextInsert=-1;
+function updateRoadTraceModeUi(){
+  const b=document.getElementById('road-trace-btn');
+  if(b){b.textContent='✍️ 道路をなぞる：'+(_roadTraceMode?'ON':'OFF');b.classList.toggle('on',_roadTraceMode);b.setAttribute('aria-pressed',String(_roadTraceMode));}
+  const hint=document.getElementById('route-edit-hint');
+  if(hint&&_roadTraceMode){hint.style.display='inline';hint.textContent='道路を始点→終点の順にクリック（橙の破線＝仮想試算）';}
+  else if(hint&&!_forceWaypointMode){hint.textContent='地図上の通したい道路をクリック';hint.style.display='none';}
+  if(gmap)gmap.setOptions({draggableCursor:_roadTraceMode?'crosshair':_forceWaypointMode?'crosshair':null});
+}
+function toggleRoadTraceMode(force){
+  const next=typeof force==='boolean'?force:!_roadTraceMode;
+  if(next){
+    if(routeMutationBlocked())return;
+    if(waypoints.length<2){alert('先に開始地点と終了地点を設定してください。');return;}
+    if(!confirm('⚠ 道路トレースは仮想試算専用です。\nGoogleが迂回する道路を画面で順番になぞり、クリックした地点を直線で結びます。\n通行止め解除・通行許可・走行安全性の確認にはなりません。\n\n対象区間の始点から終点へ向かって道路の曲がり角を順番にクリックします。続けますか？'))return;
+    if(_forceWaypointMode)toggleForceWaypointMode(false);
+    if(_routePointRegisterMode)toggleRoutePointRegistration(false);
+  }
+  _roadTraceMode=next;
+  _roadTraceNextInsert=-1;
+  updateRoadTraceModeUi();
+  if(typeof notifyRouteEdit==='function')notifyRouteEdit(next?'✍️ 道路を順になぞってください。完了したら「道路をなぞる」をOFFに':'✍️ 道路トレースを終了しました');
+}
+function addRoadTracePoint(latLng,segmentHint){
+  if(!_roadTraceMode||routeMutationBlocked()||!latLng||waypoints.length<2)return;
+  // 最初の点だけ対象区間を選ぶ。以降は挿入位置を固定し、同じ道の折り返しでも走行順序を保つ。
+  const segmentIndex=_roadTraceNextInsert>=0?_roadTraceNextInsert:(Number.isInteger(segmentHint)?segmentHint:nearestWaypointSegmentIndex(latLng));
+  if(segmentIndex<0||segmentIndex>=waypoints.length-1)return;
+  saveHistory();
+  const insertIdx=segmentIndex+1;
+  shiftManualSegmentsForInsert(insertIdx);
+  waypoints.splice(insertIdx,0,latLng);
+  waypointKinds.splice(insertIdx,0,'force');
+  // 今回の点の前後はDirectionsを呼ばず、指定地点をそのまま結ぶ。曲がり角は追加点で表現する。
+  manualSegments[segmentIndex]=true;
+  manualSegments[segmentIndex+1]=true;
+  _roadTraceNextInsert=insertIdx;
+  markers.forEach(m=>m&&m.setMap(null));markers=[];
+  waypoints.forEach((pt,i)=>createMarker(pt,i));
+  renderWpList();updateGoalFlagBtn();
+  notifyRouteEdit('✍️ トレース点 '+insertIdx+' を追加しました。次の曲がり角を指定してください');
+  calcRoute();
 }
 
 function addForcedWaypoint(latLng){
