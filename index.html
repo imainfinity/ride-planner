@@ -1079,6 +1079,8 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
           <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
             <div class="ri-chip"><span class="ri-cl">距離</span><span class="ri-cv" id="ri-dist">—</span></div>
             <div class="ri-chip"><span class="ri-cl">獲得標高</span><span class="ri-cv" id="ri-elev">—</span></div>
+            <div class="ri-chip" style="gap:5px"><label for="elevation-mode" class="ri-cl" style="white-space:nowrap">標高計算</label><select id="elevation-mode" onchange="changeElevationCalculationMode(this.value)" title="RAW：原標高の微小上昇を集計 / BALANCED：3mの反転幅でノイズを除外 / STABLE：10mの反転幅で保守的に集計" style="font-size:10px;font-weight:700;border:1px solid #777;border-radius:5px;background:#26374b;color:white;padding:3px 4px;cursor:pointer"><option value="balanced" selected>BALANCED</option><option value="raw">RAW</option><option value="stable">STABLE</option></select></div>
+            <div class="ri-chip"><span class="ri-cl">比較 (RAW / BAL / STA)</span><span class="ri-cv" id="elevation-comparison" style="font-size:10px;white-space:nowrap">—</span></div>
             <div class="ri-chip"><span class="ri-cl">最高標高</span><span class="ri-cv" id="ri-maxelev">—</span></div>
             <div class="ri-chip"><span class="ri-cl">特性</span><span class="ri-cv" id="ri-profile">—</span></div>
             <div class="ri-chip"><span class="ri-cl">平均勾配</span><span class="ri-cv" id="ri-avggrade">—</span></div>
@@ -6604,6 +6606,74 @@ function elevationPositiveGain(values){
   }
   return sum;
 }
+/* ── 獲得標高3方式比較：入力標高原本は保持し、集計値だけ切替 ── */
+let elevationCalculationMode='balanced';
+let elevationMetricsState=null;
+function elevationHysteresisGain(values,threshold){
+  // 連続した登坂は最後まで積算し、小さな上下の反転だけを無視する。
+  // 元の標高列は一切書き換えない。thresholdは反転確認幅（m）。
+  const pts=values.map(Number).filter(Number.isFinite);
+  if(pts.length<2)return 0;
+  let low=pts[0], high=pts[0], direction=0, gain=0;
+  for(let i=1;i<pts.length;i++){
+    const h=pts[i];
+    if(direction===0){
+      low=Math.min(low,h);high=Math.max(high,h);
+      if(high-low>=threshold) direction=h>=pts[0]?1:-1;
+    }else if(direction>0){
+      if(h>high)high=h;
+      if(high-h>=threshold){gain+=Math.max(0,high-low);low=h;high=h;direction=-1;}
+    }else{
+      if(h<low)low=h;
+      if(h-low>=threshold){high=h;direction=1;}
+    }
+  }
+  if(direction>0)gain+=Math.max(0,high-low);
+  // 往復でない登坂の正味上昇量より低く評価しない。
+  return Math.max(gain,Math.max(0,pts[pts.length-1]-pts[0]));
+}
+function computeElevationModeMetrics(heights){
+  const v=heights.map(Number).filter(Number.isFinite);
+  if(v.length<2)return {raw:0,balanced:0,stable:0};
+  // RAWは既存の0.25mルールと互換。BALANCED/STABLEは反転幅で判定。
+  const raw=elevationPositiveGain(v);
+  const balanced=elevationHysteresisGain(v,3);
+  const stable=elevationHysteresisGain(v,10);
+  // モード間の自然な大小関係を確保（判定閾値に伴う端部差異対策）。
+  return {raw,balanced:Math.min(raw,balanced),stable:Math.min(raw,balanced,stable)};
+}
+function refreshElevationMetricsCompare(){
+  const ms=elevationMetricsState;
+  const c=document.getElementById('elevation-comparison');
+  if(c)c.textContent=ms?['raw','balanced','stable'].map(k=>Math.round(ms.metrics[k])+'m').join(' / '):'—';
+  const selector=document.getElementById('elevation-mode');
+  if(selector&&selector.value!==elevationCalculationMode)selector.value=elevationCalculationMode;
+  if(c)c.title=ms?'RAW:原標高積算 / BALANCED:3m反転 / STABLE:10m反転。元の標高値は保持。':'';
+}
+function setElevationMetricsSource(heights,original,source){
+  const clean=heights.map(Number);
+  const untouched=Array.isArray(original)?original.map(Number):clean.slice();
+  elevationMetricsState={source,original:untouched,active:clean.slice(),metrics:computeElevationModeMetrics(clean)};
+  refreshElevationMetricsCompare();
+  return Math.round(elevationMetricsState.metrics[elevationCalculationMode]);
+}
+function changeElevationCalculationMode(mode){
+  if(!['raw','balanced','stable'].includes(mode))return;
+  elevationCalculationMode=mode;
+  refreshElevationMetricsCompare();
+  if(!elevationMetricsState||!window._routeData)return;
+  const gainM=Math.round(elevationMetricsState.metrics[mode]);
+  const d=window._routeData;d.gainM=gainM;
+  d.avgGrade=(+d.distKm)>0?gainM/(+d.distKm*1000)*100:0;
+  const setText=(id,val)=>{const el=document.getElementById(id);if(el)el.textContent=val;};
+  setText('ri-elev',gainM+' m');setText('ri-avggrade',d.avgGrade.toFixed(1)+'%');
+  const input=document.getElementById('r-elev');if(input)input.value=gainM;
+  const modalInput=document.getElementById('modal-elev');if(modalInput)modalInput.value=gainM;
+  try{mcpSyncFromRoute();}catch(err){console.warn('elevation sync',err);}
+  try{updateMapStatsBar(d.distKm,gainM,d.maxGrade,d.avgGrade);}catch(err){console.warn('elevation stats',err);}
+  try{renderWpList();}catch(err){}
+  refreshElevationMetricsCompare();
+}
 function elevationAtRouteDistances(routePath,elevationSamples){
   const ix=buildRouteDistanceIndex(routePath);
   const positions=[],heights=[];
@@ -6778,8 +6848,9 @@ function ensureElevationAnomalyDialog(){
     const selected=[...div.querySelectorAll('input.eac-pick:checked')].map(e=>+e.value);
     div.querySelector('.eac-apply').disabled=!selected.length;
     const heights=applySelectedElevationValleys(state.heights,state.distances,state.candidates,selected);
-    const revised=Math.round(elevationPositiveGain(heights));
-    div.querySelector('.eac-preview').textContent=`現在 ${Math.round(elevationPositiveGain(state.heights))} m → ${selected.length?'補正後推定 '+revised+' m':'元データ維持'}`;
+    const revised=Math.round(computeElevationModeMetrics(heights)[elevationCalculationMode]);
+    const before=Math.round(computeElevationModeMetrics(state.heights)[elevationCalculationMode]);
+    div.querySelector('.eac-preview').textContent=`現在 ${before} m → ${selected.length?'補正後推定 '+revised+' m':'元データ維持'}（${elevationCalculationMode.toUpperCase()}）`;
   });
   div.querySelector('.eac-apply').addEventListener('click',()=>{
     const state=elevationAnomalyDialogState;if(!state)return;
@@ -6820,7 +6891,7 @@ function showElevationAnomalyCandidates(heights,distances,apply,routePath){
     content.innerHTML=`<strong>${c.startKm.toFixed(2)}〜${c.endKm.toFixed(2)} km</strong><div style="font-size:12px;opacity:.8">下降 ${c.drop.toFixed(1)}m → 再上昇 ${c.rebound.toFixed(1)}m ／ 区間 ${Math.round(c.span)}m ／ 補正影響目安 −${Math.round(c.impact)}m</div>`;
     row.append(input,content);items.appendChild(row);
   }
-  modal.querySelector('.eac-summary').textContent=`${candidates.length}箇所の異常候補があります。元の獲得標高 ${Math.round(elevationPositiveGain(heights))}m。`;
+  modal.querySelector('.eac-summary').textContent=`${candidates.length}箇所の異常候補があります。元の獲得標高 ${Math.round(computeElevationModeMetrics(heights)[elevationCalculationMode])}m（${elevationCalculationMode.toUpperCase()}）。`;
   modal.querySelector('.eac-preview').textContent='現在の標高データを維持します';
   modal.querySelector('.eac-apply').disabled=true;
   modal.classList.add('visible');
@@ -6833,7 +6904,7 @@ function inspectGoogleElevationAnomalies(elevResults,distKm,path){
   showElevationAnomalyCandidates(heights,distances,updated=>{
     const revised=elevResults.map((p,i)=>({...p,elevation:updated[i]}));
     const source=window._routeData?.source,filename=window._routeData?.filename;
-    processElevation(revised,distKm,path);
+    processElevation(revised,distKm,path, Array.isArray(elevationMetricsState?.original)&&elevationMetricsState.original.length===revised.length?elevationMetricsState.original:heights);
     if(source){window._routeData.source=source;window._routeData.filename=filename;}
   },path);
 }
@@ -6844,12 +6915,12 @@ function inspectGPXElevationAnomalies(gpxPts,path,filename){
   showElevationAnomalyCandidates(heights,ix.cum,updated=>{
     const corrected=gpxPts.map((p,i)=>({...p,ele:updated[i]}));
     window._gpxImportedPoints=corrected.map(p=>({...p}));
-    _applyGPXMetrics(corrected,path,filename);
+    _applyGPXMetrics(corrected,path,filename,Array.isArray(elevationMetricsState?.original)&&elevationMetricsState.original.length===corrected.length?elevationMetricsState.original:heights);
   },path);
 }
 
 /* ── 標高 → プランナー反映 ── */
-function processElevation(elevResults,distKm,path){
+function processElevation(elevResults,distKm,path,originalHeights=null){
   const elevs=elevResults.map(e=>e.elevation);
   const totalM=(+distKm)*1000;
   const gradeStats=robustGradeStats(elevs,totalM);
@@ -6857,7 +6928,7 @@ function processElevation(elevResults,distKm,path){
   const maxElev=filtered.length?Math.max(...filtered):0;
   // 上昇量には生のGoogle標高列を使用。最大斜度は既存の平滑化方式を維持。
   const maxGrade=gradeStats.maxGrade;
-  const gainM=Math.round(elevationPositiveGain(elevs));
+  const gainM=setElevationMetricsSource(elevs,originalHeights,'google');
   // 平均勾配 = 獲得標高 ÷ 総走行距離。ループコースでも0%にならない「平均登坂負荷」の表示。
   const avgGrade=(+distKm)>0 ? (gainM/((+distKm)*1000)*100) : 0;
   const steepPct=gradeStats.steepPct;
@@ -7375,6 +7446,7 @@ function _resetRouteForGPXImport(){
   if(window._mergedPolyline){window._mergedPolyline.setMap(null);window._mergedPolyline=null;}
   try{ directionsRenderer.setDirections({routes:[]}); }catch(e){}
   lastElevResults=null; lastRoutePath=[]; lastRouteResult=null;
+  elevationMetricsState=null;refreshElevationMetricsCompare();
   clearRouteRestrictionAlert();
   window._routeDistanceIndex=null; window._mergedLegDists=[];
   window._routeData=null;
@@ -7420,7 +7492,7 @@ function setupGPXRouteEditOverlays(path,routeRequestId){
   setupMergedRouteEditOverlays(virtualResults,routeRequestId,{gpx:true,deferRecalc:true});
 }
 
-function _applyGPXMetrics(gpxPts, path, filename){
+function _applyGPXMetrics(gpxPts, path, filename, originalHeights=null){
   const totalM=_gpxPathDistanceMeters(path);
   const distKm=totalM/1000;
   const validElevPts=gpxPts.filter(point=>Number.isFinite(point.ele));
@@ -7432,7 +7504,8 @@ function _applyGPXMetrics(gpxPts, path, filename){
   const filteredElevations=gradeStats.values;
   const maxElev=filteredElevations.length?Math.max(...filteredElevations):NaN;
   const maxGrade=gradeStats.maxGrade;
-  const gainM=Math.round(elevationPositiveGain(metricPts.map(point=>point.ele)));
+  const gainM=haveElev?setElevationMetricsSource(metricPts.map(point=>point.ele), originalHeights && originalHeights.length===metricPts.length?originalHeights:null,'gpx'):0;
+  if(!haveElev){elevationMetricsState=null;refreshElevationMetricsCompare();}
   const avgGrade=totalM>0 ? gainM/totalM*100 : 0;
   const bearing=path.length>1?calcBearing(path[0].lat(),path[0].lng(),path[path.length-1].lat(),path[path.length-1].lng()):0;
   const profile=maxGrade<3?'🟢 平坦メイン':maxGrade<8?'🟡 丘陵ルート':maxGrade<15?'🟠 山岳ルート':'🔴 激坂含む';
