@@ -875,10 +875,12 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
     <div id="locked-course-panel" style="display:flex;flex-wrap:wrap;gap:6px;align-items:stretch">
       <div class="locked-metric"><div class="locked-label">距離</div><div class="locked-value" id="mcp-dist-display">0.0 km</div><div class="locked-sub" id="mcp-source">🗺️ コース未作成</div></div>
       <div class="locked-metric"><div class="locked-label">獲得標高</div><div class="locked-value" id="mcp-elev-display">0 m</div><div class="locked-sub">設定/ルート反映</div></div>
+      <div class="locked-metric" title="全走行距離に対する獲得標高の密度。実際の上り区間の平均勾配ではありません"><div class="locked-label">高度効率</div><div class="locked-value" id="mcp-climb-density">— m/km</div><div class="locked-sub" id="mcp-climb-density-pct">— % 相当・全距離基準</div></div>
       <div class="locked-metric"><div class="locked-label">平地基準速度</div><div class="locked-value" id="mcp-spd-display">30.0 km/h</div><div class="locked-sub">平地巡航の基準</div></div>
       <div class="locked-metric"><div class="locked-label">補正後速度</div><div class="locked-value" id="mcp-corrected-spd-display">— km/h</div><div class="locked-sub" id="mcp-corrected-note">坂・風・体調反映</div></div>
       <div class="locked-metric"><div class="locked-label">所要時間</div><div class="locked-value" id="mcp-total">—</div><div class="locked-sub" id="mcp-time-note">Ratio込み</div></div>
       <div class="locked-metric"><div class="locked-label">消費カロリー</div><div class="locked-value" id="mcp-calories">0 kcal</div><div class="locked-sub" id="mcp-calories-note">コース・走力連動</div></div>
+      <button type="button" id="route-point-register-top" class="locked-metric course-setting-tile route-register-top" onclick="toggleRoutePointRegistration()" aria-pressed="false" aria-label="ルート線上に地点を置くモードを切り替え" title="オン：赤いルート線をタップすると地点を末尾に追加。オフ：通常のコース作成。もう一度押すとオフ"><div class="locked-value">📍 線上に地点</div><div class="locked-sub" id="route-point-top-status">OFF・タップで切替</div></button>
       <button type="button" class="locked-metric course-setting-tile" onclick="openSettingsModal()" aria-label="条件設定"><div class="locked-value">🚴‍♂️ 🏃 条件設定</div></button>
       <button type="button" class="locked-metric course-setting-tile" onclick="triggerGPXImport()" aria-label="GPX読込"><div class="locked-value">📂 GPX読込</div><div class="locked-sub">コースデータを読み込む</div></button>
     </div>
@@ -4057,7 +4059,47 @@ function toggleRoutePointRegistration(){
   if(_routePointRegisterMode && _forceWaypointMode) toggleForceWaypointMode(false);
   document.getElementById('route-point-float')?.classList.toggle('active',_routePointRegisterMode);
   document.getElementById('route-point-register-btn')?.classList.toggle('on',_routePointRegisterMode);
+  const top=document.getElementById('route-point-register-top');
+  if(top){top.classList.toggle('on',_routePointRegisterMode);top.setAttribute('aria-pressed',String(_routePointRegisterMode));}
+  const status=document.getElementById('route-point-top-status');
+  if(status) status.textContent=_routePointRegisterMode?'ON・もう一度押すと解除':'OFF・タップで切替';
   notifyRouteEdit(_routePointRegisterMode?'📍 赤いルート線をタップすると、最後の番号の次に地点を追加します':'地点登録モードを終了しました');
+}
+
+/* ルート線を通常モードで押した場合のみ、意図しない地点の確定を防ぐ。 */
+let _routePointChoicePending=false;
+function askRoutePointRegistration(onYes,onEdit){
+  if(_routePointChoicePending)return;
+  _routePointChoicePending=true;
+  let shade=document.getElementById('route-point-choice-modal');
+  if(!shade){
+    shade=document.createElement('div');
+    shade.id='route-point-choice-modal';
+    shade.setAttribute('role','dialog');shade.setAttribute('aria-modal','true');
+    shade.setAttribute('aria-labelledby','route-point-choice-title');
+    shade.innerHTML=`<div class="route-point-choice-card">
+      <div class="route-point-choice-head"><b id="route-point-choice-title">📍 ルート線上にも地点を置きますか？</b></div>
+      <p>今タップした場所を、新しい通過地点として末尾に追加できます。</p>
+      <p class="route-point-choice-hint">「はい」を選ぶと<strong>📍 線上に地点</strong>設定もONになります。元に戻すには<strong>上部パネルの「📍 線上に地点」</strong>をもう一度押してOFFにしてください。追加した地点自体は<strong>↩ 元に戻す</strong>で取り消せます。</p>
+      <div class="route-point-choice-actions"><button type="button" data-choice="cancel">何もしない</button><button type="button" data-choice="edit">◆ 区間編集</button><button type="button" data-choice="yes" class="route-point-choice-yes">はい・地点を追加</button></div>
+    </div>`;
+    document.body.appendChild(shade);
+  }
+  const cleanup=()=>{shade.classList.remove('open');shade.onclick=null;document.removeEventListener('keydown',onKey);_routePointChoicePending=false;};
+  function onKey(e){if(e.key==='Escape'){e.preventDefault();cleanup();}}
+  shade.onclick=(event)=>{
+    const b=event.target.closest('button[data-choice]');
+    if(!b){if(event.target===shade)cleanup();return;}
+    const choice=b.dataset.choice;
+    cleanup();
+    if(choice==='yes'){
+      if(!_routePointRegisterMode)toggleRoutePointRegistration();
+      if(_routePointRegisterMode&&typeof onYes==='function')onYes();
+    }else if(choice==='edit'&&typeof onEdit==='function') onEdit();
+  };
+  document.addEventListener('keydown',onKey);
+  shade.classList.add('open');
+  shade.querySelector('button[data-choice="yes"]')?.focus();
 }
 
 let lastRouteResult=null, lastElevResults=null, lastRoutePath=null;
@@ -5679,8 +5721,12 @@ function setupMergedRouteEditOverlays(results,routeRequestId,options={}){
       if(routeRequestId!==window._routeCalcSeq||routeEditInteractionLocked()) return;
       _routeLineTapGuard=true;
       setTimeout(()=>{_routeLineTapGuard=false;},250);
-      insertRouteEditWaypoint(segmentIndex,event.latLng,path,
-        _routePointRegisterMode?{...options,pointRegistration:true}:options);
+      const clickPoint=event.latLng;
+      const register=()=>{if(routeRequestId!==window._routeCalcSeq||routeEditInteractionLocked())return;insertRouteEditWaypoint(segmentIndex,clickPoint,path,{...options,pointRegistration:true});};
+      const edit=()=>{if(routeRequestId!==window._routeCalcSeq||routeEditInteractionLocked())return;insertRouteEditWaypoint(segmentIndex,clickPoint,path,options);};
+      if(_routePointRegisterMode)register();
+      else if(_forceWaypointMode)edit();
+      else askRoutePointRegistration(register,edit);
     });
     overlay.addListener('mouseover',()=>overlay.setOptions({strokeOpacity:0.18}));
     overlay.addListener('mouseout',()=>overlay.setOptions({strokeOpacity:0.01}));
@@ -6272,6 +6318,20 @@ function setupRouteDragOverlay(result){
     if(_poiSelectMode) return; // POIエリア選択中はwaypoint追加をロック
     if(routeMutationBlocked()) return;
     const clickLl=e.latLng;
+    _routeLineTapGuard=true;
+    setTimeout(()=>{_routeLineTapGuard=false;},250);
+    if(!_routePointRegisterMode&&!_forceWaypointMode){
+      askRoutePointRegistration(()=>{
+        if(routeMutationBlocked())return;
+        const seg=nearestWaypointSegmentIndex(clickLl);
+        insertRouteEditWaypoint(seg,clickLl,path,{pointRegistration:true});
+      },()=>{
+        if(routeMutationBlocked())return;
+        const seg=nearestWaypointSegmentIndex(clickLl);
+        insertRouteEditWaypoint(seg,clickLl,path,{});
+      });
+      return;
+    }
     if(_routePointRegisterMode){
       _routeLineTapGuard=true;
       setTimeout(()=>{_routeLineTapGuard=false;},250);
@@ -11991,5 +12051,47 @@ function routeToMountain(which){
 })();
 </script>
 
+<style>
+.route-register-top{border-color:var(--border2)!important;min-width:126px!important}
+.route-register-top.on{background:rgba(16,185,129,.11)!important;border-color:var(--green)!important}
+.route-register-top.on .locked-value{color:var(--green)!important}
+#route-point-top-status{font-size:10px;font-weight:700}
+#route-point-choice-modal{position:fixed;inset:0;z-index:100020;background:rgba(0,0,0,.57);display:none;align-items:center;justify-content:center;padding:16px}
+#route-point-choice-modal.open{display:flex}
+.route-point-choice-card{width:min(480px,100%);background:var(--bg);color:var(--text);border-radius:15px;border:1px solid var(--border2);box-shadow:0 20px 65px rgba(0,0,0,.35);padding:19px}
+.route-point-choice-head{font-size:17px;line-height:1.45}
+.route-point-choice-card p{font-size:13px;line-height:1.65;margin:12px 0}
+.route-point-choice-hint{padding:11px;background:var(--bg2);border-radius:9px;color:var(--text2)}
+.route-point-choice-actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end;margin-top:16px}
+.route-point-choice-actions button{cursor:pointer;font-size:12px;font-weight:700;border-radius:8px;background:var(--bg2);color:var(--text);border:1px solid var(--border2);padding:10px 11px}
+.route-point-choice-actions .route-point-choice-yes{background:var(--green);color:white;border-color:var(--green)}
+@media(max-width:520px){.route-point-choice-actions button{flex:1 1 100%}}
+</style>
+<script>
+(function(){
+  function updateClimbDensity(){
+    const d=document.getElementById('mcp-dist-display');
+    const h=document.getElementById('mcp-elev-display');
+    const m=document.getElementById('mcp-climb-density');
+    const pct=document.getElementById('mcp-climb-density-pct');
+    if(!d||!h||!m||!pct)return;
+    const km=Number((d.textContent||'').replace(/,/g,'').match(/-?\d+(?:\.\d+)?/)?.[0]);
+    const ascent=Number((h.textContent||'').replace(/,/g,'').match(/-?\d+(?:\.\d+)?/)?.[0]);
+    if(!(km>0)||!Number.isFinite(ascent)||ascent<0){m.textContent='— m/km';pct.textContent='— % 相当・全距離基準';return;}
+    const density=ascent/km;
+    m.textContent=density.toFixed(1)+' m/km';
+    pct.textContent=(density/10).toFixed(2)+'% 相当・全距離基準';
+  }
+  function init(){
+    const d=document.getElementById('mcp-dist-display'),h=document.getElementById('mcp-elev-display');
+    if(!d||!h)return;
+    const obs=new MutationObserver(updateClimbDensity);
+    obs.observe(d,{childList:true,characterData:true,subtree:true});
+    obs.observe(h,{childList:true,characterData:true,subtree:true});
+    updateClimbDensity();
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+})();
+</script>
 </body>
 </html>
