@@ -875,7 +875,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
     <div id="locked-course-panel" style="display:flex;flex-wrap:wrap;gap:6px;align-items:stretch">
       <div class="locked-metric"><div class="locked-label">距離</div><div class="locked-value" id="mcp-dist-display">0.0 km</div><div class="locked-sub" id="mcp-source">🗺️ コース未作成</div></div>
       <div class="locked-metric"><div class="locked-label">獲得標高</div><div class="locked-value" id="mcp-elev-display">0 m</div><div class="locked-sub">設定/ルート反映</div></div>
-      <div class="locked-metric" title="全走行距離に対する獲得標高の密度。実際の上り区間の平均勾配ではありません"><div class="locked-label">高度効率</div><div class="locked-value" id="mcp-climb-density">— m/km</div><div class="locked-sub" id="mcp-climb-density-pct">— % 相当・全距離基準</div></div>
+      <div class="locked-metric" style="border:2px solid #299b63;background:linear-gradient(150deg,rgba(29,139,91,.13),transparent)" title="全走行距離に対する獲得標高の密度。実際の上り区間の平均勾配ではありません"><div class="locked-label" style="font-weight:900;color:#148351">⛰️ 登坂密度・高度効率</div><div class="locked-value" id="mcp-climb-density">— m/km</div><div class="locked-sub" id="mcp-climb-density-pct">— % 相当・全距離基準</div></div>
       <div class="locked-metric"><div class="locked-label">平地基準速度</div><div class="locked-value" id="mcp-spd-display">30.0 km/h</div><div class="locked-sub">平地巡航の基準</div></div>
       <div class="locked-metric"><div class="locked-label">補正後速度</div><div class="locked-value" id="mcp-corrected-spd-display">— km/h</div><div class="locked-sub" id="mcp-corrected-note">坂・風・体調反映</div></div>
       <div class="locked-metric"><div class="locked-label">所要時間</div><div class="locked-value" id="mcp-total">—</div><div class="locked-sub" id="mcp-time-note">Ratio込み</div></div>
@@ -1038,7 +1038,9 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
         <div style="background:rgba(10,10,10,0.93);backdrop-filter:blur(8px);padding:7px 12px;box-shadow:0 2px 12px rgba(0,0,0,0.5);display:flex;flex-wrap:wrap;gap:0;align-items:center;justify-content:space-around">
           <div class="msb-cell"><div class="msb-label">距離</div><div class="msb-val" id="msb-dist">—</div></div>
           <div class="msb-cell"><div class="msb-label">獲得標高</div><div class="msb-val" id="msb-elev">—</div></div>
-          <div class="msb-cell"><div class="msb-label">平均勾配</div><div class="msb-val" id="msb-avggrade">—</div></div>
+          <div class="msb-cell"><div class="msb-label">↗ 上り平均</div><div class="msb-val" id="msb-upgrade">—</div></div>
+          <div class="msb-cell"><div class="msb-label">↘ 下り平均</div><div class="msb-val" id="msb-downgrade">—</div></div>
+          <div class="msb-cell" style="display:none"><div class="msb-label">登坂密度</div><div class="msb-val" id="msb-avggrade">—</div></div>
           <div class="msb-cell"><div class="msb-label">最大斜度</div><div class="msb-val" id="msb-grade">—</div></div>
           <div class="msb-cell"><div class="msb-label">予想時間</div><div class="msb-val" id="msb-time" style="color:#4ade80">—</div></div>
           <div class="msb-cell"><div class="msb-label">🟢 スタート</div><div class="msb-val" id="msb-start" style="color:#4ade80">—</div></div>
@@ -1085,7 +1087,9 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
             <div class="ri-chip"><span class="ri-cl">比較 (RAW / BAL / STA)</span><span class="ri-cv" id="elevation-comparison" style="font-size:10px;white-space:nowrap">—</span></div>
             <div class="ri-chip"><span class="ri-cl">最高標高</span><span class="ri-cv" id="ri-maxelev">—</span></div>
             <div class="ri-chip"><span class="ri-cl">特性</span><span class="ri-cv" id="ri-profile">—</span></div>
-            <div class="ri-chip"><span class="ri-cl">平均勾配</span><span class="ri-cv" id="ri-avggrade">—</span></div>
+            <div class="ri-chip"><span class="ri-cl">↗ 上り平均</span><span class="ri-cv" id="ri-upgrade">—</span></div>
+            <div class="ri-chip"><span class="ri-cl">↘ 下り平均</span><span class="ri-cv" id="ri-downgrade">—</span></div>
+            <div class="ri-chip" style="display:none"><span class="ri-cl">登坂密度</span><span class="ri-cv" id="ri-avggrade">—</span></div>
             <div class="ri-chip"><span class="ri-cl">最大斜度</span><span class="ri-cv" id="ri-maxgrade">—</span></div>
             <div class="ri-chip"><span class="ri-cl">方向</span><span class="ri-cv" style="font-size:10px" id="ri-bearing">—</span></div>
           </div>
@@ -1206,6 +1210,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
   </div>
 
   <!-- 🗺️ ルート操作（コンパクト） -->
+  <div id="hypothetical-route-banner" role="status" style="display:none;border:2px solid #e87913;color:#9a3412;background:#ffedd5;padding:7px 10px;border-radius:7px;margin:5px 0;font-size:11px;font-weight:800">⚠ 仮想ルート試算中：通行可否は未確認。破線部分は道路形状を再現したものではありません。</div>
   <div id="route-mode-warn" style="display:none;font-size:10px;color:#f97316;padding:3px 6px;background:rgba(249,115,22,0.1);border-radius:4px;margin-bottom:4px">※ 一部区間で迂回/歩行ルートを使用中</div>
   <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">
     <button class="bs" onclick="hardClearRoute()" title="コースを削除" aria-label="コースを削除" style="font-size:20px;line-height:1;padding:5px 10px;min-height:35px">🗑️</button>
@@ -1225,6 +1230,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
       <button type="button" class="course-btn" data-route-mode-btn="road" onclick="setRouteMode('road')">🛣 一般車道</button>
       <button type="button" class="course-btn" data-route-mode-btn="toll" onclick="setRouteMode('toll')">🚘 有料道路</button>
       <button type="button" class="course-btn" id="force-waypoint-btn" onclick="toggleForceWaypointMode()">◆ 強制経由</button>
+      <button type="button" class="course-btn" id="hypothetical-crossing-btn" onclick="openHypotheticalRouteDialog()" title="通行止め・Googleが経路を認識できない道路の仮想試算。通行許可や安全確認ではありません">🚧 規制区間の仮想試算：OFF</button>
       <button type="button" class="course-btn" id="route-point-register-btn" onclick="toggleRoutePointRegistration()">📍 線上に地点</button>
       <span id="route-mode-current" class="hint">自転車優先</span>
       <span id="global-route-safety" class="hint" style="font-weight:800;color:var(--blue)">🇯🇵 日本・国別に自動・km</span>
@@ -6056,6 +6062,27 @@ function renderWpList(){
 /* ── ルート計算（ロードバイク最適化：幹線道路優先） ── */
 /* ══ ルーティング：1区間ずつ直列処理 ══ */
 
+// 実際の規制を解除することはできない。Googleが道路として返さない部分は仮想線としてのみ試算。
+let hypotheticalRouteMode=false;
+function updateHypotheticalRouteUi(){
+  const b=document.getElementById('hypothetical-crossing-btn');
+  if(b){b.textContent='🚧 規制区間の仮想試算：'+(hypotheticalRouteMode?'ON':'OFF');b.classList.toggle('on',hypotheticalRouteMode);b.setAttribute('aria-pressed',String(hypotheticalRouteMode));}
+  const banner=document.getElementById('hypothetical-route-banner');
+  if(banner)banner.style.display=hypotheticalRouteMode?'block':'none';
+}
+function openHypotheticalRouteDialog(){
+  const dialog=document.getElementById('hypothetical-route-dialog');
+  if(!dialog)return;
+  const btn=document.getElementById('hypothetical-confirm-btn');
+  if(btn)btn.textContent=hypotheticalRouteMode?'仮想試算をOFFに戻す':'理解して仮想試算をON';
+  dialog.style.display='flex';
+}
+function closeHypotheticalRouteDialog(){const d=document.getElementById('hypothetical-route-dialog');if(d)d.style.display='none';}
+function confirmHypotheticalRouteMode(){
+  hypotheticalRouteMode=!hypotheticalRouteMode;
+  closeHypotheticalRouteDialog();updateHypotheticalRouteUi();
+  if(typeof calcRoute==='function'&&Array.isArray(waypoints)&&waypoints.length>=2)calcRoute();
+}
 function calcRoute(){
   // 再計算中に古い区間へ編集点が入らないよう、タップ領域を先に破棄する。
   clearRouteEditOverlays();
@@ -6067,7 +6094,7 @@ function calcRoute(){
   // 全区間を [wp0→wp1], [wp1→wp2], ... に分解して直列計算
   const segments=[];
   for(let i=0;i<waypoints.length-1;i++){
-    segments.push({origin:waypoints[i],dest:waypoints[i+1],index:i,manual:!!manualSegments[i]});
+    segments.push({origin:waypoints[i],dest:waypoints[i+1],index:i,manual:!!manualSegments[i],forced:waypointKinds[i]==='force'||waypointKinds[i+1]==='force'});
   }
 
   const segResults=[];
@@ -6082,7 +6109,7 @@ function calcRoute(){
       calcSegment(segments[i].origin, segments[i].dest, profile, (result)=>{
         segResults.push(result);
         nextSeg(i+1);
-      }, segments[i].manual);
+      }, segments[i].manual, segments[i].forced);
     }, i===0 ? 0 : 200);
   }
   nextSeg(0);
@@ -6138,8 +6165,11 @@ function makeManualSegmentResult(origin,dest){
 }
 
 // 1区間を計算。選択した道路方式を最優先し、取得不能時のみ安全な代替へフォールバック。
-function calcSegment(origin, dest, profile, callback, manual){
+function calcSegment(origin, dest, profile, callback, manual, forced=false){
   if(manual){callback(makeManualSegmentResult(origin,dest));return;}
+  // 強制経由の前後だけ、明示的な仮想試算モードでは直線近似を優先する。
+  // Google Directionsには規制解除APIがないため「道路に沿う」とは主張しない。
+  if(hypotheticalRouteMode&&forced){const virtual=makeManualSegmentResult(origin,dest);virtual.mode='hypothetical';callback(virtual);return;}
   directionsService.route({
     origin, destination:dest,
     travelMode:profile.travelMode,
@@ -6166,7 +6196,11 @@ function calcSegment(origin, dest, profile, callback, manual){
       },(res3,st3)=>{
         if(st3==='OK'){ callback({routes:[res3.routes[0]], mode:'alt'}); return; }
         console.warn('区間ルート完全失敗:',st3);
-        callback(null);
+        // 区間を黙って消すと距離・獲得標高が過小表示になる。
+        // 失敗は明示的な未解決区間として残し、破線を描く。
+        const unresolved=makeManualSegmentResult(origin,dest);
+        unresolved.mode=hypotheticalRouteMode?'hypothetical':'unresolved';
+        callback(unresolved);
       });
     });
   });
@@ -6256,10 +6290,21 @@ function mergeAndProcessRoutes(results,routeRequestId){
   // 迂回モード警告
   const hasAlt=results.some(r=>r&&r.mode==='alt');
   const hasManual=results.some(r=>r&&r.mode==='manual');
+  const hasVirtual=results.some(r=>r&&r.mode==='hypothetical');
+  const hasUnresolved=results.some(r=>r&&r.mode==='unresolved');
+  if(window._hypotheticalLines)window._hypotheticalLines.forEach(line=>line.setMap(null));
+  window._hypotheticalLines=[];
+  results.forEach(r=>{
+    if(!r||!['manual','hypothetical','unresolved'].includes(r.mode))return;
+    const path=r.routes?.[0]?.overview_path;
+    if(!Array.isArray(path)||path.length<2)return;
+    const line=new google.maps.Polyline({map:gmap,path,clickable:false,zIndex:442,strokeOpacity:0,strokeWeight:5,icons:[{icon:{path:'M 0,-1 0,1',strokeColor:r.mode==='unresolved'?'#dc2626':'#f59e0b',strokeOpacity:1,strokeWeight:4,scale:3},offset:'0',repeat:'15px'}]});
+    window._hypotheticalLines.push(line);
+  });
   const warnEl=document.getElementById('route-mode-warn');
   if(warnEl){
-    warnEl.style.display=(hasAlt||hasManual)?'block':'none';
-    warnEl.textContent=hasManual?'※ ✏️手動区間を含みます。通行可否は利用者確認が必要です。':'※ 一部区間で迂回/歩行ルートを使用中';
+    warnEl.style.display=(hasAlt||hasManual||hasVirtual||hasUnresolved)?'block':'none';
+    warnEl.textContent=hasUnresolved?'⛔ 未解決の区間あり。赤破線は直線近似です。実走経路の試算として使用不可。':hasVirtual?'⚠ 規制・強制経由の仮想区間あり（橙破線）。距離と時間は概算で通行不可の可能性があります。':hasManual?'⚠ ✏️手動区間あり（橙破線）。通行可否と道路距離の確認が必要です。':'※ 一部区間で迂回/歩行ルートを使用中';
   }
 
   // 標高は距離に沿って等間隔に取得する。地点数による単純間引きはカーブの密度に偏る。
@@ -6730,7 +6775,7 @@ function changeElevationCalculationMode(mode){
   const input=document.getElementById('r-elev');if(input)input.value=gainM;
   const modalInput=document.getElementById('modal-elev');if(modalInput)modalInput.value=gainM;
   try{mcpSyncFromRoute();}catch(err){console.warn('elevation sync',err);}
-  try{updateMapStatsBar(d.distKm,gainM,d.maxGrade,d.avgGrade);}catch(err){console.warn('elevation stats',err);}
+  try{updateMapStatsBar(d.distKm,gainM,d.maxGrade,d.avgGrade);updateDirectionalGradeUi(elevationMetricsState.active,+d.distKm*1000,window._gradeDistances||null);}catch(err){console.warn('elevation stats',err);}
   try{renderWpList();}catch(err){}
   refreshElevationMetricsCompare();
 }
@@ -6980,6 +7025,43 @@ function inspectGPXElevationAnomalies(gpxPts,path,filename){
 }
 
 /* ── 標高 → プランナー反映 ── */
+// 上り/下りの走行区間を分けて、獲得標高による全距離平均とは別に計算する。
+function directionalGradeStats(heights,totalM,distanceMeters=null){
+  const clean=(heights||[]).map(Number);
+  // 5点中央値は短い本物の峠（上り→下り）まで平坦化するため、
+  // 方向判定には3点の弱い加重平均だけを使う。元データは保持する。
+  const smooth=clean.map((v,i)=>{
+    if(!Number.isFinite(v))return v;
+    const prev=Number.isFinite(clean[i-1])?clean[i-1]:v;
+    const next=Number.isFinite(clean[i+1])?clean[i+1]:v;
+    return (prev+v*2+next)/4;
+  });
+  if(smooth.length<2||!(totalM>0))return {up:0,down:0,upDistance:0,downDistance:0};
+  let ascentDistance=0,descentDistance=0;
+  for(let i=1;i<smooth.length;i++){
+    const delta=smooth[i]-smooth[i-1];
+    const dx=Array.isArray(distanceMeters)&&distanceMeters.length===smooth.length
+      ?distanceMeters[i]-distanceMeters[i-1]:totalM/(smooth.length-1);
+    if(!(dx>0)||!Number.isFinite(delta))continue;
+    // 標高分解能より小さな揺れは勾配区間の分類から除く。
+    if(delta>0.08)ascentDistance+=dx;
+    else if(delta< -0.08)descentDistance+=dx;
+  }
+  const threshold=elevationCalculationMode==='stable'?10:elevationCalculationMode==='balanced'?3:0;
+  const ascent=elevationCalculationMode==='raw'?elevationPositiveGain(clean):elevationHysteresisGain(clean,threshold);
+  const descent=elevationCalculationMode==='raw'?elevationPositiveGain(clean.map(v=>-v)):elevationHysteresisGain(clean.map(v=>-v),threshold);
+  return {up:ascentDistance>0?ascent/ascentDistance*100:0,
+          down:descentDistance>0?descent/descentDistance*100:0,
+          upDistance:ascentDistance,downDistance:descentDistance};
+}
+function updateDirectionalGradeUi(heights,totalM,distances=null){
+  const result=directionalGradeStats(heights,totalM,distances);
+  const put=(id,value)=>{const el=document.getElementById(id);if(el){el.textContent=value;el.title='実際の上り/下りに分類された区間の距離で、それぞれの上昇量/下降量を割った推定平均勾配（標高データ由来）';}};
+  put('ri-upgrade',result.up.toFixed(1)+'%');put('msb-upgrade',result.up.toFixed(1)+'%');
+  put('ri-downgrade','−'+result.down.toFixed(1)+'%');put('msb-downgrade','−'+result.down.toFixed(1)+'%');
+  if(window._routeData)window._routeData.directionalGrades=result;
+  return result;
+}
 function processElevation(elevResults,distKm,path,originalHeights=null){
   const elevs=elevResults.map(e=>e.elevation);
   const totalM=(+distKm)*1000;
@@ -7033,6 +7115,8 @@ function processElevation(elevResults,distKm,path,originalHeights=null){
   // ★ MCP経由で全UI同期（競合防止）
   mcpSyncFromRoute();
   updateMapStatsBar(distKm, gainM, maxGrade, avgGrade);
+  window._gradeDistances=null;
+  updateDirectionalGradeUi(elevs,totalM);
   inspectGoogleElevationAnomalies(elevResults,distKm,path);
 }
 
@@ -7044,6 +7128,7 @@ function applyDistOnly(distKm){
     const el=document.getElementById(id); if(el) el.textContent='—';
   });
   window._routeData={distKm:+distKm,gainM:0,bearing:0,maxGrade:0,avgGrade:0};
+  for(const id of ['ri-upgrade','ri-downgrade','msb-upgrade','msb-downgrade']){const el=document.getElementById(id);if(el)el.textContent='—';}
   mcpSyncFromRoute();
   updateMapStatsBar(distKm, 0, 0, 0);
 }
@@ -7614,6 +7699,16 @@ function _applyGPXMetrics(gpxPts, path, filename, originalHeights=null){
   rideDeg=bearing; syncToHidden(); renderCompass();
   try{ mcpSyncFromRoute(); }catch(e){ console.warn('GPX MCP sync',e); }
   try{ updateMapStatsBar(distKm.toFixed(1),haveElev?gainM:0,haveElev?maxGrade:0,haveElev?avgGrade:0); }catch(e){}
+  if(haveElev){
+    // GPXは一定間隔ではないため、各地点の累積距離を使って上り・下りを分類する。
+    const gradePath=metricPts.map(p=>new google.maps.LatLng(p.lat,p.lng));
+    const gradeIndex=buildRouteDistanceIndex(gradePath);
+    window._gradeDistances=gradeIndex.cum;
+    updateDirectionalGradeUi(metricPts.map(p=>p.ele),gradeIndex.totalM,gradeIndex.cum);
+  }else{
+    window._gradeDistances=null;
+    for(const id of ['ri-upgrade','ri-downgrade','msb-upgrade','msb-downgrade']){const el=document.getElementById(id);if(el)el.textContent='—';}
+  }
   try{ renderWpList(); updateGoalFlagBtn(); }catch(e){}
   if(haveElev) inspectGPXElevationAnomalies(gpxPts,path,filename);
 }
@@ -12093,5 +12188,14 @@ function routeToMountain(which){
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
 </script>
+<div id="hypothetical-route-dialog" role="dialog" aria-modal="true" aria-labelledby="hypothetical-route-title" style="display:none;position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.65);align-items:center;justify-content:center;padding:14px">
+ <div style="background:#fff;color:#1c2734;max-width:480px;width:100%;padding:22px;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.35)">
+  <h3 id="hypothetical-route-title" style="font-size:18px;margin:0 0 12px">🚧 規制区間の仮想通過シミュレーション</h3>
+  <p style="font-size:13px;line-height:1.7">Googleが通行可能な経路を返さない区間や、強制経由点の前後を<span style="font-weight:800">仮想的に通れるものとして</span>距離・獲得標高・所要時間を試算します。</p>
+  <p style="font-size:13px;line-height:1.7;color:#b91c1c;font-weight:800">⚠ 通行止めは解除されません。落橋・崩落・私有地・自転車通行禁止などの危険があります。仮想線は直線近似であり、実際の道路距離・路面形状・通行可否を保証しません。実走の案内には使用しないでください。</p>
+  <p style="font-size:12px;line-height:1.6">指定した道を詳しく再現する場合は「◆ 強制経由」で地点を追加し、必要な区間を「✏ 手動」に切り替えてください。手動区間も仮想区間として扱います。</p>
+  <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:14px"><button type="button" onclick="closeHypotheticalRouteDialog()" style="padding:9px 14px;border:1px solid #aaa;border-radius:7px">キャンセル</button><button type="button" id="hypothetical-confirm-btn" onclick="confirmHypotheticalRouteMode()" style="padding:9px 14px;background:#b45309;color:white;border:0;border-radius:7px;font-weight:800">理解して仮想試算をON</button></div>
+ </div>
+</div>
 </body>
 </html>
