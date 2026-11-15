@@ -1230,7 +1230,10 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
       <button type="button" class="course-btn" data-route-mode-btn="road" onclick="setRouteMode('road')">🛣 一般車道</button>
       <button type="button" class="course-btn" data-route-mode-btn="toll" onclick="setRouteMode('toll')">🚘 有料道路</button>
       <button type="button" class="course-btn" id="force-waypoint-btn" onclick="toggleForceWaypointMode()">◆ 強制経由</button>
-      <button type="button" class="course-btn" id="road-trace-btn" onclick="toggleRoadTraceMode()" title="Googleが迂回する道路を地図上で順になぞり、仮想線で距離・標高・時間を試算">✍️ 道路をなぞる：OFF</button>
+      <button type="button" class="course-btn" id="road-trace-btn" onclick="toggleRoadTraceMode()" title="Googleが迂回する道路を仮想的に走行する区間としてなぞる">✍️ 道路をなぞる：OFF</button>
+      <label id="road-trace-target-wrap" style="display:none;align-items:center;gap:5px;font-size:12px;font-weight:700;background:#fff5db;border:1px solid #e9ad43;border-radius:7px;padding:5px 8px;color:#6c4406">対象区間
+        <select id="road-trace-target" onchange="selectRoadTraceSegment(this.value)" style="font-size:12px;max-width:130px;padding:5px;border:1px solid #ba873d;border-radius:5px;background:#fff;color:#202020"><option value="">区間を選択</option></select>
+      </label>
       <button type="button" class="course-btn" id="hypothetical-crossing-btn" onclick="openHypotheticalRouteDialog()" title="通行止め・Googleが経路を認識できない道路の仮想試算。通行許可や安全確認ではありません">🚧 規制区間の仮想試算：OFF</button>
       <button type="button" class="course-btn" id="route-point-register-btn" onclick="toggleRoutePointRegistration()">📍 線上に地点</button>
       <span id="route-mode-current" class="hint">自転車優先</span>
@@ -1238,7 +1241,7 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
       <span id="route-edit-hint" class="hint" style="display:none;color:var(--amber);font-weight:700">地図上の通したい道路をクリック</span>
     </div>
   </div>
-    <div class="hint" style="margin:-2px 0 6px;line-height:1.45">区間修正：通常は「◆強制経由」。Googleに迂回される山道は「✍️ 道路をなぞる」をON → 道路の曲がり角を走行順にクリック → OFF。橙の破線は仮想経路であり、通行可否未確認。間違えた点は↩で戻せます。</div>
+    <div class="hint" style="margin:-2px 0 6px;line-height:1.45">区間修正：通常は「◆強制経由」。Googleに迂回される山道は「✍️ 道路をなぞる」をON → 「対象区間（例：2 → 3）」を選択 → 道路の曲がり角を走行順にクリック → OFF。橙の破線は直線で結んだ仮想経路です。間違えたら↩で戻せます。</div>
 
   <!-- 📍 POI（オンデマンド・エリア指定方式） -->
   <div style="margin-bottom:6px">
@@ -5768,11 +5771,36 @@ function shiftManualSegmentsForInsert(insertIdx){
 // 道路交通規制の解除、走行可能性の確認、道路への自動スナップは行わない。
 let _roadTraceMode=false;
 let _roadTraceNextInsert=-1;
+let _roadTraceTargetSegment=-1;
+function refreshRoadTraceSegmentOptions(){
+  const sel=document.getElementById('road-trace-target');
+  if(!sel)return;
+  const previous=String(_roadTraceTargetSegment);
+  sel.innerHTML='<option value="">区間を選択</option>';
+  for(let i=0;i<waypoints.length-1;i++){
+    const option=document.createElement('option');
+    option.value=String(i);
+    option.textContent=(i+1)+' → '+(i+2);
+    sel.appendChild(option);
+  }
+  sel.value=_roadTraceTargetSegment>=0&&_roadTraceTargetSegment<waypoints.length-1?previous:'';
+}
+function selectRoadTraceSegment(value){
+  const n=Number(value);
+  _roadTraceTargetSegment=value!==''&&Number.isInteger(n)&&n>=0&&n<waypoints.length-1?n:-1;
+  _roadTraceNextInsert=-1;
+  if(_roadTraceTargetSegment>=0)notifyRouteEdit('✍️ 区間 '+(_roadTraceTargetSegment+1)+' → '+(_roadTraceTargetSegment+2)+' を指定。道路の曲がりに沿ってクリックしてください');
+}
 function updateRoadTraceModeUi(){
   const b=document.getElementById('road-trace-btn');
   if(b){b.textContent='✍️ 道路をなぞる：'+(_roadTraceMode?'ON':'OFF');b.classList.toggle('on',_roadTraceMode);b.setAttribute('aria-pressed',String(_roadTraceMode));}
+  const targetWrap=document.getElementById('road-trace-target-wrap');
+  if(targetWrap)targetWrap.style.display=_roadTraceMode?'inline-flex':'none';
+  if(_roadTraceMode)refreshRoadTraceSegmentOptions();
+  const targetSelect=document.getElementById('road-trace-target');
+  if(targetSelect){targetSelect.disabled=_roadTraceMode&&_roadTraceNextInsert>=0;targetSelect.title=targetSelect.disabled?'別区間を選ぶには一度OFFにしてください':'';}
   const hint=document.getElementById('route-edit-hint');
-  if(hint&&_roadTraceMode){hint.style.display='inline';hint.textContent='道路を始点→終点の順にクリック（橙の破線＝仮想試算）';}
+  if(hint&&_roadTraceMode){hint.style.display='inline';hint.textContent='対象区間を選択 → 道路の曲がり角をクリック（橙破線＝仮想試算）';}
   else if(hint&&!_forceWaypointMode){hint.textContent='地図上の通したい道路をクリック';hint.style.display='none';}
   if(gmap)gmap.setOptions({draggableCursor:_roadTraceMode?'crosshair':_forceWaypointMode?'crosshair':null});
 }
@@ -5781,19 +5809,27 @@ function toggleRoadTraceMode(force){
   if(next){
     if(routeMutationBlocked())return;
     if(waypoints.length<2){alert('先に開始地点と終了地点を設定してください。');return;}
-    if(!confirm('⚠ 道路トレースは仮想試算専用です。\nGoogleが迂回する道路を画面で順番になぞり、クリックした地点を直線で結びます。\n通行止め解除・通行許可・走行安全性の確認にはなりません。\n\n対象区間の始点から終点へ向かって道路の曲がり角を順番にクリックします。続けますか？'))return;
+    if(!confirm('⚠ 道路トレースは仮想試算専用です。\nGoogleが迂回する区間を指定し、道路の曲がり角を順番にクリックして直線で接続します。\n通行止め解除・通行許可・安全確認にはなりません。\n\n① 対象区間（例：2 → 3）を選ぶ\n② 始点から終点へ曲がり角を順にクリック\n③ 完了したら「道路をなぞる」をOFFにする\n\n続けますか？'))return;
     if(_forceWaypointMode)toggleForceWaypointMode(false);
     if(_routePointRegisterMode)toggleRoutePointRegistration(false);
   }
   _roadTraceMode=next;
   _roadTraceNextInsert=-1;
+  _roadTraceTargetSegment=-1;
   updateRoadTraceModeUi();
-  if(typeof notifyRouteEdit==='function')notifyRouteEdit(next?'✍️ 道路を順になぞってください。完了したら「道路をなぞる」をOFFに':'✍️ 道路トレースを終了しました');
+  if(typeof notifyRouteEdit==='function')notifyRouteEdit(next?'✍️ 先に「対象区間」を選んでから道路の曲がり角をクリックしてください':'✍️ 道路トレースを終了しました');
 }
 function addRoadTracePoint(latLng,segmentHint){
   if(!_roadTraceMode||routeMutationBlocked()||!latLng||waypoints.length<2)return;
   // 最初の点だけ対象区間を選ぶ。以降は挿入位置を固定し、同じ道の折り返しでも走行順序を保つ。
-  const segmentIndex=_roadTraceNextInsert>=0?_roadTraceNextInsert:(Number.isInteger(segmentHint)?segmentHint:nearestWaypointSegmentIndex(latLng));
+  // 同じ地理座標の道路が重なる場合、近傍推定では別区間へ挿入される。
+  // 初回は必ずユーザーが指定した走行順の区間に挿入する。
+  if(_roadTraceNextInsert<0&&_roadTraceTargetSegment<0){
+    notifyRouteEdit('⚠ 先に上部の「対象区間」で 2 → 3 などの区間を選択してください');
+    const select=document.getElementById('road-trace-target');if(select)select.focus();
+    return;
+  }
+  const segmentIndex=_roadTraceNextInsert>=0?_roadTraceNextInsert:_roadTraceTargetSegment;
   if(segmentIndex<0||segmentIndex>=waypoints.length-1)return;
   saveHistory();
   const insertIdx=segmentIndex+1;
@@ -5804,6 +5840,9 @@ function addRoadTracePoint(latLng,segmentHint){
   manualSegments[segmentIndex]=true;
   manualSegments[segmentIndex+1]=true;
   _roadTraceNextInsert=insertIdx;
+  // 挿入済みの区間の途中で対象区間を変えると走行順が壊れるため、OFFまで固定。
+  const targetSelect=document.getElementById('road-trace-target');
+  if(targetSelect){targetSelect.disabled=true;targetSelect.title='このトレースの完了後、OFF→ONで別区間を選択';}
   markers.forEach(m=>m&&m.setMap(null));markers=[];
   waypoints.forEach((pt,i)=>createMarker(pt,i));
   renderWpList();updateGoalFlagBtn();
@@ -6416,6 +6455,7 @@ function setupRouteDragOverlay(result){
     const clickLl=e.latLng;
     _routeLineTapGuard=true;
     setTimeout(()=>{_routeLineTapGuard=false;},250);
+    if(_roadTraceMode){addRoadTracePoint(clickLl);return;}
     if(!_routePointRegisterMode&&!_forceWaypointMode){
       askRoutePointRegistration(()=>{
         if(routeMutationBlocked())return;
@@ -6928,54 +6968,105 @@ function robustGradeStats(elevations,totalM){
 /* ── 標高急変候補チェック：元データを初期値として保持 ── */
 let elevationAnomalyDialogState=null;
 let elevationAnomalyDialogSuppress=false;
+// 橋梁候補の道路面を前後50/100/150mの勾配から推定する（通常のBALANCED集計は変更しない）。
+// 勾配が安定しない場合、曲線外挿をやめて端点間の線形補間にフォールバックする。
+function elevationInterpolateAt(heights,distances,target){
+  if(target<distances[0]||target>distances[distances.length-1])return null;
+  let lo=0,hi=distances.length-1;
+  while(hi-lo>1){const mid=(lo+hi)>>1;if(distances[mid]<target)lo=mid;else hi=mid;}
+  const span=distances[hi]-distances[lo];
+  if(!(span>0))return heights[lo];
+  return heights[lo]+(heights[hi]-heights[lo])*(target-distances[lo])/span;
+}
+function elevationBridgeSlope(heights,distances,edge,side){
+  const probes=[];
+  for(const windowM of [50,100,150]){
+    const outside=elevationInterpolateAt(heights,distances,distances[edge]+side*windowM);
+    if(outside===null||!Number.isFinite(outside))continue;
+    const slope=side<0?(heights[edge]-outside)/windowM:(outside-heights[edge])/windowM;
+    if(Number.isFinite(slope))probes.push({windowM,slope});
+  }
+  if(probes.length<2)return {stable:false,slope:0,probes};
+  const values=probes.map(v=>v.slope);
+  const spread=Math.max(...values)-Math.min(...values);
+  // 50/100/150mの局所傾斜が一致しない場合は橋と断定せず、補正曲線を抑制。
+  const stable=spread<=0.06&&Math.max(...values.map(Math.abs))<=0.20;
+  const preferred=probes.find(p=>p.windowM===100)||probes[0];
+  return {stable,slope:preferred.slope,probes,spread};
+}
+function proposeElevationBridgeSurface(heights,distances,c){
+  const {left,right}=c;
+  const span=distances[right]-distances[left];
+  const result=heights.slice();
+  if(!(span>0))return {heights:result,method:'linear',before:null,after:null};
+  const before=elevationBridgeSlope(heights,distances,left,-1);
+  const after=elevationBridgeSlope(heights,distances,right,1);
+  const h0=heights[left],h1=heights[right],mean=(h1-h0)/span;
+  // 区間両端と勾配が整合し、曲線に不要な山・谷を作らない場合のみ使用。
+  const bothStable=before.stable&&after.stable;
+  const consistent=bothStable&&(
+    Math.abs(mean)<0.00001
+      ?Math.abs(before.slope)<0.012&&Math.abs(after.slope)<0.012
+      :Math.sign(before.slope)===Math.sign(mean)&&Math.sign(after.slope)===Math.sign(mean)
+  );
+  const cubic=consistent&&Math.abs(before.slope-mean)<=0.08&&Math.abs(after.slope-mean)<=0.08;
+  const limit=3*Math.abs(mean);
+  const m0=cubic?Math.sign(mean)*Math.min(Math.abs(before.slope),limit):0;
+  const m1=cubic?Math.sign(mean)*Math.min(Math.abs(after.slope),limit):0;
+  for(let i=left+1;i<right;i++){
+    const t=(distances[i]-distances[left])/span;
+    if(cubic){
+      const t2=t*t,t3=t2*t;
+      result[i]=(2*t3-3*t2+1)*h0+(t3-2*t2+t)*span*m0+(-2*t3+3*t2)*h1+(t3-t2)*span*m1;
+    }else result[i]=h0+(h1-h0)*t;
+  }
+  return {heights:result,method:cubic?'grade':'linear',before,after};
+}
 function detectElevationValleyCandidates(elevations,distances){
-  if(!elevations||elevations.length<5||distances.length!==elevations.length) return [];
+  if(!elevations||elevations.length<5||distances.length!==elevations.length)return [];
   const found=[];
   for(let k=2;k<elevations.length-2;k++){
     const h=elevations[k];
-    if(!Number.isFinite(h)||h>elevations[k-1]||h>=elevations[k+1]) continue;
-    // 検査窓は片側最大350m。強い上下動でも単独の急坂だけでは候補にしない。
+    if(!Number.isFinite(h)||h>elevations[k-1]||h>=elevations[k+1])continue;
     let left=k-1,right=-1;
     for(let i=k-1;i>=0&&distances[k]-distances[i]<=350;i--){
-      if(Number.isFinite(elevations[i])&&elevations[i]>elevations[left]) left=i;
+      if(Number.isFinite(elevations[i])&&elevations[i]>elevations[left])left=i;
     }
     const initialDrop=elevations[left]-h;
-    if(initialDrop<25) continue;
-    // 下流側の最大標高を選ぶと実際の登坂まで巻き込むため、
-    // 橋の手前と近い標高へ「最初に戻った地点」を終点にする。
-    const heightTolerance=Math.max(12,initialDrop*0.30);
+    if(initialDrop<15)continue;
+    const heightTolerance=Math.max(8,initialDrop*0.25);
     for(let i=k+1;i<elevations.length&&distances[i]-distances[k]<=350;i++){
       if(!Number.isFinite(elevations[i]))continue;
       if(Math.abs(elevations[i]-elevations[left])<=heightTolerance){right=i;break;}
     }
     if(right<0)continue;
-    const drop=elevations[left]-h, rebound=elevations[right]-h;
+    const drop=elevations[left]-h,rebound=elevations[right]-h;
     const span=distances[right]-distances[left];
-    if(drop<25||rebound<25||span<=0||span>600) continue;
-    if(Math.min(drop,rebound)/Math.max(drop,rebound)<0.70) continue;
-    if(Math.max(drop/Math.max(1,distances[k]-distances[left]),rebound/Math.max(1,distances[right]-distances[k]))<0.20) continue;
-    const startElevation=elevations[left],endElevation=elevations[right];
-    // 谷底付近だけが低い場合の「補正候補」を算出。確定的な誤差とは扱わない。
-    const proposed=elevations.slice();
-    for(let i=left+1;i<right;i++){
-      const t=(distances[i]-distances[left])/span;
-      proposed[i]=startElevation+(endElevation-startElevation)*t;
-    }
+    if(drop<15||rebound<15||!(span>0)||span>500)continue;
+    if(Math.min(drop,rebound)/Math.max(drop,rebound)<0.75)continue;
+    const inSlope=Math.abs(drop/Math.max(1,distances[k]-distances[left]));
+    const outSlope=Math.abs(rebound/Math.max(1,distances[right]-distances[k]));
+    // 急坂単独は対象外。明確な短距離V字と両方向の大きな変化のみ候補。
+    if(Math.min(inSlope,outSlope)<0.12||Math.max(inSlope,outSlope)<0.20)continue;
+    const candidate={left,right,low:k,drop,rebound,span,startKm:distances[left]/1000,endKm:distances[right]/1000};
+    const model=proposeElevationBridgeSurface(elevations,distances,candidate);
     let originalGain=0,proposedGain=0;
     for(let i=left+1;i<=right;i++){
       originalGain+=Math.max(0,elevations[i]-elevations[i-1]);
-      proposedGain+=Math.max(0,proposed[i]-proposed[i-1]);
+      proposedGain+=Math.max(0,model.heights[i]-model.heights[i-1]);
     }
-    const impact=Math.max(0,originalGain-proposedGain);
-    if(impact<12) continue;
-    found.push({left,right,low:k,drop,rebound,span,impact,startKm:distances[left]/1000,endKm:distances[right]/1000});
+    candidate.impact=Math.max(0,originalGain-proposedGain);
+    candidate.model=model.method;
+    candidate.before=model.before;
+    candidate.after=model.after;
+    if(candidate.impact<10)continue;
+    found.push(candidate);
   }
-  // 谷の最深部が複数点にまたがる場合は1件として集約。重複補間を避ける。
   found.sort((a,b)=>b.impact-a.impact);
   const picked=[];
   for(const c of found){
-    if(!picked.some(p=>c.left<=p.right&&c.right>=p.left)) picked.push(c);
-    if(picked.length>=12) break;
+    if(!picked.some(p=>c.left<=p.right&&c.right>=p.left))picked.push(c);
+    if(picked.length>=12)break;
   }
   return picked.sort((a,b)=>a.left-b.left);
 }
@@ -6992,7 +7083,7 @@ function ensureElevationAnomalyDialog(){
   document.head.appendChild(style);
   const div=document.createElement('div');div.id='elevation-anomaly-dialog';
   div.setAttribute('role','dialog');div.setAttribute('aria-modal','true');div.setAttribute('aria-label','標高急変の確認');
-  div.innerHTML=`<div class="eac-card"><div style="display:flex;align-items:start;justify-content:space-between;gap:12px"><div><div style="font-size:18px;font-weight:800">⛰ 標高の急変を検出しました</div><p style="font-size:12px;opacity:.75;margin:7px 0">橋・谷・道路の急勾配などの可能性があります。誤差とは断定できません。</p></div><button type="button" class="eac-close" aria-label="閉じる">×</button></div><p class="eac-summary" style="font-size:13px;margin:12px 0"></p><div class="eac-items"></div><p class="eac-preview" style="font-size:13px;font-weight:700;margin:14px 0 0"></p><p style="font-size:12px;opacity:.72;margin:7px 0">初期状態は元データ維持です。チェックした区間だけ、前後の標高を結ぶ補間を適用します。未知の橋を自動確定する機能ではありません。</p><div class="eac-actions"><button type="button" class="eac-keep">元の標高を維持</button><button type="button" class="eac-apply" disabled>選択箇所を補正して反映</button></div></div>`;
+  div.innerHTML=`<div class="eac-card"><div style="display:flex;align-items:start;justify-content:space-between;gap:12px"><div><div style="font-size:18px;font-weight:800">⛰ 標高の急変を検出しました</div><p style="font-size:12px;opacity:.75;margin:7px 0">橋・谷・道路の急勾配などの可能性があります。誤差とは断定できません。</p></div><button type="button" class="eac-close" aria-label="閉じる">×</button></div><p class="eac-summary" style="font-size:13px;margin:12px 0"></p><div class="eac-items"></div><p class="eac-preview" style="font-size:13px;font-weight:700;margin:14px 0 0"></p><p style="font-size:12px;opacity:.72;margin:7px 0">初期状態は元データ維持です。チェックした区間だけ、前後50・100・150mの勾配が安定していれば道路面を曲線推定し、不安定な場合は端点間の線形補間を適用します。未知の橋を自動確定する機能ではありません。</p><div class="eac-actions"><button type="button" class="eac-keep">元の標高を維持</button><button type="button" class="eac-apply" disabled>選択箇所を補正して反映</button></div></div>`;
   document.body.appendChild(div);
   const close=()=>{div.classList.remove('visible');elevationAnomalyDialogState=null;};
   div.querySelector('.eac-close').addEventListener('click',close);
@@ -7024,11 +7115,8 @@ function applySelectedElevationValleys(original,distances,candidates,selected){
   const output=original.slice();
   for(const id of selected){
     const c=candidates[id];if(!c)continue;
-    const span=distances[c.right]-distances[c.left];if(!(span>0))continue;
-    for(let i=c.left+1;i<c.right;i++){
-      const t=(distances[i]-distances[c.left])/span;
-      output[i]=original[c.left]*(1-t)+original[c.right]*t;
-    }
+    const proposal=proposeElevationBridgeSurface(original,distances,c);
+    for(let i=c.left+1;i<c.right;i++)output[i]=proposal.heights[i];
   }
   return output;
 }
@@ -7044,7 +7132,7 @@ function showElevationAnomalyCandidates(heights,distances,apply,routePath){
     const row=document.createElement('label');row.className='eac-row';
     const input=document.createElement('input');input.type='checkbox';input.className='eac-pick';input.value=String(i);input.checked=false;
     const content=document.createElement('div');
-    content.innerHTML=`<strong>${c.startKm.toFixed(2)}〜${c.endKm.toFixed(2)} km</strong><div style="font-size:12px;opacity:.8">下降 ${c.drop.toFixed(1)}m → 再上昇 ${c.rebound.toFixed(1)}m ／ 区間 ${Math.round(c.span)}m ／ 補正影響目安 −${Math.round(c.impact)}m</div>`;
+    content.innerHTML=`<strong>${c.startKm.toFixed(2)}〜${c.endKm.toFixed(2)} km</strong><div style="font-size:12px;opacity:.8">下降 ${c.drop.toFixed(1)}m → 再上昇 ${c.rebound.toFixed(1)}m ／ 区間 ${Math.round(c.span)}m ／ 推定方式 ${c.model==='grade'?'前後勾配による推定':'端点補間（勾配不安定）'} ／ 補正影響目安 −${Math.round(c.impact)}m</div>`;
     row.append(input,content);items.appendChild(row);
   }
   modal.querySelector('.eac-summary').textContent=`${candidates.length}箇所の異常候補があります。元の獲得標高 ${Math.round(computeElevationModeMetrics(heights)[elevationCalculationMode])}m（${elevationCalculationMode.toUpperCase()}）。`;
