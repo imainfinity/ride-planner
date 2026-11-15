@@ -7098,13 +7098,11 @@ function ensureElevationAnomalyDialog(){
   #elevation-anomaly-dialog .eac-audit-table{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:12px 0}
   #elevation-anomaly-dialog .eac-audit-cell{padding:10px 7px;border:1px solid var(--border,#ddd);border-radius:9px;text-align:center;font-size:12px}
   #elevation-anomaly-dialog .eac-audit-cell strong{display:block;font-size:18px;margin-top:3px}
-  #elevation-anomaly-dialog .eac-strava{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;margin:10px 0}
-  #elevation-anomaly-dialog .eac-strava input{width:100px;font-size:14px;padding:7px;color:var(--text,#222);background:var(--panel,#fff);border:1px solid var(--border,#ccc);border-radius:7px}
   #elevation-anomaly-dialog .eac-google{background:var(--bg2,#eee);color:var(--text,#222)}`;
   document.head.appendChild(style);
   const div=document.createElement('div');div.id='elevation-anomaly-dialog';
   div.setAttribute('role','dialog');div.setAttribute('aria-modal','true');div.setAttribute('aria-label','標高急変の確認');
-  div.innerHTML=`<div class="eac-card"><div style="display:flex;align-items:start;justify-content:space-between;gap:12px"><div><div style="font-size:18px;font-weight:800">⛰ 獲得標高の検証</div><p style="font-size:12px;opacity:.75;margin:7px 0">橋・谷・道路の急勾配などの可能性があります。誤差とは断定できません。</p></div><button type="button" class="eac-close" aria-label="閉じる">×</button></div><p class="eac-summary" style="font-size:13px;margin:12px 0"></p><div class="eac-audit-table"></div><label class="eac-strava">Strava等の獲得標高（任意）<input type="number" class="eac-external" min="0" step="1" placeholder="例：613"><span class="eac-external-diff"></span></label><div class="eac-reference" style="padding:11px 12px;border:1px solid var(--border,#ddd);border-radius:10px;margin:12px 0"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><strong style="font-size:13px">勾配の参照距離</strong><strong class="eac-reference-value" style="font-size:14px">100m</strong></div><input type="range" class="eac-reference-slider" min="30" max="300" step="10" value="100" style="display:block;width:100%;margin:12px 0 5px;accent-color:#25855c" aria-label="橋梁の前後勾配の参照距離"><div style="display:flex;justify-content:space-between;font-size:11px;opacity:.75"><span>30m</span><span>100m（標準）</span><span>300m</span></div><p class="eac-reference-windows" style="font-size:12px;margin:7px 0 0">前後50・100・150mを比較して推定</p><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><button type="button" class="eac-ref-preset" data-ref="50" style="padding:5px 9px">50m</button><button type="button" class="eac-ref-preset" data-ref="100" style="padding:5px 9px">100m</button><button type="button" class="eac-ref-preset" data-ref="150" style="padding:5px 9px">150m</button></div><p style="font-size:11px;opacity:.8;margin:8px 0 0">スライダーは補正の試算にのみ作用し、RAW / BALANCED / STABLEの元データと現在の獲得標高は変更しません。</p></div><div class="eac-items"></div><p class="eac-preview" style="font-size:13px;font-weight:700;margin:14px 0 0"></p><p style="font-size:12px;opacity:.72;margin:7px 0">初期状態は元データ維持です。参照距離はスライダーで変更でき、基準100mの場合は前後50・100・150mを比較します。チェックした区間だけ、勾配が安定していれば道路面を曲線推定し、不安定な場合は端点間の線形補間を適用します。未知の橋を自動確定する機能ではありません。</p><div class="eac-actions"><button type="button" class="eac-google">⛰ Googleで再取得</button><button type="button" class="eac-keep">元の標高を維持・閉じる</button><button type="button" class="eac-apply" disabled>選択箇所を補正して反映</button></div></div>`;
+  div.innerHTML=`<div class="eac-card"><div style="display:flex;align-items:start;justify-content:space-between;gap:12px"><div><div style="font-size:18px;font-weight:800">⛰ 獲得標高の検証</div><p style="font-size:12px;opacity:.75;margin:7px 0">橋・谷・道路の急勾配などの可能性があります。誤差とは断定できません。</p></div><button type="button" class="eac-close" aria-label="閉じる">×</button></div><p class="eac-summary" style="font-size:13px;margin:12px 0"></p><p class="eac-live-label" style="font-size:12px;font-weight:700;color:#25855c;margin:9px 0 0">補正した場合の獲得標高（試算・未反映）</p><div class="eac-audit-table" aria-live="polite"></div><div class="eac-reference" style="padding:11px 12px;border:1px solid var(--border,#ddd);border-radius:10px;margin:12px 0"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><strong style="font-size:13px">勾配の参照距離</strong><strong class="eac-reference-value" style="font-size:14px">100m</strong></div><input type="range" class="eac-reference-slider" min="30" max="300" step="10" value="100" style="display:block;width:100%;margin:12px 0 5px;accent-color:#25855c" aria-label="橋梁の前後勾配の参照距離"><div style="display:flex;justify-content:space-between;font-size:11px;opacity:.75"><span>30m</span><span>100m（標準）</span><span>300m</span></div><p class="eac-reference-windows" style="font-size:12px;margin:7px 0 0">前後50・100・150mを比較して推定</p><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><button type="button" class="eac-ref-preset" data-ref="50" style="padding:5px 9px">50m</button><button type="button" class="eac-ref-preset" data-ref="100" style="padding:5px 9px">100m</button><button type="button" class="eac-ref-preset" data-ref="150" style="padding:5px 9px">150m</button></div><p style="font-size:11px;opacity:.8;margin:8px 0 0">スライダーを動かすと、上のRAW / BALANCED / STABLEが補正後の試算値に変わります。実際のルート標高・元データは、反映するまで変更しません。</p></div><div class="eac-items"></div><p class="eac-preview" style="font-size:13px;font-weight:700;margin:14px 0 0"></p><p style="font-size:12px;opacity:.72;margin:7px 0">初期状態は元データ維持です。上の数値は、異常候補すべてを補正した場合の仮試算です。チェックした区間があるとその区間だけの試算に切り替わり、「補正して反映」を押した場合にのみ実際のルートへ適用します。未知の橋を自動確定するものではありません。</p><div class="eac-actions"><button type="button" class="eac-google">⛰ Googleで再取得</button><button type="button" class="eac-keep">元の標高を維持・閉じる</button><button type="button" class="eac-apply" disabled>選択箇所を補正して反映</button></div></div>`;
   document.body.appendChild(div);
   const close=()=>{div.classList.remove('visible');elevationAnomalyDialogState=null;};
   div.querySelector('.eac-close').addEventListener('click',close);
@@ -7113,23 +7111,30 @@ function ensureElevationAnomalyDialog(){
     if(!confirm('現在のルートをGoogle Elevation APIで再取得します。取得すると表示・GPX出力用の標高データがGoogleの値に更新されます。続けますか？'))return;
     close();reverifyGoogleElevation();
   });
-  div.querySelector('.eac-external').addEventListener('input',()=>{
-    const x=Number(div.querySelector('.eac-external').value);
-    const label=div.querySelector('.eac-external-diff');
-    const base=window._routeData?.gainM;
-    label.textContent=div.querySelector('.eac-external').value!==''&&Number.isFinite(x)&&Number.isFinite(base)
-      ?`Plannerとの差 ${Math.round(base-x)>=0?'+':''}${Math.round(base-x)}m（${x>0?((base-x)/x*100).toFixed(1)+'%':'比較不可'}）`:'';
-  });
   div.addEventListener('click',e=>{if(e.target===div)close();});
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&div.classList.contains('visible'))close();});
   const updateElevationPreview=()=>{
     const state=elevationAnomalyDialogState;if(!state)return;
     const selected=[...div.querySelectorAll('input.eac-pick:checked')].map(e=>+e.value);
     div.querySelector('.eac-apply').disabled=!selected.length;
-    const heights=applySelectedElevationValleys(state.heights,state.distances,state.candidates,selected,state.referenceM);
-    const revised=Math.round(computeElevationModeMetrics(heights)[elevationCalculationMode]);
-    const before=Math.round(computeElevationModeMetrics(state.heights)[elevationCalculationMode]);
-    div.querySelector('.eac-preview').textContent=`現在 ${before} m → ${selected.length?'補正後推定 '+revised+' m（差 '+(revised-before>=0?'+':'')+(revised-before)+'m）':'元データ維持'}（${elevationCalculationMode.toUpperCase()}）`;
+    // チェック未選択でも、全候補を仮補正して計算する。実際の元データは変更しない。
+    const trialIds=selected.length?selected:state.candidates.map((_,i)=>i);
+    const corrected=applySelectedElevationValleys(state.heights,state.distances,state.candidates,trialIds,state.referenceM);
+    const original=computeElevationModeMetrics(state.heights);
+    const estimate=computeElevationModeMetrics(corrected);
+    div.querySelector('.eac-audit-table').innerHTML=['raw','balanced','stable'].map(key=>{
+      const oldVal=Math.round(original[key]);
+      const newVal=Math.round(estimate[key]);
+      const delta=newVal-oldVal;
+      return `<div class="eac-audit-cell" style="${key===elevationCalculationMode?'border-color:#299b63;background:#299b6312':''}">${key.toUpperCase()}<strong>${newVal}m</strong><span style="font-size:11px;opacity:.8">元 ${oldVal}m ／ 差 ${delta>0?'+':''}${delta}m</span></div>`;
+    }).join('');
+    const before=Math.round(original[elevationCalculationMode]);
+    const revised=Math.round(estimate[elevationCalculationMode]);
+    const indicator=selected.length?`選択 ${selected.length}か所`:`全候補 ${state.candidates.length}か所`;
+    div.querySelector('.eac-live-label').textContent=`補正した場合の獲得標高（${indicator}・未反映）`;
+    div.querySelector('.eac-preview').textContent=state.candidates.length
+      ?`試算 ${before}m → ${revised}m（${revised-before>=0?'+':''}${revised-before}m）／ 参照 ${state.referenceM}m。元の表示は変更していません。`
+      :`異常候補0か所：${before}mのまま。参照距離だけでは補正箇所を作れません。`;
   };
   const updateElevationReference=(value)=>{
     const state=elevationAnomalyDialogState;if(!state)return;
@@ -7178,7 +7183,8 @@ function renderElevationCandidateRows(items,candidates,priorSelected=[]){
     const input=document.createElement('input');input.type='checkbox';input.className='eac-pick';input.value=String(i);
     input.checked=priorSelected.some(pair=>pair[0]===c.left&&pair[1]===c.right);
     const content=document.createElement('div');
-    content.innerHTML=`<strong>${c.startKm.toFixed(2)}〜${c.endKm.toFixed(2)} km</strong><div style="font-size:12px;opacity:.8">下降 ${c.drop.toFixed(1)}m → 再上昇 ${c.rebound.toFixed(1)}m ／ 区間 ${Math.round(c.span)}m ／ 推定方式 ${c.model==='grade'?'前後勾配による推定':'端点補間（勾配不安定）'} ／ 補正影響目安 −${Math.round(c.impact)}m</div>`;
+    const slopeLabel=(edge)=>{const p=edge?.probes||[];return p.length?p.map(v=>`${v.windowM}m:${(v.slope*100).toFixed(1)}%`).join(' / '):'データ不足';};
+    content.innerHTML=`<strong>${c.startKm.toFixed(2)}〜${c.endKm.toFixed(2)} km</strong><div style="font-size:12px;opacity:.8">下降 ${c.drop.toFixed(1)}m → 再上昇 ${c.rebound.toFixed(1)}m ／ 区間 ${Math.round(c.span)}m ／ 推定方式 ${c.model==='grade'?'前後勾配による推定':'端点補間（勾配不安定・参照距離で標高差が変わらない場合あり）'} ／ 補正影響目安 −${Math.round(c.impact)}m</div><div style="font-size:11px;opacity:.72;margin-top:3px">手前勾配 ${slopeLabel(c.before)} ／ 先勾配 ${slopeLabel(c.after)}</div>`;
     row.append(input,content);items.appendChild(row);
   }
 }
@@ -7198,20 +7204,16 @@ function showElevationAnomalyCandidates(heights,distances,apply,routePath,forceO
   slider.value=String(elevationBridgeReferenceM);
   modal.querySelector('.eac-reference-value').textContent=elevationBridgeReferenceM+'m';
   modal.querySelector('.eac-reference-windows').textContent=`前後 ${[0.5,1,1.5].map(k=>Math.round(elevationBridgeReferenceM*k)).join('・')}m の勾配を比較して推定`;
-  const metrics=elevationMetricsState?.metrics||computeElevationModeMetrics(heights);
   const mode=elevationCalculationMode.toUpperCase();
   const routeGain=window._routeData?.gainM;
-  modal.querySelector('.eac-audit-table').innerHTML=['raw','balanced','stable'].map(key=>
-    `<div class="eac-audit-cell" style="${key===elevationCalculationMode?'border-color:#299b63;background:#299b6312':''}">${key.toUpperCase()}<strong>${Math.round(metrics[key]||0)}m</strong></div>`).join('');
   const summaryText=count=>heights.length
-    ?`現在の表示 ${Number.isFinite(routeGain)?Math.round(routeGain)+'m':'—'}（${mode}）／ 橋・谷の異常候補 ${count}か所。${count?'疑わしい区間を確認してから補正を選べます。':'この検出条件では候補なし。標高精度が保証されたという意味ではありません。'}`
+    ?`現在の表示 ${Number.isFinite(routeGain)?Math.round(routeGain)+'m':'—'}（${mode}）／ 橋・谷の異常候補 ${count}か所。上部3数値はスライダー連動の仮試算です。`
     :'標高データの検証情報がまだありません。標高付きルートを再読込してください。';
   elevationAnomalyDialogState.summaryText=summaryText;
   modal.querySelector('.eac-summary').textContent=summaryText(candidates.length);
-  modal.querySelector('.eac-external').value='';modal.querySelector('.eac-external-diff').textContent='';
-  modal.querySelector('.eac-preview').textContent=candidates.length?'初期設定：元の標高データを維持します':'異常候補なし・元データを維持します';
   modal.querySelector('.eac-apply').disabled=true;
   modal.classList.add('visible');
+  slider.dispatchEvent(new Event('input', {bubbles:true}));
 }
 function inspectGoogleElevationAnomalies(elevResults,distKm,path){
   if(elevationAnomalyDialogSuppress||!elevResults||elevResults.length<5||!path||path.length<2)return;
