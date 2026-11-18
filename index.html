@@ -13056,5 +13056,71 @@ body.sp-mode #metrics-panel-shell #terrain-detail-panel:not([hidden]){
 /* Only the top-row control exists, so expanding/collapsing never moves the button. */
 #header-kpi-fold-inline {display:none!important;}
 </style>
+
+<style id="pc-responsive-kpi-width-fix-20261118">
+/* Desktop KPI fix: previous 769–999px flex header shrink-wrapped metrics to one column.
+   Stretch the entire header, then use a fluid, wrapping metric grid. */
+@media (min-width:769px) {
+  body.pc-mode #mcp-bar {
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:stretch!important;
+    justify-content:flex-start!important;
+    width:100%!important;
+    min-width:0!important;
+    box-sizing:border-box!important;
+    gap:5px!important;
+  }
+  body.pc-mode #top-controls-row {
+    display:flex!important;
+    flex-wrap:wrap!important;
+    justify-content:center!important;
+    align-items:center!important;
+    align-self:stretch!important;
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    box-sizing:border-box!important;
+    overflow:visible!important;
+  }
+  body.pc-mode #metrics-panel-shell:not(.header-kpis-collapsed) {
+    display:block!important;
+    flex:0 0 auto!important;
+    align-self:stretch!important;
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    box-sizing:border-box!important;
+  }
+  body.pc-mode #locked-course-panel {
+    display:grid!important;
+    grid-template-columns:repeat(auto-fit,minmax(min(100%,132px),1fr))!important;
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    box-sizing:border-box!important;
+    gap:6px!important;
+    align-items:stretch!important;
+    justify-items:stretch!important;
+    flex-wrap:unset!important;
+    overflow:visible!important;
+    padding:0!important;
+  }
+  body.pc-mode #locked-course-panel>.locked-metric {
+    box-sizing:border-box!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:none!important;
+    height:62px!important;
+    min-height:62px!important;
+    max-height:62px!important;
+    margin:0!important;
+    grid-column:auto!important;
+    grid-row:auto!important;
+    overflow:hidden!important;
+  }
+  body.pc-mode #locked-course-panel>.compact-metric-actions{display:none!important;}
+}
+</style>
 </body>
 </html>
