@@ -967,7 +967,7 @@ body.sp-mode .terrain-detail-cell strong{font-size:12px}
       <button type="button" class="locked-metric course-setting-tile" onclick="openSettingsModal()" aria-label="条件設定"><div class="locked-value">🚴‍♂️ 🏃 条件設定</div></button>
       <button type="button" class="locked-metric course-setting-tile" onclick="triggerGPXImport()" aria-label="GPX読込"><div class="locked-value">📂 GPX読込</div><div class="locked-sub">コースデータを読み込む</div></button>
       <!-- PC-only: adjacent to GPX import, while the top toggle remains the restore control when collapsed -->
-      <button type="button" id="header-kpi-fold-inline" class="compact-disclosure" onclick="toggleHeaderKpis()" aria-expanded="true" aria-controls="metrics-panel-shell" title="指標パネルを折りたたむ"><span id="header-kpi-fold-inline-icon">▴</span> <span id="header-kpi-fold-inline-label">指標を隠す</span></button>
+
       <div class="compact-metric-actions">
         <button type="button" id="compact-extra-toggle" class="compact-disclosure" onclick="toggleCompactMetrics()" aria-expanded="false" aria-controls="locked-course-panel">▦ その他の指標・操作 <span id="compact-extra-chevron">▾</span></button>
 
@@ -12983,6 +12983,49 @@ body.sp-mode #metrics-panel-shell #terrain-detail-panel:not([hidden]){
   #metrics-panel-shell #terrain-detail-panel .terrain-detail-cell{padding:8px!important}
   #metrics-panel-shell #terrain-detail-panel .terrain-detail-cell strong{font-size:15px!important}
 }
+</style>
+
+<style>
+/* v9.17: single consistent KPI fold control; responsive wrap instead of horizontal overflow. */
+@media (min-width:769px) {
+ body.pc-mode #top-controls-row {
+   flex-wrap:wrap!important;
+   justify-content:center!important;
+   gap:6px!important;
+   overflow:visible!important;
+ }
+ body.pc-mode #top-controls-row #header-kpi-fold,
+ body.pc-mode:has(#metrics-panel-shell.header-kpis-collapsed) #top-controls-row #header-kpi-fold {
+   display:inline-flex!important;
+   margin-left:0!important;
+   flex:0 0 auto!important;
+ }
+ body.pc-mode #metrics-panel-shell:not(.header-kpis-collapsed) {display:block!important; min-width:0!important;}
+ body.pc-mode #locked-course-panel {
+   display:grid!important;
+   grid-template-columns:repeat(auto-fit,minmax(142px,1fr))!important;
+   gap:6px!important;
+   align-items:stretch!important;
+   width:100%!important;
+   min-width:0!important;
+   overflow:visible!important;
+   padding:0!important;
+ }
+ body.pc-mode #locked-course-panel>.locked-metric {
+   width:100%!important;
+   min-width:0!important;
+   height:62px!important;
+   min-height:62px!important;
+   max-height:62px!important;
+   grid-column:auto!important;
+   grid-row:auto!important;
+   margin:0!important;
+   box-sizing:border-box!important;
+ }
+ body.pc-mode #locked-course-panel>.compact-metric-actions {display:none!important;}
+}
+/* Only the top-row control exists, so expanding/collapsing never moves the button. */
+#header-kpi-fold-inline {display:none!important;}
 </style>
 </body>
 </html>
