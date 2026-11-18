@@ -970,7 +970,7 @@ body.sp-mode .terrain-detail-cell strong{font-size:12px}
       <button type="button" id="header-kpi-fold-inline" class="compact-disclosure" onclick="toggleHeaderKpis()" aria-expanded="true" aria-controls="metrics-panel-shell" title="指標パネルを折りたたむ"><span id="header-kpi-fold-inline-icon">▴</span> <span id="header-kpi-fold-inline-label">指標を隠す</span></button>
       <div class="compact-metric-actions">
         <button type="button" id="compact-extra-toggle" class="compact-disclosure" onclick="toggleCompactMetrics()" aria-expanded="false" aria-controls="locked-course-panel">▦ その他の指標・操作 <span id="compact-extra-chevron">▾</span></button>
-        <button type="button" id="terrain-detail-toggle" class="compact-disclosure" onclick="toggleTerrainDetail()" aria-expanded="false" aria-controls="terrain-detail-panel">⌁ 地形詳細 <span id="terrain-chevron">▾</span></button>
+        <button type="button" id="terrain-detail-toggle" class="compact-disclosure" onclick="toggleTerrainDetail()" aria-expanded="false" aria-controls="terrain-detail-panel"><span aria-hidden="true">⌁</span> 詳細指標 <span id="terrain-chevron">▾</span></button>
       </div>
     </div>
     <div id="terrain-detail-panel" class="terrain-detail-panel" hidden>
@@ -12609,14 +12609,25 @@ function routeToMountain(which){
 /* Compact header: UI-only; retain the original calculation and route state */
 (function(){
   const byId=(id)=>document.getElementById(id);
-  window.toggleTerrainDetail=function(){
+  function setTerrainDetailOpen(open){
     const panel=byId('terrain-detail-panel'),toggle=byId('terrain-detail-toggle');
     if(!panel||!toggle)return;
-    panel.hidden=!panel.hidden;
-    toggle.setAttribute('aria-expanded',String(!panel.hidden));
-    const chevron=byId('terrain-chevron');if(chevron)chevron.textContent=panel.hidden?'▾':'▴';
-    syncTerrainValues();
+    panel.hidden=!open;
+    toggle.setAttribute('aria-expanded',String(open));
+    const chevron=byId('terrain-chevron');if(chevron)chevron.textContent=open?'▴':'▾';
+    if(open)syncTerrainValues();
+  }
+  window.toggleTerrainDetail=function(){
+    const panel=byId('terrain-detail-panel');
+    if(panel)setTerrainDetailOpen(panel.hidden);
   };
+  document.addEventListener('pointerdown',function(event){
+    const panel=byId('terrain-detail-panel'),toggle=byId('terrain-detail-toggle');
+    if(panel&&!panel.hidden&&!panel.contains(event.target)&&toggle&&!toggle.contains(event.target))setTerrainDetailOpen(false);
+  });
+  document.addEventListener('keydown',function(event){
+    if(event.key==='Escape')setTerrainDetailOpen(false);
+  });
   window.toggleCompactMetrics=function(){
     const shell=byId('metrics-panel-shell'),toggle=byId('compact-extra-toggle');
     if(!shell||!toggle)return;
@@ -12950,6 +12961,7 @@ body.sp-mode #header-kpi-summary:not(:empty) {font-size:14px;padding:5px 8px}
   }
   window.toggleHeaderKpis=function(){
     closed=!closed;
+    if(closed){const detail=el('terrain-detail-panel');if(detail&&!detail.hidden&&typeof window.toggleTerrainDetail==='function')window.toggleTerrainDetail();}
     try{localStorage.setItem(KEY,closed?'1':'0')}catch(_e){}
     render();
   };
@@ -12965,5 +12977,50 @@ body.sp-mode #header-kpi-summary:not(:empty) {font-size:14px;padding:5px 8px}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
 </script>
+
+<style>
+/* v9.14: terrain detail lives inside the KPI ribbon as an anchored disclosure.
+   No six-card extra row: preserve the complete detail data as an overlay. */
+#metrics-panel-shell{position:relative!important;overflow:visible!important}
+#metrics-panel-shell #terrain-detail-panel:not([hidden]){
+  position:absolute!important;top:calc(100% + 5px)!important;right:4px!important;left:auto!important;
+  width:min(580px,calc(100vw - 24px))!important;max-width:calc(100vw - 24px)!important;
+  display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:7px!important;margin:0!important;padding:10px!important;
+  border:1px solid var(--border2)!important;border-radius:12px!important;
+  background:var(--bg)!important;box-shadow:0 12px 28px rgba(0,0,0,.20)!important;
+  z-index:5000!important;box-sizing:border-box!important;
+}
+#metrics-panel-shell #terrain-detail-panel[hidden]{display:none!important}
+#terrain-detail-panel .terrain-detail-cell{
+  padding:10px 12px!important;min-height:53px!important;border-radius:8px!important;
+}
+#terrain-detail-panel .terrain-detail-cell span{font-size:11px!important}
+#terrain-detail-panel .terrain-detail-cell strong{font-size:17px!important}
+/* Compact disclosure is part of the primary KPI toolbar, not another tall KPI tile. */
+body.pc-mode #locked-course-panel #terrain-detail-toggle{
+  display:inline-flex!important;flex-direction:row!important;align-items:center!important;justify-content:center!important;
+  gap:6px!important;height:62px!important;min-height:62px!important;
+  padding:6px 8px!important;white-space:nowrap!important;font-size:12px!important;
+  border:1px solid var(--border2)!important;border-radius:7px!important;
+  background:var(--bg2)!important;color:var(--text)!important;cursor:pointer!important;
+}
+body.pc-mode #locked-course-panel #terrain-detail-toggle[aria-expanded="true"]{
+  background:var(--bluebg)!important;color:var(--blue)!important;
+}
+body.sp-mode #terrain-detail-toggle{
+  display:inline-flex!important;gap:6px!important;align-items:center!important;justify-content:center!important;
+  padding:8px 11px!important;font-size:12px!important;min-height:37px!important;
+}
+body.sp-mode #metrics-panel-shell #terrain-detail-panel:not([hidden]){
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  width:min(420px,calc(100vw - 16px))!important;max-width:calc(100vw - 16px)!important;
+  right:0!important;
+}
+@media(max-width:430px){
+  #metrics-panel-shell #terrain-detail-panel .terrain-detail-cell{padding:8px!important}
+  #metrics-panel-shell #terrain-detail-panel .terrain-detail-cell strong{font-size:15px!important}
+}
+</style>
 </body>
 </html>
