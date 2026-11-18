@@ -12746,13 +12746,21 @@ body.map-focus-mode #elev-wrap {bottom:var(--elev-user-bottom,0px)!important;}
 /* Map elevation strip: pointer/touch drag, keyboard adjustment, bounded persistence. */
 (function(){
   const KEY='rpp-elevation-bar-height-ratio-v1';
+  const MOBILE_KEY='rpp-elevation-bar-height-ratio-mobile-v1';
   const el=id=>document.getElementById(id);
-  let fraction=0.55, dragging=null; // Start clear of map edges; retain user-selected position
+  const onMobile=()=>document.body.classList.contains('sp-mode');
+  let fraction=0.55, mobileFraction=0.02, dragging=null;
+  // PC とスマホでは地図の縦横比が違うため、標高バーの保存位置を分離。
   try{
     const saved=localStorage.getItem(KEY);
     if(saved!==null && saved.trim()!=='' && Number.isFinite(Number(saved)))
       fraction=Math.max(0,Math.min(1,Number(saved)));
+    const savedMobile=localStorage.getItem(MOBILE_KEY);
+    if(savedMobile!==null && savedMobile.trim()!=='' && Number.isFinite(Number(savedMobile)))
+      mobileFraction=Math.max(0,Math.min(1,Number(savedMobile)));
   }catch(_e){}
+  const getFraction=()=>onMobile()?mobileFraction:fraction;
+  const setFraction=v=>{if(onMobile())mobileFraction=v;else fraction=v;};
   function maxBottom(){
     const wrap=el('elev-wrap'),map=wrap&&wrap.parentElement;
     if(!wrap||!map)return 0;
@@ -12761,11 +12769,12 @@ body.map-focus-mode #elev-wrap {bottom:var(--elev-user-bottom,0px)!important;}
   function render(save){
     const wrap=el('elev-wrap'),grip=el('elev-drag-grip');if(!wrap)return;
     const limit=maxBottom();
-    const amount=Math.round(fraction*limit);
+    const activeFraction=getFraction();
+    const amount=Math.round(activeFraction*limit);
     wrap.style.bottom=amount+'px';
     wrap.style.setProperty('--elev-user-bottom',amount+'px');
-    if(grip)grip.setAttribute('aria-valuenow',String(Math.round(100*fraction)));
-    if(save)try{localStorage.setItem(KEY,String(fraction));}catch(_e){}
+    if(grip)grip.setAttribute('aria-valuenow',String(Math.round(100*activeFraction)));
+    if(save)try{localStorage.setItem(onMobile()?MOBILE_KEY:KEY,String(activeFraction));}catch(_e){}
   }
   function init(){
     const grip=el('elev-drag-grip'),reset=el('elev-position-reset'),wrap=el('elev-wrap');
@@ -12781,7 +12790,7 @@ body.map-focus-mode #elev-wrap {bottom:var(--elev-user-bottom,0px)!important;}
       e.preventDefault();e.stopPropagation();
       const max=maxBottom();
       const px=Math.max(0,Math.min(max,dragging.at+dragging.y-e.clientY));
-      fraction=max>0?px/max:0;render(false);
+      setFraction(max>0?px/max:0);render(false);
     });
     function finish(e){
       if(!dragging||dragging.id!==e.pointerId)return;
@@ -12794,12 +12803,12 @@ body.map-focus-mode #elev-wrap {bottom:var(--elev-user-bottom,0px)!important;}
       if(!['ArrowUp','ArrowDown','Home','End'].includes(e.key))return;
       e.preventDefault();
       const max=maxBottom();
-      if(e.key==='Home')fraction=0;
-      else if(e.key==='End')fraction=1;
-      else fraction=Math.max(0,Math.min(1,fraction+(e.key==='ArrowUp'?20:-20)/Math.max(20,max)));
+      if(e.key==='Home')setFraction(0);
+      else if(e.key==='End')setFraction(1);
+      else setFraction(Math.max(0,Math.min(1,getFraction()+(e.key==='ArrowUp'?20:-20)/Math.max(20,max))));
       render(true);if(typeof scheduleRouteFitAroundElevation==='function')scheduleRouteFitAroundElevation();
     });
-    reset.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();fraction=0;render(true);if(typeof scheduleRouteFitAroundElevation==='function')scheduleRouteFitAroundElevation();});
+    reset.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();setFraction(0);render(true);if(typeof scheduleRouteFitAroundElevation==='function')scheduleRouteFitAroundElevation();});
     if(typeof ResizeObserver!=='undefined'){
       const ro=new ResizeObserver(()=>render(false));
       ro.observe(wrap.parentElement);ro.observe(wrap);
@@ -13120,6 +13129,53 @@ body.sp-mode #metrics-panel-shell #terrain-detail-panel:not([hidden]){
     overflow:hidden!important;
   }
   body.pc-mode #locked-course-panel>.compact-metric-actions{display:none!important;}
+}
+</style>
+
+<style id="mobile-map-vertical-expansion-20261118">
+/* 通常スマホ表示でも地図を縦長にする。地図最大化は従来どおり全画面。
+   上部パネルから地図への占有率を高め、標高バー分の地図余白を確保する。 */
+body.sp-mode:not(.map-focus-mode) #gmap {
+  height:clamp(760px,122dvh,1450px)!important;
+  min-height:760px!important;
+  max-height:none!important;
+}
+/* 標高チップを1列の横方向スワイプに整理。標高図と操作グリップは常時残す。
+   元データ・計算方法・すべての指標は削除せず閲覧できる。 */
+body.sp-mode #elev-wrap #route-info {
+  max-width:100%;
+  overflow:hidden;
+  padding:4px 5px 3px!important;
+}
+body.sp-mode #elev-wrap #route-info > div {
+  display:flex!important;
+  flex-wrap:nowrap!important;
+  justify-content:flex-start!important;
+  align-items:center!important;
+  gap:5px!important;
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior-x:contain;
+  touch-action:pan-x;
+  scrollbar-width:thin;
+  padding:0 0 2px;
+}
+body.sp-mode #elev-wrap #route-info .ri-chip{
+  flex:0 0 auto!important;
+  white-space:nowrap!important;
+  font-size:10px;
+}
+body.sp-mode #elev-drag-grip{
+  min-height:29px!important;
+  padding:3px 5px!important;
+  gap:5px!important;
+}
+body.sp-mode #elev-drag-grip .elev-grip-label{font-size:10px!important;white-space:nowrap}
+/* 小型端末ではグリップの長い説明だけ省略し、全景/下端操作を優先。 */
+@media(max-width:390px){
+  body.sp-mode #elev-drag-grip .elev-grip-label{font-size:0!important;}
+  body.sp-mode #elev-drag-grip .elev-grip-label::after{content:'上下移動';font-size:10px!important;}
 }
 </style>
 </body>
