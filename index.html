@@ -970,17 +970,10 @@ body.sp-mode .terrain-detail-cell strong{font-size:12px}
       <button type="button" id="header-kpi-fold-inline" class="compact-disclosure" onclick="toggleHeaderKpis()" aria-expanded="true" aria-controls="metrics-panel-shell" title="指標パネルを折りたたむ"><span id="header-kpi-fold-inline-icon">▴</span> <span id="header-kpi-fold-inline-label">指標を隠す</span></button>
       <div class="compact-metric-actions">
         <button type="button" id="compact-extra-toggle" class="compact-disclosure" onclick="toggleCompactMetrics()" aria-expanded="false" aria-controls="locked-course-panel">▦ その他の指標・操作 <span id="compact-extra-chevron">▾</span></button>
-        <button type="button" id="terrain-detail-toggle" class="compact-disclosure" onclick="toggleTerrainDetail()" aria-expanded="false" aria-controls="terrain-detail-panel"><span aria-hidden="true">⌁</span> 詳細指標 <span id="terrain-chevron">▾</span></button>
+
       </div>
     </div>
-    <div id="terrain-detail-panel" class="terrain-detail-panel" hidden>
-      <div class="terrain-detail-cell"><span>↗ 上り平均</span><strong id="compact-upgrade">—</strong></div>
-      <div class="terrain-detail-cell"><span>↘ 下り平均</span><strong id="compact-downgrade">—</strong></div>
-      <div class="terrain-detail-cell"><span>最大斜度</span><strong id="compact-maxgrade">—</strong></div>
-      <div class="terrain-detail-cell"><span>予想時間</span><strong id="compact-time">—</strong></div>
-      <div class="terrain-detail-cell"><span>スタート</span><strong id="compact-start">—</strong></div>
-      <div class="terrain-detail-cell"><span>到着予定</span><strong id="compact-arrive">—</strong></div>
-    </div>
+
   </div>
 </div>
 <div id="ride-flow-guide" class="ride-flow-guide"><b>① 地図をタップしてコース作成</b><span>→</span><b>② 上の「条件設定」で速度・時刻を調整</b></div>
@@ -12609,25 +12602,6 @@ function routeToMountain(which){
 /* Compact header: UI-only; retain the original calculation and route state */
 (function(){
   const byId=(id)=>document.getElementById(id);
-  function setTerrainDetailOpen(open){
-    const panel=byId('terrain-detail-panel'),toggle=byId('terrain-detail-toggle');
-    if(!panel||!toggle)return;
-    panel.hidden=!open;
-    toggle.setAttribute('aria-expanded',String(open));
-    const chevron=byId('terrain-chevron');if(chevron)chevron.textContent=open?'▴':'▾';
-    if(open)syncTerrainValues();
-  }
-  window.toggleTerrainDetail=function(){
-    const panel=byId('terrain-detail-panel');
-    if(panel)setTerrainDetailOpen(panel.hidden);
-  };
-  document.addEventListener('pointerdown',function(event){
-    const panel=byId('terrain-detail-panel'),toggle=byId('terrain-detail-toggle');
-    if(panel&&!panel.hidden&&!panel.contains(event.target)&&toggle&&!toggle.contains(event.target))setTerrainDetailOpen(false);
-  });
-  document.addEventListener('keydown',function(event){
-    if(event.key==='Escape')setTerrainDetailOpen(false);
-  });
   window.toggleCompactMetrics=function(){
     const shell=byId('metrics-panel-shell'),toggle=byId('compact-extra-toggle');
     if(!shell||!toggle)return;
@@ -12644,21 +12618,10 @@ function routeToMountain(which){
       card.classList.toggle('compact-secondary',!important);
     }
   }
-  const lookup={ 'msb-upgrade':'compact-upgrade','msb-downgrade':'compact-downgrade','msb-grade':'compact-maxgrade','msb-time':'compact-time','msb-start':'compact-start','msb-arrive':'compact-arrive'};
-  function syncTerrainValues(){
-    for(const [source,target] of Object.entries(lookup)){
-      const src=byId(source),dst=byId(target);if(src&&dst){const value=src.textContent||'—';if(dst.textContent!==value)dst.textContent=value;}
-    }
-  }
   function init(){
-    classifyMetrics();syncTerrainValues();
+    classifyMetrics();
     const course=byId('locked-course-panel');
     if(course&&window.MutationObserver)new MutationObserver(classifyMetrics).observe(course,{childList:true});
-    if(window.MutationObserver){
-      for(const id of Object.keys(lookup)){
-        const source=byId(id);if(source)new MutationObserver(syncTerrainValues).observe(source,{childList:true,characterData:true,subtree:true});
-      }
-    }
     // Old mobile saved state must not hide the lap controls.
     const lap=byId('lap-control');if(lap)lap.classList.remove('mobile-collapsed');
     const shell=byId('metrics-panel-shell');if(shell)shell.classList.remove('mobile-collapsed');
@@ -12843,7 +12806,7 @@ body.sp-mode #metrics-panel-shell:not(.header-kpis-collapsed){grid-row:4}
   }
   body.pc-mode #locked-course-panel{
     display:grid!important;
-    grid-template-columns:repeat(13,minmax(112px,1fr))!important;
+    grid-template-columns:repeat(12,minmax(112px,1fr))!important;
     gap:5px!important;align-items:stretch!important;
     overflow-x:auto!important;overflow-y:hidden!important;
     padding:0 0 3px!important;width:100%!important;
@@ -12961,7 +12924,6 @@ body.sp-mode #header-kpi-summary:not(:empty) {font-size:14px;padding:5px 8px}
   }
   window.toggleHeaderKpis=function(){
     closed=!closed;
-    if(closed){const detail=el('terrain-detail-panel');if(detail&&!detail.hidden&&typeof window.toggleTerrainDetail==='function')window.toggleTerrainDetail();}
     try{localStorage.setItem(KEY,closed?'1':'0')}catch(_e){}
     render();
   };
