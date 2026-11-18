@@ -938,6 +938,9 @@ body.sp-mode .terrain-detail-cell strong{font-size:12px}
     <div class="lap-top-result"><b id="lap-total-label">1周</b><span id="lap-base-label">コース作成後に累積表示</span></div>
   </div>
 
+    <button type="button" id="header-kpi-fold" class="header-kpi-fold" onclick="toggleHeaderKpis()" aria-expanded="true" aria-controls="metrics-panel-shell" title="計算指標パネルを折りたたむ・表示する">
+      <span id="header-kpi-fold-icon">▴</span><span id="header-kpi-fold-label">指標を隠す</span><span id="header-kpi-summary" aria-live="polite"></span>
+    </button>
   </div><!-- /top-controls-row -->
 
   <!-- 固定操作パネル：Mobileでは見出し単位で折りたたみ -->
@@ -12701,8 +12704,12 @@ body.map-focus-mode #elev-wrap {bottom:var(--elev-user-bottom,0px)!important;}
 (function(){
   const KEY='rpp-elevation-bar-height-ratio-v1';
   const el=id=>document.getElementById(id);
-  let fraction=0, dragging=null;
-  try{fraction=Math.max(0,Math.min(1,Number(localStorage.getItem(KEY))||0));}catch(_e){}
+  let fraction=0.70, dragging=null; // First-run: elevation visible near the upper part of the map
+  try{
+    const saved=localStorage.getItem(KEY);
+    if(saved!==null && saved.trim()!=='' && Number.isFinite(Number(saved)))
+      fraction=Math.max(0,Math.min(1,Number(saved)));
+  }catch(_e){}
   function maxBottom(){
     const wrap=el('elev-wrap'),map=wrap&&wrap.parentElement;
     if(!wrap||!map)return 0;
@@ -12755,6 +12762,61 @@ body.map-focus-mode #elev-wrap {bottom:var(--elev-user-bottom,0px)!important;}
     }else window.addEventListener('resize',()=>render(false));
     render(false);
     window.addEventListener('load',()=>render(false));
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+})();
+</script>
+<style>
+/* v9.10: fold only the duplicate-height KPI block; never remove time/lap controls. */
+#header-kpi-fold{flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;border:1px solid var(--border2);background:var(--bg2);border-radius:7px;color:var(--text);font:700 11px/1.25 inherit;padding:7px 9px;min-height:30px;cursor:pointer;white-space:nowrap;touch-action:manipulation}
+#header-kpi-fold:hover{border-color:#3786b2;background:var(--bluebg)}
+#header-kpi-summary{font-size:10px;font-weight:600;color:var(--text2);max-width:185px;overflow:hidden;text-overflow:ellipsis}
+body.pc-mode #top-controls-row #header-kpi-fold{margin-left:auto}
+body.pc-mode #metrics-panel-shell.header-kpis-collapsed,body.sp-mode #metrics-panel-shell.header-kpis-collapsed{display:none!important}
+body.pc-mode #top-controls-row{width:100%!important}
+body.sp-mode #header-kpi-fold{width:100%;justify-content:center;margin:2px 0 0;grid-column:1/-1;grid-row:auto}
+body.sp-mode #top-controls-row{display:contents!important}
+body.sp-mode #mcp-bar>#header-kpi-fold{grid-column:1}
+/* smartphone: top-controls-row is display:contents, put toggle on its own grid row after lap row. */
+body.sp-mode #top-controls-row #header-kpi-fold{grid-column:1;grid-row:3}
+body.sp-mode #metrics-panel-shell:not(.header-kpis-collapsed){grid-row:4}
+@media(max-width:1000px){#header-kpi-summary{max-width:105px}}
+</style>
+<script>
+/* Accessible KPI fold: DOM remains intact, so hidden values keep updating. */
+(function(){
+  const KEY='rpp-kpi-header-collapsed-v1';
+  const el=id=>document.getElementById(id);
+  let closed=false;
+  try{closed=localStorage.getItem(KEY)==='1'}catch(_e){}
+  function updateSummary(){
+    const summary=el('header-kpi-summary');if(!summary)return;
+    const dist=(el('mcp-dist-display')?.textContent||'0.0 km').trim();
+    const elev=(el('mcp-elev-display')?.textContent||'0 m').trim();
+    summary.textContent=closed?dist+' / '+elev:'';
+  }
+  function render(){
+    const panel=el('metrics-panel-shell'),btn=el('header-kpi-fold');if(!panel||!btn)return;
+    panel.classList.toggle('header-kpis-collapsed',closed);
+    btn.setAttribute('aria-expanded',String(!closed));
+    const icon=el('header-kpi-fold-icon'),label=el('header-kpi-fold-label');
+    if(icon)icon.textContent=closed?'▾':'▴';
+    if(label)label.textContent=closed?'指標を表示':'指標を隠す';
+    updateSummary();
+  }
+  window.toggleHeaderKpis=function(){
+    closed=!closed;
+    try{localStorage.setItem(KEY,closed?'1':'0')}catch(_e){}
+    render();
+  };
+  function init(){
+    render();
+    if(window.MutationObserver){
+      const observer=new MutationObserver(()=>{if(closed)updateSummary()});
+      for(const id of ['mcp-dist-display','mcp-elev-display']){
+        const node=el(id);if(node)observer.observe(node,{childList:true,characterData:true,subtree:true});
+      }
+    }
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
