@@ -979,7 +979,6 @@ body.sp-mode .terrain-detail-cell strong{font-size:12px}
       <div class="locked-metric"><div class="locked-label">消費カロリー</div><div class="locked-value" id="mcp-calories">0 kcal</div><div class="locked-sub" id="mcp-calories-note">コース・走力連動</div></div>
       <button type="button" id="route-point-register-top" class="locked-metric course-setting-tile route-register-top" onclick="toggleRoutePointRegistration()" aria-pressed="false" aria-label="ルート線上に地点を置くモードを切り替え" title="オン：赤いルート線をタップすると地点を末尾に追加。オフ：通常のコース作成。もう一度押すとオフ"><div class="locked-value">📍 線上に地点</div><div class="locked-sub" id="route-point-top-status">OFF・タップで切替</div></button>
       <button type="button" class="locked-metric course-setting-tile" onclick="openSettingsModal()" aria-label="条件設定"><div class="locked-value">🚴‍♂️ 🏃 条件設定</div></button>
-      <button type="button" class="locked-metric course-setting-tile" onclick="triggerGPXImport()" aria-label="GPX読込"><div class="locked-value">📂 GPX読込</div><div class="locked-sub">コースデータを読み込む</div></button>
       <!-- PC-only: adjacent to GPX import, while the top toggle remains the restore control when collapsed -->
 
       <div class="compact-metric-actions">
@@ -4414,6 +4413,15 @@ function fitRouteInFocus(silent=false){
   catch(e){gmap.fitBounds(bounds,70);}
 }
 let _routeElevationFitTimer=0;
+// 通常の地点追加・経路再計算では地図の中心と縮尺を変えない。
+// Gを明示的に確定した場合のみ、計算完了後に一度だけ全景を表示する。
+let _goalFitPending=false;
+function requestGoalFitAfterRoute(){ _goalFitPending=true; }
+function fitAfterGoalIfPending(){
+  if(!_goalFitPending)return;
+  _goalFitPending=false;
+  if(goalFixed) scheduleRouteFitAroundElevation();
+}
 function scheduleRouteFitAroundElevation(){
   clearTimeout(_routeElevationFitTimer);
   _routeElevationFitTimer=setTimeout(()=>{
@@ -5611,7 +5619,10 @@ function setGpsAsStart(){
   const ll=new google.maps.LatLng(_gpsLat,_gpsLng);
   addWaypoint(ll);
   // addWaypoint内の履歴保存後にゴール化し、Undo時の状態を壊さない。
-  if(makeGoal&&waypoints.length>1) goalFixed=true;
+  if(makeGoal&&waypoints.length>1){
+    goalFixed=true;
+    requestGoalFitAfterRoute();
+  }
   hideGpsBanner();
   _gpsBannerForceGoal=false;
   _gpsBannerLabel='現在地';
@@ -5740,6 +5751,9 @@ function toggleGoal(){
   if(waypoints.length<2) return;
   if(routeMutationBlocked()) return;
   goalFixed=!goalFixed;
+  // G確定時だけ全景表示。G解除ではズームと視点を維持。
+  _goalFitPending=false;
+  if(goalFixed) scheduleRouteFitAroundElevation();
   // マーカーの色を全て再描画
   markers.forEach(m=>m.setMap(null));
   markers=[];
@@ -6089,6 +6103,7 @@ function snapAndAddWaypoint(latLng, idx, autoCloseToStart=false){
       waypoints[idx]=snapped;
       if(autoCloseToStart){
         goalFixed=true;
+        requestGoalFitAfterRoute();
         const rtEl=document.getElementById('r-roundtrip');
         if(rtEl) rtEl.value='0'; // ルート自体に復路を含むため距離の二重化を防止
         if(typeof updateRtLabel==='function') updateRtLabel();
@@ -6103,6 +6118,7 @@ function snapAndAddWaypoint(latLng, idx, autoCloseToStart=false){
       if(autoCloseToStart){
         waypoints[idx]=waypoints[0];
         goalFixed=true;
+        requestGoalFitAfterRoute();
         const rtEl=document.getElementById('r-roundtrip');
         if(rtEl) rtEl.value='0';
         if(typeof updateRtLabel==='function') updateRtLabel();
@@ -6218,7 +6234,7 @@ function removeWaypoint(idx){
   waypoints.splice(idx,1);
   waypointKinds.splice(idx,1);
   markers.splice(idx,1);
-  if(removedWasGoal || waypoints.length<2) goalFixed=false;
+  if(removedWasGoal || waypoints.length<2){goalFixed=false;_goalFitPending=false;}
   if(typeof updateGpsBannerMode==='function') updateGpsBannerMode();
   // 全マーカーを再描画（ラベル更新）
   markers.forEach(m=>m.setMap(null));
@@ -7542,7 +7558,7 @@ function processElevation(elevResults,distKm,path,originalHeights=null){
   window._gradeDistances=null;
   updateDirectionalGradeUi(elevs,totalM);
   inspectGoogleElevationAnomalies(elevResults,distKm,path);
-  scheduleRouteFitAroundElevation();
+  fitAfterGoalIfPending();
 }
 
 function applyDistOnly(distKm){
@@ -7556,7 +7572,7 @@ function applyDistOnly(distKm){
   for(const id of ['ri-upgrade','ri-downgrade','msb-upgrade','msb-downgrade']){const el=document.getElementById(id);if(el)el.textContent='—';}
   mcpSyncFromRoute();
   updateMapStatsBar(distKm, 0, 0, 0);
-  scheduleRouteFitAroundElevation();
+  fitAfterGoalIfPending();
 }
 
 /* ══ ルートデータをUIに強制同期 ══ */
@@ -7781,6 +7797,8 @@ function applyWaypointState(state){
 function restoreState(state){ applyWaypointState(state); } // 後方互換
 
 function hardClearRoute(){
+  _goalFitPending=false;
+  clearTimeout(_routeElevationFitTimer);
   // Hard Clear：全内部変数を完全初期化
   waypoints=[];
   waypointKinds=[];
@@ -9321,6 +9339,7 @@ function setStartAsGoal(){
   waypoints.push(startLl);
   createMarker(startLl, waypoints.length-1);
   goalFixed=true;
+  requestGoalFitAfterRoute();
   const rtEl=document.getElementById('r-roundtrip');
   if(rtEl) rtEl.value='0';
   updateRtLabel();
