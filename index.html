@@ -12881,6 +12881,45 @@ body.sp-mode #metrics-panel-shell:not(.header-kpis-collapsed){grid-row:4}
 /* Mobile maintains its existing metric grid; inline PC control remains hidden. */
 body.sp-mode #header-kpi-fold-inline{display:none!important}
 body.sp-mode #locked-course-panel>.compact-metric-actions{grid-column:1/-1!important;width:100%!important;display:flex!important;justify-content:space-between!important}
+
+/* v9.12: prominent, touch-friendly indicator expand button on PC and smartphone. */
+#header-kpi-fold {
+  display:inline-flex;align-items:center;justify-content:center;gap:10px;
+  min-height:46px;padding:9px 17px;border-radius:11px;
+  border:2px solid #187c69;background:#125b51;color:#fff;
+  box-shadow:0 2px 7px rgba(7,51,46,.20);
+  font-family:inherit;font-size:15px;font-weight:800;line-height:1.25;
+  letter-spacing:.015em;cursor:pointer;transition:background .15s,box-shadow .15s;
+}
+#header-kpi-fold:hover {background:#0b7564;border-color:#0d947c;box-shadow:0 3px 11px rgba(7,51,46,.25)}
+#header-kpi-fold:focus-visible {outline:3px solid #ffbc5d;outline-offset:3px}
+#header-kpi-fold-icon {
+  display:inline-flex;align-items:center;justify-content:center;
+  width:25px;height:25px;flex:0 0 25px;
+  font-size:19px;font-weight:900;line-height:1;
+  background:rgba(255,255,255,.18);border-radius:6px;
+}
+#header-kpi-fold-label {font-size:15px;font-weight:900;white-space:nowrap;color:#fff}
+#header-kpi-summary:not(:empty) {
+  display:inline-flex;align-items:center;justify-content:center;
+  max-width:none;overflow:visible;text-overflow:clip;white-space:nowrap;
+  padding:5px 9px;margin-left:2px;border-radius:7px;
+  background:rgba(255,255,255,.97);color:#14463e;
+  font-size:13px;font-weight:900;letter-spacing:0;
+  font-variant-numeric:tabular-nums;
+}
+body.sp-mode #top-controls-row #header-kpi-fold {
+  width:100%;max-width:100%;min-height:52px;
+  padding:10px 14px;justify-content:center;gap:10px;
+  border-radius:11px;
+}
+body.sp-mode #header-kpi-fold-label {font-size:16px}
+body.sp-mode #header-kpi-summary:not(:empty) {font-size:14px;padding:5px 8px}
+@media (max-width:380px) {
+  body.sp-mode #top-controls-row #header-kpi-fold {gap:7px;padding:9px 8px}
+  body.sp-mode #header-kpi-fold-label {font-size:15px}
+  body.sp-mode #header-kpi-summary:not(:empty) {font-size:12px}
+}
 </style>
 <script>
 /* Accessible KPI fold: DOM remains intact, so hidden values keep updating. */
