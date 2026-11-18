@@ -966,10 +966,12 @@ body.sp-mode .terrain-detail-cell strong{font-size:12px}
       <button type="button" id="route-point-register-top" class="locked-metric course-setting-tile route-register-top" onclick="toggleRoutePointRegistration()" aria-pressed="false" aria-label="ルート線上に地点を置くモードを切り替え" title="オン：赤いルート線をタップすると地点を末尾に追加。オフ：通常のコース作成。もう一度押すとオフ"><div class="locked-value">📍 線上に地点</div><div class="locked-sub" id="route-point-top-status">OFF・タップで切替</div></button>
       <button type="button" class="locked-metric course-setting-tile" onclick="openSettingsModal()" aria-label="条件設定"><div class="locked-value">🚴‍♂️ 🏃 条件設定</div></button>
       <button type="button" class="locked-metric course-setting-tile" onclick="triggerGPXImport()" aria-label="GPX読込"><div class="locked-value">📂 GPX読込</div><div class="locked-sub">コースデータを読み込む</div></button>
-    </div>
-    <div class="compact-metric-actions">
-      <button type="button" id="compact-extra-toggle" class="compact-disclosure" onclick="toggleCompactMetrics()" aria-expanded="false" aria-controls="locked-course-panel">▦ その他の指標・操作 <span id="compact-extra-chevron">▾</span></button>
-      <button type="button" id="terrain-detail-toggle" class="compact-disclosure" onclick="toggleTerrainDetail()" aria-expanded="false" aria-controls="terrain-detail-panel">⌁ 地形詳細（上り・下り平均／最大斜度） <span id="terrain-chevron">▾</span></button>
+      <!-- PC-only: adjacent to GPX import, while the top toggle remains the restore control when collapsed -->
+      <button type="button" id="header-kpi-fold-inline" class="compact-disclosure" onclick="toggleHeaderKpis()" aria-expanded="true" aria-controls="metrics-panel-shell" title="指標パネルを折りたたむ"><span id="header-kpi-fold-inline-icon">▴</span> <span id="header-kpi-fold-inline-label">指標を隠す</span></button>
+      <div class="compact-metric-actions">
+        <button type="button" id="compact-extra-toggle" class="compact-disclosure" onclick="toggleCompactMetrics()" aria-expanded="false" aria-controls="locked-course-panel">▦ その他の指標・操作 <span id="compact-extra-chevron">▾</span></button>
+        <button type="button" id="terrain-detail-toggle" class="compact-disclosure" onclick="toggleTerrainDetail()" aria-expanded="false" aria-controls="terrain-detail-panel">⌁ 地形詳細 <span id="terrain-chevron">▾</span></button>
+      </div>
     </div>
     <div id="terrain-detail-panel" class="terrain-detail-panel" hidden>
       <div class="terrain-detail-cell"><span>↗ 上り平均</span><strong id="compact-upgrade">—</strong></div>
@@ -12821,6 +12823,65 @@ body.sp-mode #top-controls-row #header-kpi-fold{grid-column:1;grid-row:3}
 body.sp-mode #metrics-panel-shell:not(.header-kpis-collapsed){grid-row:4}
 @media(max-width:1000px){#header-kpi-summary{max-width:105px}}
 </style>
+<style>
+/* v9.11 desktop KPI alignment: 13 equal-height, non-wrapping tiles; fold next to GPX. */
+#header-kpi-fold-inline{display:none}
+@media(min-width:1000px){
+  body.pc-mode #metrics-panel-shell:not(.header-kpis-collapsed){
+    display:block!important;width:100%!important;min-width:0!important;
+  }
+  body.pc-mode #locked-course-panel{
+    display:grid!important;
+    grid-template-columns:repeat(13,minmax(112px,1fr))!important;
+    gap:5px!important;align-items:stretch!important;
+    overflow-x:auto!important;overflow-y:hidden!important;
+    padding:0 0 3px!important;width:100%!important;
+    scrollbar-width:thin;
+  }
+  body.pc-mode #locked-course-panel>.locked-metric{
+    min-width:0!important;width:100%!important;
+    height:62px!important;min-height:62px!important;max-height:62px!important;
+    grid-column:auto!important;grid-row:auto!important;
+    box-sizing:border-box!important;margin:0!important;
+    justify-content:center!important;
+  }
+  body.pc-mode #locked-course-panel>.course-setting-tile{min-width:0!important}
+  body.pc-mode #locked-course-panel>.compact-metric-actions{display:contents!important}
+  body.pc-mode #locked-course-panel #compact-extra-toggle{display:none!important}
+  body.pc-mode #locked-course-panel #terrain-detail-toggle,
+  body.pc-mode #locked-course-panel #header-kpi-fold-inline{
+    display:flex!important;flex-direction:column!important;
+    justify-content:center!important;align-items:center!important;
+    gap:4px!important;white-space:normal!important;
+    min-width:0!important;width:100%!important;
+    min-height:62px!important;height:62px!important;
+    padding:5px!important;margin:0!important;
+    border:1px solid var(--border2)!important;border-radius:7px!important;
+    font-size:11px!important;line-height:1.3!important;text-align:center!important;
+    box-sizing:border-box!important;
+  }
+  body.pc-mode #top-controls-row #header-kpi-fold{display:none!important}
+  body.pc-mode:has(#metrics-panel-shell.header-kpis-collapsed) #top-controls-row #header-kpi-fold{
+    display:inline-flex!important;
+  }
+  body.pc-mode #terrain-detail-panel:not([hidden]){
+    display:grid!important;grid-template-columns:repeat(6,minmax(0,1fr))!important;
+    gap:5px!important;margin-top:5px!important;
+  }
+}
+@media(min-width:769px) and (max-width:999px){
+  body.pc-mode #locked-course-panel{display:flex!important;flex-wrap:nowrap!important;overflow-x:auto!important}
+  body.pc-mode #locked-course-panel>.locked-metric{flex:0 0 132px!important;height:62px!important;min-height:62px!important}
+  body.pc-mode #locked-course-panel>.compact-metric-actions{display:flex!important;flex:0 0 auto!important;margin:0!important;align-items:stretch!important}
+  body.pc-mode #locked-course-panel #header-kpi-fold-inline{display:inline-flex!important;align-items:center;justify-content:center;min-width:95px}
+  body.pc-mode #locked-course-panel #terrain-detail-toggle{height:62px!important;min-height:62px!important}
+  body.pc-mode #top-controls-row #header-kpi-fold{display:none!important}
+  body.pc-mode:has(#metrics-panel-shell.header-kpis-collapsed) #top-controls-row #header-kpi-fold{display:inline-flex!important}
+}
+/* Mobile maintains its existing metric grid; inline PC control remains hidden. */
+body.sp-mode #header-kpi-fold-inline{display:none!important}
+body.sp-mode #locked-course-panel>.compact-metric-actions{grid-column:1/-1!important;width:100%!important;display:flex!important;justify-content:space-between!important}
+</style>
 <script>
 /* Accessible KPI fold: DOM remains intact, so hidden values keep updating. */
 (function(){
@@ -12841,6 +12902,11 @@ body.sp-mode #metrics-panel-shell:not(.header-kpis-collapsed){grid-row:4}
     const icon=el('header-kpi-fold-icon'),label=el('header-kpi-fold-label');
     if(icon)icon.textContent=closed?'▾':'▴';
     if(label)label.textContent=closed?'指標を表示':'指標を隠す';
+    const inline=el('header-kpi-fold-inline');
+    if(inline)inline.setAttribute('aria-expanded',String(!closed));
+    const inlineIcon=el('header-kpi-fold-inline-icon'),inlineLabel=el('header-kpi-fold-inline-label');
+    if(inlineIcon)inlineIcon.textContent=closed?'▾':'▴';
+    if(inlineLabel)inlineLabel.textContent=closed?'指標を表示':'指標を隠す';
     updateSummary();
   }
   window.toggleHeaderKpis=function(){
