@@ -716,6 +716,77 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
   body.sp-mode .metrics-fold-label{font-size:9px}
 }
 
+
+/* ═══ v9.07 Compact KPI header: all data retained, no redundant black strip ═══ */
+#map-stats-bar{display:none!important;visibility:hidden!important;pointer-events:none!important}
+body{padding-top:0!important}
+#mcp-bar{display:grid!important;grid-template-columns:minmax(0,1fr) auto;gap:5px 8px!important;align-items:center;padding:5px 9px!important;position:sticky!important;top:0!important}
+#time-selector-bar{grid-column:1;grid-row:1;min-width:0;flex-wrap:nowrap!important;gap:4px!important}
+#time-selector-bar .modebt{flex:0 0 auto!important;padding:5px 7px!important;font-size:10px!important;max-width:170px}
+#time-selector-bar .time-chip{min-width:0;flex:0 0 auto;padding:2px 4px!important}
+#lap-control{grid-column:2;grid-row:1;min-width:0;min-height:36px!important;padding:3px 7px!important;gap:4px!important;background:transparent;border-color:var(--border2)}
+#lap-control .lap-top-title{font-size:10px!important}
+#lap-control .lap-top-btn{width:29px;height:29px;font-size:19px}
+#lap-control .lap-top-dial{min-width:44px;height:29px}
+#lap-control .lap-top-dial span{font-size:19px;line-height:28px}
+#lap-control .lap-top-select{width:61px!important;min-width:61px;padding:3px!important;font-size:10px!important}
+#lap-control .lap-top-result{min-width:68px;max-width:132px}
+#lap-control .lap-top-result b{font-size:10px}
+#lap-control .lap-top-result span{font-size:8px;overflow:hidden;text-overflow:ellipsis;max-width:132px}
+#metrics-panel-shell{grid-column:1/-1;grid-row:2;min-width:0}
+#locked-course-panel{display:flex!important;flex-wrap:nowrap!important;gap:4px!important;align-items:stretch;overflow-x:auto;scrollbar-width:thin;padding-bottom:2px}
+#locked-course-panel>.locked-metric{flex:1 0 auto;min-width:0!important;padding:5px 7px!important;min-height:45px;box-sizing:border-box}
+#locked-course-panel>.locked-metric .locked-label{font-size:8px!important;white-space:nowrap}
+#locked-course-panel>.locked-metric .locked-value{font-size:14px!important}
+#locked-course-panel>.locked-metric .locked-sub{font-size:8px!important;white-space:nowrap}
+#locked-course-panel>.course-setting-tile{min-width:102px!important}
+#locked-course-panel>.course-setting-tile .locked-value{font-size:11px!important;white-space:nowrap}
+#ride-flow-guide{padding:3px 8px!important;font-size:10px!important;min-height:0!important}
+.compact-metric-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:5px;margin-top:3px}
+.compact-disclosure{border:1px solid var(--border2);border-radius:6px;background:var(--bg2);color:var(--text2);cursor:pointer;font-family:inherit;font-size:10px;font-weight:700;padding:5px 9px;min-height:24px}
+.compact-disclosure[aria-expanded=true]{color:var(--blue);background:var(--bluebg)}
+.terrain-detail-panel:not([hidden]){display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:5px;margin-top:5px}
+.terrain-detail-panel[hidden]{display:none!important}
+.terrain-detail-cell{padding:7px 8px;background:var(--bg2);border:1px solid var(--border);border-radius:7px;display:flex;flex-direction:column;gap:3px;min-width:0}
+.terrain-detail-cell span{font-size:9px;color:var(--text2)}
+.terrain-detail-cell strong{font-size:14px;font-variant-numeric:tabular-nums}
+/* Average ascent/descent are always visible (PC and smartphone), with no extra header row. */
+#locked-course-panel>.climb-direction-metric{min-width:132px!important}
+.climb-direction-values{display:flex;align-items:baseline;gap:4px;white-space:nowrap;font-size:14px;font-variant-numeric:tabular-nums;line-height:1.3}
+.climb-direction-values #mcp-upgrade{color:#168454}
+.climb-direction-values #mcp-downgrade{color:#2672b8}
+.climb-direction-divider{color:var(--text2);font-weight:400}
+body.sp-mode #locked-course-panel>.climb-direction-metric{min-width:0!important;grid-column:span 2!important}
+body.sp-mode .climb-direction-values{font-size:12px;gap:3px}
+#compact-extra-toggle{display:none}
+body.sp-mode #mcp-bar{grid-template-columns:minmax(0,1fr)!important;gap:3px!important;padding:4px 6px!important}
+body.sp-mode #time-selector-bar{grid-column:1;grid-row:1;display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:3px!important}
+body.sp-mode #time-selector-bar .modebt{max-width:none!important;width:100%!important;min-width:0}
+body.sp-mode #time-selector-bar .time-chip{min-width:0;justify-content:center}
+body.sp-mode #lap-control{grid-column:1;grid-row:2;display:flex!important;flex-wrap:nowrap!important;min-height:32px!important;padding:3px 5px!important;gap:5px!important;overflow:visible!important}
+body.sp-mode #lap-control .lap-top-title{width:auto!important;flex:0 0 auto!important;cursor:default!important}
+body.sp-mode #lap-control .mobile-fold-summary,body.sp-mode #lap-control .mobile-fold-icon{display:none!important}
+body.sp-mode #lap-control .lap-top-btn{display:block!important;flex:0 0 29px;width:29px;height:29px}
+body.sp-mode #lap-control .lap-top-dial{display:flex!important;flex:0 0 47px;width:47px!important;min-width:47px!important;height:29px!important}
+body.sp-mode #lap-control .lap-top-select{display:block!important;flex:0 0 59px;width:59px!important;min-width:59px!important;height:29px!important}
+body.sp-mode #lap-control .lap-top-result{display:none!important}
+body.sp-mode #metrics-panel-shell{grid-column:1;grid-row:3}
+body.sp-mode #metrics-panel-shell .metrics-fold-toggle{display:none!important}
+body.sp-mode #metrics-panel-shell #locked-course-panel{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;overflow:visible!important;gap:3px!important;padding:0}
+body.sp-mode #locked-course-panel>.locked-metric{min-width:0!important;min-height:40px!important;padding:5px 4px!important}
+body.sp-mode #locked-course-panel>.locked-metric .locked-value{font-size:12px!important;overflow-wrap:anywhere}
+body.sp-mode #locked-course-panel>.locked-metric .locked-label{font-size:8px!important}
+body.sp-mode #locked-course-panel>.locked-metric.compact-secondary{display:none!important}
+body.sp-mode #metrics-panel-shell.compact-expanded #locked-course-panel>.locked-metric.compact-secondary{display:flex!important}
+body.sp-mode #locked-course-panel>.course-setting-tile{grid-column:span 1!important;min-width:0!important}
+body.sp-mode #locked-course-panel>.course-setting-tile .locked-value{font-size:10px!important;white-space:normal!important}
+body.sp-mode #compact-extra-toggle{display:inline-flex!important}
+body.sp-mode .compact-metric-actions{justify-content:space-between;margin-top:3px}
+body.sp-mode .terrain-detail-panel:not([hidden]){grid-template-columns:repeat(3,minmax(0,1fr))}
+body.sp-mode .terrain-detail-cell{padding:5px}
+body.sp-mode .terrain-detail-cell strong{font-size:12px}
+@media(max-width:370px){body.sp-mode #time-selector-bar .modebt{font-size:9px!important}body.sp-mode #locked-course-panel>.locked-metric .locked-value{font-size:11px!important}body.sp-mode #lap-control .lap-top-select{display:none!important}}
+
 </style>
 
 <script>
@@ -876,6 +947,11 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
       <div class="locked-metric"><div class="locked-label">距離</div><div class="locked-value" id="mcp-dist-display">0.0 km</div><div class="locked-sub" id="mcp-source">🗺️ コース未作成</div></div>
       <button type="button" class="locked-metric elevation-audit-trigger" id="elevation-audit-trigger" onclick="openElevationAuditPanel()" title="クリックしてRAW/BALANCED/STABLE比較・橋梁異常候補・再検証を表示"><div class="locked-label">⛰ 獲得標高 <span style="font-size:10px;opacity:.8">⌕ 検証</span></div><div class="locked-value" id="mcp-elev-display">0 m</div><div class="locked-sub">タップして標高を検証</div></button>
       <div class="locked-metric" style="border:2px solid #299b63;background:linear-gradient(150deg,rgba(29,139,91,.13),transparent)" title="全走行距離に対する獲得標高の密度。実際の上り区間の平均勾配ではありません"><div class="locked-label" style="font-weight:900;color:#148351">⛰️ 登坂密度・高度効率</div><div class="locked-value" id="mcp-climb-density">— m/km</div><div class="locked-sub" id="mcp-climb-density-pct">— % 相当・全距離基準</div></div>
+      <div class="locked-metric climb-direction-metric" title="登り区間と下り区間を別々に集計した平均勾配。獲得標高÷全走行距離の登坂密度とは異なります">
+        <div class="locked-label">↗ 上り平均 / ↘ 下り平均</div>
+        <div class="climb-direction-values"><strong id="mcp-upgrade">—</strong><span class="climb-direction-divider">/</span><strong id="mcp-downgrade">—</strong></div>
+        <div class="locked-sub">各上り・下り区間の平均勾配</div>
+      </div>
       <div class="locked-metric"><div class="locked-label">平地基準速度</div><div class="locked-value" id="mcp-spd-display">30.0 km/h</div><div class="locked-sub">平地巡航の基準</div></div>
       <div class="locked-metric"><div class="locked-label">補正後速度</div><div class="locked-value" id="mcp-corrected-spd-display">— km/h</div><div class="locked-sub" id="mcp-corrected-note">坂・風・体調反映</div></div>
       <div class="locked-metric"><div class="locked-label">所要時間</div><div class="locked-value" id="mcp-total">—</div><div class="locked-sub" id="mcp-time-note">Ratio込み</div></div>
@@ -883,6 +959,18 @@ body.sp-mode #metrics-panel-shell:not(.mobile-collapsed) .metrics-fold-toggle{ma
       <button type="button" id="route-point-register-top" class="locked-metric course-setting-tile route-register-top" onclick="toggleRoutePointRegistration()" aria-pressed="false" aria-label="ルート線上に地点を置くモードを切り替え" title="オン：赤いルート線をタップすると地点を末尾に追加。オフ：通常のコース作成。もう一度押すとオフ"><div class="locked-value">📍 線上に地点</div><div class="locked-sub" id="route-point-top-status">OFF・タップで切替</div></button>
       <button type="button" class="locked-metric course-setting-tile" onclick="openSettingsModal()" aria-label="条件設定"><div class="locked-value">🚴‍♂️ 🏃 条件設定</div></button>
       <button type="button" class="locked-metric course-setting-tile" onclick="triggerGPXImport()" aria-label="GPX読込"><div class="locked-value">📂 GPX読込</div><div class="locked-sub">コースデータを読み込む</div></button>
+    </div>
+    <div class="compact-metric-actions">
+      <button type="button" id="compact-extra-toggle" class="compact-disclosure" onclick="toggleCompactMetrics()" aria-expanded="false" aria-controls="locked-course-panel">▦ その他の指標・操作 <span id="compact-extra-chevron">▾</span></button>
+      <button type="button" id="terrain-detail-toggle" class="compact-disclosure" onclick="toggleTerrainDetail()" aria-expanded="false" aria-controls="terrain-detail-panel">⌁ 地形詳細（上り・下り平均／最大斜度） <span id="terrain-chevron">▾</span></button>
+    </div>
+    <div id="terrain-detail-panel" class="terrain-detail-panel" hidden>
+      <div class="terrain-detail-cell"><span>↗ 上り平均</span><strong id="compact-upgrade">—</strong></div>
+      <div class="terrain-detail-cell"><span>↘ 下り平均</span><strong id="compact-downgrade">—</strong></div>
+      <div class="terrain-detail-cell"><span>最大斜度</span><strong id="compact-maxgrade">—</strong></div>
+      <div class="terrain-detail-cell"><span>予想時間</span><strong id="compact-time">—</strong></div>
+      <div class="terrain-detail-cell"><span>スタート</span><strong id="compact-start">—</strong></div>
+      <div class="terrain-detail-cell"><span>到着予定</span><strong id="compact-arrive">—</strong></div>
     </div>
   </div>
 </div>
@@ -2347,7 +2435,7 @@ function calc(){
   // ── マップ統計バーを常時更新 ──
   const bar=document.getElementById('map-stats-bar');
   if(bar){
-    bar.style.display='block'; document.body.style.paddingTop=(bar.offsetHeight||48)+'px';
+    bar.style.display='block'; /* Compact header: do not reserve space for hidden legacy stats bar */
     document.getElementById('msb-start').textContent=start;
     document.getElementById('msb-time').textContent=fmtD(totalMinsFinal);
     document.getElementById('msb-arrive').textContent=endTimeFinal;
@@ -7083,6 +7171,32 @@ function detectElevationValleyCandidates(elevations,distances,referenceM=elevati
   }
   return picked.sort((a,b)=>a.left-b.left);
 }
+// 距離スライダー連動の「モデル試算」。橋候補の有無に依存せず、路線全体の
+// 距離加重標高トレンドを計算する。元データ/BALANCEDの標準計算は変えない。
+// 端点の正味上昇量を維持するため、先頭/末尾は原標高に固定する。
+function elevationDistanceWindowEstimate(heights,distances,windowM){
+  if(!Array.isArray(heights)||heights.length<3||distances.length!==heights.length)return heights.slice();
+  const radius=Math.max(1,Number(windowM)||100);
+  const n=heights.length, result=heights.slice();
+  let lo=0,hi=0;
+  for(let i=1;i<n-1;i++){
+    if(!Number.isFinite(heights[i])||!Number.isFinite(distances[i]))continue;
+    while(lo<i&&distances[i]-distances[lo]>radius)lo++;
+    if(hi<i)hi=i;
+    while(hi+1<n&&distances[hi+1]-distances[i]<=radius)hi++;
+    let total=0,weight=0;
+    for(let j=lo;j<=hi;j++){
+      if(!Number.isFinite(heights[j])||!Number.isFinite(distances[j]))continue;
+      const d=Math.abs(distances[j]-distances[i]);
+      const w=Math.max(0,1-d/radius);
+      total+=heights[j]*w;weight+=w;
+    }
+    if(weight>0)result[i]=total/weight;
+  }
+  // トレンド平滑化で全コースの終端標高が変わることは避ける。
+  result[0]=heights[0];result[n-1]=heights[n-1];
+  return result;
+}
 function ensureElevationAnomalyDialog(){
   if(document.getElementById('elevation-anomaly-dialog')) return;
   const style=document.createElement('style');
@@ -7102,9 +7216,17 @@ function ensureElevationAnomalyDialog(){
   document.head.appendChild(style);
   const div=document.createElement('div');div.id='elevation-anomaly-dialog';
   div.setAttribute('role','dialog');div.setAttribute('aria-modal','true');div.setAttribute('aria-label','標高急変の確認');
-  div.innerHTML=`<div class="eac-card"><div style="display:flex;align-items:start;justify-content:space-between;gap:12px"><div><div style="font-size:18px;font-weight:800">⛰ 獲得標高の検証</div><p style="font-size:12px;opacity:.75;margin:7px 0">橋・谷・道路の急勾配などの可能性があります。誤差とは断定できません。</p></div><button type="button" class="eac-close" aria-label="閉じる">×</button></div><p class="eac-summary" style="font-size:13px;margin:12px 0"></p><p class="eac-live-label" style="font-size:12px;font-weight:700;color:#25855c;margin:9px 0 0">補正した場合の獲得標高（試算・未反映）</p><div class="eac-audit-table" aria-live="polite"></div><div class="eac-reference" style="padding:11px 12px;border:1px solid var(--border,#ddd);border-radius:10px;margin:12px 0"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><strong style="font-size:13px">勾配の参照距離</strong><strong class="eac-reference-value" style="font-size:14px">100m</strong></div><input type="range" class="eac-reference-slider" min="30" max="300" step="10" value="100" style="display:block;width:100%;margin:12px 0 5px;accent-color:#25855c" aria-label="橋梁の前後勾配の参照距離"><div style="display:flex;justify-content:space-between;font-size:11px;opacity:.75"><span>30m</span><span>100m（標準）</span><span>300m</span></div><p class="eac-reference-windows" style="font-size:12px;margin:7px 0 0">前後50・100・150mを比較して推定</p><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><button type="button" class="eac-ref-preset" data-ref="50" style="padding:5px 9px">50m</button><button type="button" class="eac-ref-preset" data-ref="100" style="padding:5px 9px">100m</button><button type="button" class="eac-ref-preset" data-ref="150" style="padding:5px 9px">150m</button></div><p style="font-size:11px;opacity:.8;margin:8px 0 0">スライダーを動かすと、上のRAW / BALANCED / STABLEが補正後の試算値に変わります。実際のルート標高・元データは、反映するまで変更しません。</p></div><div class="eac-items"></div><p class="eac-preview" style="font-size:13px;font-weight:700;margin:14px 0 0"></p><p style="font-size:12px;opacity:.72;margin:7px 0">初期状態は元データ維持です。上の数値は、異常候補すべてを補正した場合の仮試算です。チェックした区間があるとその区間だけの試算に切り替わり、「補正して反映」を押した場合にのみ実際のルートへ適用します。未知の橋を自動確定するものではありません。</p><div class="eac-actions"><button type="button" class="eac-google">⛰ Googleで再取得</button><button type="button" class="eac-keep">元の標高を維持・閉じる</button><button type="button" class="eac-apply" disabled>選択箇所を補正して反映</button></div></div>`;
+  div.innerHTML=`<div class="eac-card"><div style="display:flex;align-items:start;justify-content:space-between;gap:12px"><div><div style="font-size:18px;font-weight:800">⛰ 獲得標高の検証</div><p style="font-size:12px;opacity:.75;margin:7px 0">橋・谷・道路の急勾配などの可能性があります。誤差とは断定できません。</p></div><button type="button" class="eac-close" aria-label="閉じる">×</button></div><p class="eac-summary" style="font-size:13px;margin:12px 0"></p><p class="eac-live-label" style="font-size:12px;font-weight:700;color:#25855c;margin:9px 0 0">参照距離に応じた獲得標高の推定（未反映）</p><div class="eac-audit-table" aria-live="polite"></div><div class="eac-reference" style="padding:11px 12px;border:1px solid var(--border,#ddd);border-radius:10px;margin:12px 0"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><strong style="font-size:13px">標高トレンドの参照距離</strong><strong class="eac-reference-value" style="font-size:14px">100m</strong></div><input type="range" class="eac-reference-slider" min="30" max="300" step="10" value="100" style="display:block;width:100%;margin:12px 0 5px;accent-color:#25855c" aria-label="橋梁の前後勾配の参照距離"><div style="display:flex;justify-content:space-between;font-size:11px;opacity:.75"><span>30m</span><span>100m（標準）</span><span>300m</span></div><p class="eac-reference-windows" style="font-size:12px;margin:7px 0 0">前後100mの標高変化から推定</p><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><button type="button" class="eac-ref-preset" data-ref="50" style="padding:5px 9px">50m</button><button type="button" class="eac-ref-preset" data-ref="100" style="padding:5px 9px">100m</button><button type="button" class="eac-ref-preset" data-ref="150" style="padding:5px 9px">150m</button></div><p style="font-size:11px;opacity:.8;margin:8px 0 0">スライダーはコース全体の標高トレンドを距離加重で再評価します。50・100・150mなどで上の3数値が連動します。大きな距離では実際の短い坂も減るため、あくまで比較用です。元データは反映操作まで保持します。</p></div><div class="eac-items"></div><label style="display:flex;align-items:center;gap:9px;padding:10px 5px;font-size:12px;font-weight:700"><input type="checkbox" class="eac-model-accept" style="width:19px;height:19px;accent-color:#25855c">この距離での推定標高をルートに反映する（任意）</label><p class="eac-preview" style="font-size:13px;font-weight:700;margin:14px 0 0"></p><p style="font-size:12px;opacity:.72;margin:7px 0">初期状態は元データ維持です。上の数値は参照距離で標高データ全体を調整した仮試算です。橋・谷の疑わしい区間は下のチェックで追加補正できます。実際の反映には確認チェックが必要です。距離を長くすると本物の激坂も平滑化される可能性があります。</p><div class="eac-actions"><button type="button" class="eac-google">⛰ Googleで再取得</button><button type="button" class="eac-keep">元の標高を維持・閉じる</button><button type="button" class="eac-apply" disabled>選択した試算を反映</button></div></div>`;
   document.body.appendChild(div);
-  const close=()=>{div.classList.remove('visible');elevationAnomalyDialogState=null;};
+  const restoreElevationPanel=()=>{
+    const state=elevationAnomalyDialogState;
+    if(!state)return;
+    const display=document.getElementById('mcp-elev-display');
+    const sub=document.querySelector('#elevation-audit-trigger .locked-sub');
+    if(display&&state.panelOriginalValue!==undefined)display.textContent=state.panelOriginalValue;
+    if(sub&&state.panelOriginalSub!==undefined)sub.textContent=state.panelOriginalSub;
+  };
+  const close=()=>{restoreElevationPanel();div.classList.remove('visible');elevationAnomalyDialogState=null;};
   div.querySelector('.eac-close').addEventListener('click',close);
   div.querySelector('.eac-keep').addEventListener('click',close);
   div.querySelector('.eac-google').addEventListener('click',()=>{
@@ -7116,10 +7238,15 @@ function ensureElevationAnomalyDialog(){
   const updateElevationPreview=()=>{
     const state=elevationAnomalyDialogState;if(!state)return;
     const selected=[...div.querySelectorAll('input.eac-pick:checked')].map(e=>+e.value);
-    div.querySelector('.eac-apply').disabled=!selected.length;
-    // チェック未選択でも、全候補を仮補正して計算する。実際の元データは変更しない。
-    const trialIds=selected.length?selected:state.candidates.map((_,i)=>i);
-    const corrected=applySelectedElevationValleys(state.heights,state.distances,state.candidates,trialIds,state.referenceM);
+    const accept=div.querySelector('.eac-model-accept').checked;
+    div.querySelector('.eac-apply').disabled=!accept;
+    // 常に「距離依存のトレンド調整」を試算する。V字候補が0か所でも変化する。
+    const corrected=elevationDistanceWindowEstimate(state.heights,state.distances,state.referenceM);
+    if(selected.length){
+      const valleyAdjusted=applySelectedElevationValleys(corrected,state.distances,state.candidates,selected,state.referenceM);
+      for(let i=0;i<corrected.length;i++)corrected[i]=valleyAdjusted[i];
+    }
+    state.estimatedHeights=corrected;
     const original=computeElevationModeMetrics(state.heights);
     const estimate=computeElevationModeMetrics(corrected);
     div.querySelector('.eac-audit-table').innerHTML=['raw','balanced','stable'].map(key=>{
@@ -7130,11 +7257,17 @@ function ensureElevationAnomalyDialog(){
     }).join('');
     const before=Math.round(original[elevationCalculationMode]);
     const revised=Math.round(estimate[elevationCalculationMode]);
-    const indicator=selected.length?`選択 ${selected.length}か所`:`全候補 ${state.candidates.length}か所`;
-    div.querySelector('.eac-live-label').textContent=`補正した場合の獲得標高（${indicator}・未反映）`;
-    div.querySelector('.eac-preview').textContent=state.candidates.length
-      ?`試算 ${before}m → ${revised}m（${revised-before>=0?'+':''}${revised-before}m）／ 参照 ${state.referenceM}m。元の表示は変更していません。`
-      :`異常候補0か所：${before}mのまま。参照距離だけでは補正箇所を作れません。`;
+    // 上部の獲得標高パネルも「試算値」と明示して即時連動。
+    // routeData / GPX / 本来のBALANCED値は明示的に反映するまで変更しない。
+    const panelValue=document.getElementById('mcp-elev-display');
+    const panelSub=document.querySelector('#elevation-audit-trigger .locked-sub');
+    if(panelValue)panelValue.textContent=revised+' m（試算）';
+    if(panelSub)panelSub.textContent='元 '+Math.round(original[elevationCalculationMode])+'m ／ 未反映';
+    const indicator=selected.length?`＋橋梁候補 ${selected.length}か所`:'（橋梁候補の追加補正なし）';
+    div.querySelector('.eac-live-label').textContent=`参照 ${state.referenceM}mの推定値 ${indicator}・未反映`;
+    div.querySelector('.eac-preview').textContent=state.heights.length
+      ?`標高トレンド試算 ${before}m → ${revised}m（${revised-before>=0?'+':''}${revised-before}m）。元のコース表示は変更していません。`
+      :'検証する標高データがありません。';
   };
   const updateElevationReference=(value)=>{
     const state=elevationAnomalyDialogState;if(!state)return;
@@ -7143,7 +7276,7 @@ function ensureElevationAnomalyDialog(){
     const slider=div.querySelector('.eac-reference-slider');slider.value=String(state.referenceM);
     div.querySelector('.eac-reference-value').textContent=state.referenceM+'m';
     const windows=[0.5,1,1.5].map(k=>Math.round(state.referenceM*k));
-    div.querySelector('.eac-reference-windows').textContent=`前後 ${windows.join('・')}m の勾配を比較して推定`;
+    div.querySelector('.eac-reference-windows').textContent=`前後 ${windows.join('・')}m を使い、標高トレンドを試算`;
     const prior=[...div.querySelectorAll('input.eac-pick:checked')].map(e=>{
       const candidate=state.candidates[+e.value];return candidate?[candidate.left,candidate.right]:null;
     }).filter(Boolean);
@@ -7153,15 +7286,15 @@ function ensureElevationAnomalyDialog(){
     updateElevationPreview();
   };
   div.querySelector('.eac-items').addEventListener('change',updateElevationPreview);
+  div.querySelector('.eac-model-accept').addEventListener('change',updateElevationPreview);
   div.querySelector('.eac-reference-slider').addEventListener('input',e=>updateElevationReference(e.target.value));
   div.querySelectorAll('.eac-ref-preset').forEach(button=>button.addEventListener('click',()=>updateElevationReference(button.dataset.ref)));
   div.querySelector('.eac-apply').addEventListener('click',()=>{
     const state=elevationAnomalyDialogState;if(!state)return;
-    // 違うルートへ変更されていたら適用しない。
     if(state.routePath!==lastRoutePath){close();return;}
-    const selected=[...div.querySelectorAll('input.eac-pick:checked')].map(e=>+e.value);
-    if(!selected.length)return;
-    const heights=applySelectedElevationValleys(state.heights,state.distances,state.candidates,selected,state.referenceM);
+    if(!div.querySelector('.eac-model-accept').checked)return;
+    if(!Array.isArray(state.estimatedHeights)||state.estimatedHeights.length!==state.heights.length)return;
+    const heights=state.estimatedHeights.slice();
     const apply=state.apply;close();
     elevationAnomalyDialogSuppress=true;
     try{apply(heights);}finally{elevationAnomalyDialogSuppress=false;}
@@ -7196,22 +7329,26 @@ function showElevationAnomalyCandidates(heights,distances,apply,routePath,forceO
   const candidates=detectElevationValleyCandidates(heights,distances);
   if(!candidates.length&&!forceOpen) return;
   ensureElevationAnomalyDialog();
-  elevationAnomalyDialogState={heights:heights.slice(),distances:distances.slice(),candidates,apply,routePath,referenceM:elevationBridgeReferenceM};
+  const panelValue=document.getElementById('mcp-elev-display');
+  const panelSub=document.querySelector('#elevation-audit-trigger .locked-sub');
+  elevationAnomalyDialogState={heights:heights.slice(),distances:distances.slice(),candidates,apply,routePath,referenceM:elevationBridgeReferenceM,
+    panelOriginalValue:panelValue?.textContent,panelOriginalSub:panelSub?.textContent};
   const modal=document.getElementById('elevation-anomaly-dialog');
   const items=modal.querySelector('.eac-items');
   renderElevationCandidateRows(items,candidates);
   const slider=modal.querySelector('.eac-reference-slider');
   slider.value=String(elevationBridgeReferenceM);
   modal.querySelector('.eac-reference-value').textContent=elevationBridgeReferenceM+'m';
-  modal.querySelector('.eac-reference-windows').textContent=`前後 ${[0.5,1,1.5].map(k=>Math.round(elevationBridgeReferenceM*k)).join('・')}m の勾配を比較して推定`;
+  modal.querySelector('.eac-reference-windows').textContent=`前後 ${[0.5,1,1.5].map(k=>Math.round(elevationBridgeReferenceM*k)).join('・')}m を使い、標高トレンドを試算`;
   const mode=elevationCalculationMode.toUpperCase();
   const routeGain=window._routeData?.gainM;
   const summaryText=count=>heights.length
-    ?`現在の表示 ${Number.isFinite(routeGain)?Math.round(routeGain)+'m':'—'}（${mode}）／ 橋・谷の異常候補 ${count}か所。上部3数値はスライダー連動の仮試算です。`
+    ?`現在の表示 ${Number.isFinite(routeGain)?Math.round(routeGain)+'m':'—'}（${mode}）／ 橋・谷の異常候補 ${count}か所。上部3数値は距離に応じて変化する仮試算です。`
     :'標高データの検証情報がまだありません。標高付きルートを再読込してください。';
   elevationAnomalyDialogState.summaryText=summaryText;
   modal.querySelector('.eac-summary').textContent=summaryText(candidates.length);
   modal.querySelector('.eac-apply').disabled=true;
+  modal.querySelector('.eac-model-accept').checked=false;
   modal.classList.add('visible');
   slider.dispatchEvent(new Event('input', {bubbles:true}));
 }
@@ -7271,8 +7408,8 @@ function directionalGradeStats(heights,totalM,distanceMeters=null){
 function updateDirectionalGradeUi(heights,totalM,distances=null){
   const result=directionalGradeStats(heights,totalM,distances);
   const put=(id,value)=>{const el=document.getElementById(id);if(el){el.textContent=value;el.title='実際の上り/下りに分類された区間の距離で、それぞれの上昇量/下降量を割った推定平均勾配（標高データ由来）';}};
-  put('ri-upgrade',result.up.toFixed(1)+'%');put('msb-upgrade',result.up.toFixed(1)+'%');
-  put('ri-downgrade','−'+result.down.toFixed(1)+'%');put('msb-downgrade','−'+result.down.toFixed(1)+'%');
+  put('ri-upgrade',result.up.toFixed(1)+'%');put('msb-upgrade',result.up.toFixed(1)+'%');put('mcp-upgrade',result.up.toFixed(1)+'%');
+  put('ri-downgrade','−'+result.down.toFixed(1)+'%');put('msb-downgrade','−'+result.down.toFixed(1)+'%');put('mcp-downgrade','−'+result.down.toFixed(1)+'%');
   if(window._routeData)window._routeData.directionalGrades=result;
   return result;
 }
@@ -7300,7 +7437,7 @@ function processElevation(elevResults,distKm,path,originalHeights=null){
   // 統計バーを即時強制更新
   const bar=document.getElementById('map-stats-bar');
   if(bar){
-    bar.style.display='block'; document.body.style.paddingTop=(bar.offsetHeight||48)+'px';
+    bar.style.display='block'; /* Compact header: do not reserve space for hidden legacy stats bar */
     document.getElementById('msb-dist').textContent=(+distKm).toFixed(1)+' km';
     document.getElementById('msb-elev').textContent=gainM+' m';
     const ag=document.getElementById('msb-avggrade'); if(ag) ag.textContent=avgGrade.toFixed(1)+'%';
@@ -7357,7 +7494,7 @@ function syncRouteToUI(){
   if(rtEl) rtEl.value='0';
   updateRtLabel();
   const bar=document.getElementById('map-stats-bar');
-  if(bar) bar.style.display='block'; document.body.style.paddingTop=(bar.offsetHeight||48)+'px';
+  if(bar) bar.style.display='block'; /* Compact header: do not reserve space for hidden legacy stats bar */
   // ゴール設定済みならスタートを逆算、未設定なら順算
   const changed=dialState.end.h!==null?'end':'start';
   recalcTime(changed);
@@ -7376,7 +7513,7 @@ function syncStartTimeToBar(){
 function updateMapStatsBar(distKm, gainM, maxGrade, avgGrade){
   const bar=document.getElementById('map-stats-bar');
   if(!bar) return;
-  bar.style.display='block'; document.body.style.paddingTop=(bar.offsetHeight||48)+'px';
+  bar.style.display='block'; /* Compact header: do not reserve space for hidden legacy stats bar */
   document.getElementById('msb-dist').textContent=(+distKm).toFixed(1)+' km';
   document.getElementById('msb-elev').textContent=(+gainM).toFixed(0)+' m';
   const ag=document.getElementById('msb-avggrade');
@@ -7895,7 +8032,7 @@ function _applyGPXMetrics(gpxPts, path, filename, originalHeights=null){
   const routeInfo=document.getElementById('route-info'); if(routeInfo) routeInfo.style.display='block';
   const ew=document.getElementById('elev-wrap'); if(ew) ew.style.display='block';
   const bar=document.getElementById('map-stats-bar');
-  if(bar){bar.style.display='block';document.body.style.paddingTop=(bar.offsetHeight||48)+'px';}
+  if(bar){bar.style.display='block';/* Compact header: do not reserve space for hidden legacy stats bar */}
   const setT=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
   setT('ri-dist',distText); setT('ri-elev',gainText); setT('ri-avggrade',avgText); setT('ri-maxgrade',maxGradeText);
   setT('ri-maxelev',haveElev&&Number.isFinite(maxElev)?Math.round(maxElev)+' m':'—');
@@ -8636,7 +8773,7 @@ function updateBar(sH,sM,eH,eM,mins,dayLabel){
   dayLabel=dayLabel||'';
   const bar=document.getElementById('map-stats-bar');
   if(!bar) return;
-  bar.style.display='block'; document.body.style.paddingTop=(bar.offsetHeight||48)+'px';
+  bar.style.display='block'; /* Compact header: do not reserve space for hidden legacy stats bar */
   const startStr=`${String(sH).padStart(2,'0')}:${String(sM).padStart(2,'0')}`;
   const endStr=`${String(eH).padStart(2,'0')}:${String(eM).padStart(2,'0')}`;
   document.getElementById('msb-start').textContent=startStr;
@@ -12124,11 +12261,11 @@ function routeToMountain(which){
     try{
       var saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');
       if(saved&&typeof saved==='object'){
-        return {lap:saved.lap!==false,metrics:saved.metrics!==false};
+        return {lap:false,metrics:false};
       }
     }catch(e){}
     // 初回は地図を広く見せるため両方を折りたたむ。
-    return {lap:true,metrics:true};
+    return {lap:false,metrics:false};
   }
   function currentState(){
     return {
@@ -12166,6 +12303,7 @@ function routeToMountain(which){
   };
 
   window.toggleMobileTopPanel=function(section){
+    if(section==='lap')return; // 周回操作はスマホでも常時表示
     var panel=el(section==='lap'?'lap-control':'metrics-panel-shell');
     if(!panel) return;
     setFold(section,!panel.classList.contains('mobile-collapsed'),true);
@@ -12174,8 +12312,8 @@ function routeToMountain(which){
 
   function init(){
     var state=readState();
-    setFold('lap',state.lap,false);
-    setFold('metrics',state.metrics,false);
+    setFold('lap',false,false);
+    setFold('metrics',false,false);
     window.refreshMobileTopPanelSummaries();
 
     if(window.MutationObserver){
@@ -12411,5 +12549,56 @@ function routeToMountain(which){
   <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:14px"><button type="button" onclick="closeHypotheticalRouteDialog()" style="padding:9px 14px;border:1px solid #aaa;border-radius:7px">キャンセル</button><button type="button" id="hypothetical-confirm-btn" onclick="confirmHypotheticalRouteMode()" style="padding:9px 14px;background:#b45309;color:white;border:0;border-radius:7px;font-weight:800">理解して仮想試算をON</button></div>
  </div>
 </div>
+
+<script>
+/* Compact header: UI-only; retain the original calculation and route state */
+(function(){
+  const byId=(id)=>document.getElementById(id);
+  window.toggleTerrainDetail=function(){
+    const panel=byId('terrain-detail-panel'),toggle=byId('terrain-detail-toggle');
+    if(!panel||!toggle)return;
+    panel.hidden=!panel.hidden;
+    toggle.setAttribute('aria-expanded',String(!panel.hidden));
+    const chevron=byId('terrain-chevron');if(chevron)chevron.textContent=panel.hidden?'▾':'▴';
+    syncTerrainValues();
+  };
+  window.toggleCompactMetrics=function(){
+    const shell=byId('metrics-panel-shell'),toggle=byId('compact-extra-toggle');
+    if(!shell||!toggle)return;
+    const expanded=shell.classList.toggle('compact-expanded');
+    toggle.setAttribute('aria-expanded',String(expanded));
+    const icon=byId('compact-extra-chevron');if(icon)icon.textContent=expanded?'▴':'▾';
+  };
+  function classifyMetrics(){
+    const panel=byId('locked-course-panel');if(!panel)return;
+    for(const card of panel.children){
+      if(!card.classList||!card.classList.contains('locked-metric'))continue;
+      const primary=['mcp-dist-display','mcp-elev-display','mcp-climb-density','mcp-total','route-point-register-top'];
+      const important=primary.some(id=>card.id===id||card.querySelector('#'+id))||card.classList.contains('course-setting-tile');
+      card.classList.toggle('compact-secondary',!important);
+    }
+  }
+  const lookup={ 'msb-upgrade':'compact-upgrade','msb-downgrade':'compact-downgrade','msb-grade':'compact-maxgrade','msb-time':'compact-time','msb-start':'compact-start','msb-arrive':'compact-arrive'};
+  function syncTerrainValues(){
+    for(const [source,target] of Object.entries(lookup)){
+      const src=byId(source),dst=byId(target);if(src&&dst){const value=src.textContent||'—';if(dst.textContent!==value)dst.textContent=value;}
+    }
+  }
+  function init(){
+    classifyMetrics();syncTerrainValues();
+    const course=byId('locked-course-panel');
+    if(course&&window.MutationObserver)new MutationObserver(classifyMetrics).observe(course,{childList:true});
+    if(window.MutationObserver){
+      for(const id of Object.keys(lookup)){
+        const source=byId(id);if(source)new MutationObserver(syncTerrainValues).observe(source,{childList:true,characterData:true,subtree:true});
+      }
+    }
+    // Old mobile saved state must not hide the lap controls.
+    const lap=byId('lap-control');if(lap)lap.classList.remove('mobile-collapsed');
+    const shell=byId('metrics-panel-shell');if(shell)shell.classList.remove('mobile-collapsed');
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+})();
+</script>
 </body>
 </html>
