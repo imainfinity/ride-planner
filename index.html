@@ -978,7 +978,7 @@ body.sp-mode .terrain-detail-cell strong{font-size:12px}
       <div class="locked-metric"><div class="locked-label">所要時間</div><div class="locked-value" id="mcp-total">—</div><div class="locked-sub" id="mcp-time-note">Ratio込み</div></div>
       <div class="locked-metric"><div class="locked-label">消費カロリー</div><div class="locked-value" id="mcp-calories">0 kcal</div><div class="locked-sub" id="mcp-calories-note">コース・走力連動</div></div>
       <button type="button" id="route-point-register-top" class="locked-metric course-setting-tile route-register-top" onclick="toggleRoutePointRegistration()" aria-pressed="false" aria-label="ルート線上に地点を置くモードを切り替え" title="オン：赤いルート線をタップすると地点を末尾に追加。オフ：通常のコース作成。もう一度押すとオフ"><div class="locked-value">📍 線上に地点</div><div class="locked-sub" id="route-point-top-status">OFF・タップで切替</div></button>
-      <button type="button" class="locked-metric course-setting-tile" onclick="openSettingsModal()" aria-label="条件設定"><div class="locked-value">🚴‍♂️ 🏃 条件設定</div></button>
+      <button type="button" class="locked-metric course-setting-tile settings-quick-tile" onclick="openSettingsModal()" aria-label="速度・運動条件の設定を開く" title="速度・体重・心拍・運動条件を設定"><div class="locked-value">⚙️ 速度・条件設定</div><div class="locked-sub">タップして変更</div></button>
       <!-- PC-only: adjacent to GPX import, while the top toggle remains the restore control when collapsed -->
 
       <div class="compact-metric-actions">
@@ -1130,7 +1130,10 @@ body.sp-mode .terrain-detail-cell strong{font-size:12px}
           <button class="poi-float-btn" id="route-lock-float" onclick="toggleRouteLock()" title="コースを固定する">🔓<div>編集</div></button>
           <button class="poi-float-btn" id="force-waypoint-float" onclick="toggleForceWaypointMode()" title="通したい道路に強制経由点を追加">◆<div>経由</div></button>
           <button class="poi-float-btn" id="route-point-float" onclick="toggleRoutePointRegistration()" title="赤いコース線の上へ通常の地点を登録">📍<div>地点</div></button>
-          <button class="poi-float-btn cmd-gpx" onclick="triggerGPXImport()" title="GPX読込">📂<div>読込</div></button>
+          <div class="map-gpx-action-pair" role="group" aria-label="GPXファイルの読込と保存">
+            <button type="button" class="poi-float-btn cmd-gpx" onclick="triggerGPXImport()" title="GPXファイルを読み込む" aria-label="GPX読込">📂<div>読込</div></button>
+            <button type="button" class="poi-float-btn cmd-gpx-save" onclick="downloadGPX()" title="現在のコースをGPXで保存" aria-label="GPX保存">💾<div>保存</div></button>
+          </div>
           <button class="poi-float-btn" id="map-focus-toggle" onclick="toggleMapFocusMode()" title="地図を最大化">⛶<div>最大化</div></button>
         </div>
       </div>
@@ -13195,6 +13198,132 @@ body.sp-mode #elev-drag-grip .elev-grip-label{font-size:10px!important;white-spa
 @media(max-width:390px){
   body.sp-mode #elev-drag-grip .elev-grip-label{font-size:0!important;}
   body.sp-mode #elev-drag-grip .elev-grip-label::after{content:'上下移動';font-size:10px!important;}
+}
+</style>
+
+<style id="mobile-night-ux-fix-20261121">
+/* Night mode: the settings tile previously used --acc (#18180f) for its text,
+   indistinguishable from dark background. High-contrast values apply to this control. */
+#locked-course-panel > .settings-quick-tile {
+  background:#e9f1ff!important;
+  border:1.5px solid #3570b5!important;
+  box-shadow:0 1px 3px rgba(30,77,128,.12);
+  justify-content:center;
+  align-items:center;
+}
+#locked-course-panel > .settings-quick-tile .locked-value {
+  color:#153d6b!important;
+  font-weight:900!important;
+  font-size:12px!important;
+  line-height:1.3!important;
+  white-space:normal!important;
+  overflow-wrap:normal!important;
+  word-break:keep-all!important;
+  text-align:center;
+}
+#locked-course-panel > .settings-quick-tile .locked-sub {
+  color:#315d83!important;
+  font-weight:700!important;
+  text-align:center;
+}
+#locked-course-panel > .settings-quick-tile:focus-visible {
+  outline:3px solid #3b82f6!important;
+  outline-offset:2px;
+}
+@media(prefers-color-scheme:dark) {
+  body.sp-mode #locked-course-panel .locked-label {color:#bdc9d6!important}
+  body.sp-mode #locked-course-panel .locked-sub {color:#c3ceda!important}
+  body.sp-mode #locked-course-panel > .locked-metric:not(.settings-quick-tile) .locked-value {
+    color:#f5f7fb;
+  }
+  body.sp-mode #locked-course-panel > .route-register-top {
+    background:#263440!important;
+    border:1.5px solid #7898b7!important;
+  }
+  body.sp-mode #locked-course-panel > .route-register-top .locked-value {
+    color:#f5faff!important;
+  }
+  body.sp-mode #locked-course-panel > .route-register-top.on {
+    background:#174735!important;
+    border-color:#7adc9b!important;
+  }
+  body.sp-mode #locked-course-panel > .route-register-top.on .locked-value {
+    color:#c9f9da!important;
+  }
+  body.sp-mode #locked-course-panel > .settings-quick-tile {
+    background:#203d5a!important;
+    border-color:#83b9f6!important;
+  }
+  body.sp-mode #locked-course-panel > .settings-quick-tile .locked-value {
+    color:#f0f7ff!important;
+  }
+  body.sp-mode #locked-course-panel > .settings-quick-tile .locked-sub {
+    color:#d5e7ff!important;
+  }
+  body.sp-mode .compact-disclosure {
+    color:#e1edff!important;
+  }
+}
+/* Planned-load score must be atomic: never break 588 into 5 / 8 / 8. */
+#locked-course-panel > .load-score-card {
+  min-width:0!important;
+  justify-content:center;
+}
+#locked-course-panel > .load-score-card .locked-value {
+  display:flex!important;
+  flex-direction:row!important;
+  align-items:center!important;
+  flex-wrap:wrap!important;
+  justify-content:flex-start!important;
+  gap:3px 5px!important;
+  min-width:0!important;
+  width:100%!important;
+  overflow-wrap:normal!important;
+  word-break:normal!important;
+  white-space:normal!important;
+}
+#locked-course-panel > .load-score-card .load-number {
+  display:inline-block!important;
+  flex:0 0 auto!important;
+  min-width:max-content!important;
+  white-space:nowrap!important;
+  word-break:keep-all!important;
+  overflow-wrap:normal!important;
+  font-size:16px!important;
+  line-height:1.1!important;
+  font-variant-numeric:tabular-nums!important;
+}
+#locked-course-panel > .load-score-card .load-grade {
+  flex:0 1 auto!important;
+  min-width:0!important;
+  max-width:100%!important;
+  overflow-wrap:normal!important;
+  word-break:keep-all!important;
+  white-space:normal!important;
+  line-height:1.15!important;
+}
+/* GPX Read + Save on one shared row: no extra vertical map obstruction. */
+.map-route-stack {align-items:flex-end}
+.map-gpx-action-pair {
+  display:flex;flex-direction:row;justify-content:flex-end;align-items:stretch;
+  gap:4px;align-self:flex-end;pointer-events:auto;
+}
+.map-gpx-action-pair > .poi-float-btn {flex:0 0 42px}
+.map-gpx-action-pair > .cmd-gpx-save {
+  background:#116b43!important;color:#fff!important;
+  border:1px solid rgba(255,255,255,.3)!important;
+}
+.map-gpx-action-pair > .cmd-gpx-save div {color:#fff!important}
+@media(max-width:380px) {
+  .map-gpx-action-pair > .poi-float-btn {flex-basis:38px}
+}
+@media(max-width:520px) {
+  body.sp-mode #locked-course-panel > .load-score-card .load-grade {
+    font-size:9px!important;
+  }
+  body.sp-mode #locked-course-panel > .settings-quick-tile .locked-value {
+    font-size:11px!important;
+  }
 }
 </style>
 </body>
