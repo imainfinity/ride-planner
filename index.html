@@ -1404,6 +1404,9 @@ body.sp-mode .terrain-detail-cell strong{font-size:12px}
     <div id="wp-list" style="max-height:150px;overflow-y:auto"></div>
   </div>
 
+  <!-- PCの日照バーを元の右側パネルに戻す位置。スマホでは空。 -->
+  <div id="daylight-desktop-home" aria-hidden="true"></div>
+
   <!-- 日照タイムライン（全モード共通・上部表示） -->
   <div class="panel" id="daylight-panel" style="margin-bottom:9px">
     <!-- 地図オーバーレイの移動ハンドルと設定の開閉は最終スクリプトで追加 -->
@@ -10892,7 +10895,7 @@ body.pc-mode .ride-settings-col{overflow-y:auto}
     if(!drawer||!daylight)return;
     /* 日照タイムラインは地図上に常設。PC/SPで同じDOMと計算ロジックを使う。 */
     var mapStage=document.getElementById('map-stage');
-    if(mapStage && daylight.parentNode!==mapStage){
+    if(mapStage && !document.body.classList.contains('pc-mode') && daylight.parentNode!==mapStage){
       mapStage.appendChild(daylight);
     }
     /* 旧PC専用入力欄は値の正本を持たせず、完全に非表示。 */
@@ -13840,6 +13843,95 @@ body.pc-mode #locked-course-panel>.route-register-top{display:none!important}
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
  window.mobileRouteDataDockClose=close;
+})();
+</script>
+
+
+<!-- v9.19 PC-only: return daylight to original sidebar, resolve inherited layout conflicts. -->
+<style id="pc-sidebar-original-layout-20261122">
+@media (min-width: 769px) {
+  /* A broad workspace has no reason to scroll its KPI cards sideways. */
+  body.pc-mode #mcp-bar {min-width:0!important; max-width:100%!important;}
+  body.pc-mode #metrics-panel-shell {min-width:0!important;width:100%!important;}
+  body.pc-mode #locked-course-panel {
+    display:grid!important;
+    grid-template-columns:repeat(auto-fit,minmax(130px,1fr))!important;
+    gap:6px!important;min-width:0!important;width:100%!important;
+    overflow-x:visible!important;overflow-y:visible!important;
+    flex-wrap:wrap!important;padding:0!important;
+  }
+  body.pc-mode #locked-course-panel > .locked-metric {
+    min-width:0!important;width:100%!important;max-width:none!important;
+    height:62px!important;min-height:62px!important;
+    grid-row:auto!important;grid-column:auto!important;
+  }
+  /* Existing route-register and settings controls already live in the right rail. */
+  body.pc-mode #locked-course-panel > .route-register-top,
+  body.pc-mode #locked-course-panel > .settings-quick-tile,
+  body.pc-mode #locked-course-panel > .compact-metric-actions {display:none!important;}
+  body.pc-mode .ride-settings-col,
+  body.pc-mode #drawer-content {
+    min-width:0!important;max-width:100%!important;
+    overflow-x:hidden!important;box-sizing:border-box!important;
+  }
+  body.pc-mode .ride-settings-col {overscroll-behavior-x:none;}
+  body.pc-mode #drawer-content > *{max-width:100%;box-sizing:border-box;}
+  body.pc-mode #drawer-content button,
+  body.pc-mode #drawer-content select {max-width:100%;}
+  /* Desktop daylight is again part of the sidebar flow, not a map overlay. */
+  body.pc-mode #drawer-content #daylight-panel {
+    position:relative!important;inset:auto!important;
+    left:auto!important;top:auto!important;bottom:auto!important;right:auto!important;
+    transform:none!important;display:block!important;
+    width:100%!important;max-width:100%!important;
+    margin:6px 0 9px!important;padding:9px!important;
+    overflow-x:hidden!important;overflow-y:visible!important;
+    z-index:auto!important;box-shadow:none!important;
+    background:var(--bg2)!important;border:1px solid var(--border2)!important;
+    border-radius:9px!important;
+  }
+  body.pc-mode #drawer-content #daylight-panel .dl-overlay-grip{display:none!important;}
+  body.pc-mode #drawer-content #daylight-panel #dl-controls {
+    display:flex!important;flex-wrap:wrap!important;min-width:0!important;
+    gap:5px!important;margin-bottom:8px!important;
+  }
+  body.pc-mode #drawer-content #daylight-panel #dl-time-wrap,
+  body.pc-mode #drawer-content #daylight-panel #dl-timeline-row {max-width:100%!important;min-width:0!important;}
+  body.pc-mode #drawer-content #daylight-panel #dl-pref {max-width:115px!important;}
+  body.pc-mode #drawer-content #daylight-panel #dl-date {min-width:125px!important;}
+}
+</style>
+<script>
+(function(){
+ 'use strict';
+ const $=id=>document.getElementById(id);
+ const isDesktop=()=>document.body.classList.contains('pc-mode');
+ let lastMode=null;
+ function restoreDaylight(){
+   const panel=$('daylight-panel'),stage=$('map-stage'),home=$('daylight-desktop-home');
+   if(!panel||!stage||!home)return;
+   const desktop=isDesktop();
+   if(desktop){
+      if(panel.previousElementSibling!==home)home.insertAdjacentElement('afterend',panel);
+      panel.classList.remove('mobile-overlay-expanded');
+      panel.classList.remove('dl-settings-open');
+   }else if(panel.parentElement!==stage){
+      stage.appendChild(panel);
+   }
+   if(desktop!==lastMode){
+     lastMode=desktop;
+     requestAnimationFrame(()=>{
+       try{if(typeof renderDaylight==='function')renderDaylight()}catch(err){console.warn('日照パネル再配置:',err)}
+     });
+   }
+ }
+ function init(){
+   restoreDaylight();
+   new MutationObserver(restoreDaylight).observe(document.body,{attributes:true,attributeFilter:['class']});
+   window.addEventListener('resize',restoreDaylight,{passive:true});
+   window.addEventListener('load',restoreDaylight,{once:true});
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
 </script>
 
