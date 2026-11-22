@@ -1137,7 +1137,7 @@ body.sp-mode .terrain-detail-cell strong{font-size:12px}
           <button class="poi-float-btn" id="map-focus-toggle" onclick="toggleMapFocusMode()" title="地図を最大化">⛶<div>最大化</div></button>
         </div>
       </div>
-      <input id="gpx-import-file" type="file" accept=".gpx,application/gpx+xml,text/xml,application/xml" style="display:none" onchange="readGPXFile(this.files&&this.files[0]);this.value=''">
+      <input id="gpx-import-file" type="file" style="display:none" onchange="readGPXFile(this.files&&this.files[0]);this.value=''">
 
       <!-- ルート統計バー：画面上部に常時固定 -->
       <div id="map-stats-bar" style="display:none;position:fixed;top:0;left:0;right:0;z-index:300;pointer-events:none">
@@ -8076,6 +8076,8 @@ function triggerGPXImport(){
 }
 function readGPXFile(file){
   if(!file) return;
+  // iOSのファイル選択では.gpxのUTI/MIMEが未認識の場合があるためacceptで除外しない。
+  // 実際の内容がGPXかはimportGPXTextで確認する。
   const reader=new FileReader();
   reader.onload=()=>importGPXText(String(reader.result||''), file.name||'import.gpx');
   reader.onerror=()=>alert('GPXファイルを読み込めませんでした');
@@ -8237,7 +8239,7 @@ function importGPXText(txt, filename){
   if(!gmap || !window.google || !google.maps){alert('マップ初期化後にGPXを読み込んでください');return;}
   let xml;
   try{ xml=new DOMParser().parseFromString(txt,'application/xml'); }catch(e){ alert('GPX形式を解析できませんでした'); return; }
-  if(xml.querySelector('parsererror')){ alert('GPX形式が不正です'); return; }
+  if(xml.querySelector('parsererror') || xml.documentElement?.localName?.toLowerCase()!=='gpx'){ alert('GPX形式のファイルを選んでください（.gpx）'); return; }
 
   // namespace付きGPXでも localName で確実に拾う
   const all=[...xml.getElementsByTagName('*')];
@@ -8473,16 +8475,15 @@ function setPOICategoryVisible(label,show,notify=true){
 function selectPOICategory(label){
   const cfg=POI_TYPES[label];
   if(!cfg||!gmap) return;
-  if(_poiSelectMode&&_poiSelectedLabel===label){ cancelPOISelect(); return; }
+  // 同じアイコンの再タップは「一時非表示」ではなく完全クリア。
+  // 次のタップで別の地点を新規検索でき、古い検索マーカーは戻らない。
+  if((_poiSelectMode&&_poiSelectedLabel===label) || activePOIs.has(label) ||
+      poiMarkers.some(marker=>marker&&marker._poiLabel===label)){
+    clearAllPOI();
+    if(typeof notifyRouteEdit==='function')notifyRouteEdit(`${cfg.icon} ${label}のPOI表示を解除しました。もう一度タップすると別の地点を検索できます`);
+    return;
+  }
   if(_poiSelectMode) cancelPOISelect(true);
-  if(activePOIs.has(label)){
-    setPOICategoryVisible(label,false);
-    return;
-  }
-  if(poiMarkers.some(marker=>marker&&marker._poiLabel===label)){
-    setPOICategoryVisible(label,true);
-    return;
-  }
   beginPOICategorySearch(label);
 }
 
@@ -8491,6 +8492,8 @@ function beginPOICategorySearch(label){
   const visual=getPOIVisual(label,cfg);
   if(!cfg||!gmap) return;
   if(_poiSelectMode) cancelPOISelect(true);
+  // 新しいカテゴリーを選んだ時点で、前の地点／カテゴリーの表示を消す。
+  if(poiMarkers.length||activePOIs.size) resetPOIVisibleScope();
   _poiSelectMode=true; _poiSelectedLabel=label;
   // A scenic destination is normally tens of km away; local services are not.
   setQuickPoiRadius(poiPreferredRadius(label));
@@ -8532,14 +8535,11 @@ function executePOISearch(label,latLng){
   gmap.setOptions({draggableCursor:null});
   document.getElementById('poi-area-prompt').style.display='none';
   _poiSelectMode=false; _poiSelectedLabel=null;
-  const version=_poiRequestVersion+1;
-  // 中心または半径を変更したら、他地域の旧マーカーも一括削除。
-  const prior=_poiVisibleScope;
-  if(!prior||prior.radius!==radius||poiDistanceMeters(prior.lat,prior.lng,lat,lng)>1){
-    resetPOIVisibleScope();
-  }
+  // 検索開始ごとに前回のカテゴリ・検索地点の表示を完全にクリア。
+  // キャッシュは残すが、現在の検索範囲以外のマーカーを再利用しない。
+  resetPOIVisibleScope();
+  const version=_poiRequestVersion;
   _poiVisibleScope={lat,lng,radius};
-  _poiRequestVersion=version;
   const visual=getPOIVisual(label,cfg,latLng);
   const worldMode=isWorldPOIContext(latLng);
   const keyword=worldMode?(WORLD_POI_KEYWORDS[label]||cfg.keyword):cfg.keyword;
@@ -8636,9 +8636,8 @@ function renderPOI(places,cfg,label,fromCache=false,scope=null){
                style="cursor:pointer;flex:1;font-size:11px;color:var(--text)">${visual.icon} ${pl.name}${pl.rating?' ⭐'+pl.rating:''}</span>
          <a href="${su}" target="_blank" rel="noopener" style="font-size:10px;color:#1a73e8;text-decoration:none">🔍</a></div>`;
      }).join('');
-  // 既存結果の「検索中」表示を置換、それ以外は累積追記
-  if(box.innerHTML.includes('検索中')||!box.innerHTML.trim()){box.innerHTML=newContent;}
-  else{box.innerHTML+=newContent;}
+  // 直近の検索結果だけを表示し、他地域・他カテゴリの履歴を積み上げない。
+  if(box)box.innerHTML=newContent;
   syncPOIButtonStates();
 }
 
@@ -13753,6 +13752,7 @@ body.pc-mode #locked-course-panel>.route-register-top{display:none!important}
    if(!visible)return;
    const top=Math.max(minTop,r.top+8);
    dock.style.setProperty('--mobile-dock-top',Math.round(top)+'px');
+   document.body.style.setProperty('--poi-search-visibility-top',Math.round(top+dock.offsetHeight+9)+'px');
    const targetTop=Math.min(Math.max(top+dock.offsetHeight+7,minTop+50),viewportHeight-110);
    for(const id of ['daylight-panel','elev-wrap']){
      const el=byId(id);if(!el)continue;
@@ -13846,6 +13846,29 @@ body.pc-mode #locked-course-panel>.route-register-top{display:none!important}
 })();
 </script>
 
+
+
+<!-- v9.20: POI search controls remain visible below mobile daylight/elevation dock. -->
+<style id="poi-radius-above-overlay-mobile-20261122">
+@media (max-width: 768px) {
+  body.sp-mode:not(.pc-mode) #poi-radius-map-command.on {
+    position:fixed!important;
+    top:var(--poi-search-visibility-top, 136px)!important;
+    left:50%!important;right:auto!important;bottom:auto!important;
+    transform:translateX(-50%)!important;
+    max-width:calc(100vw - 20px)!important;
+    box-sizing:border-box!important;
+    z-index:120!important;
+    padding:7px 10px!important;
+    box-shadow:0 6px 18px rgba(0,0,0,.45)!important;
+  }
+  body.sp-mode:not(.pc-mode) #poi-radius-map-command.on select {
+    min-width:86px!important;min-height:38px!important;
+    font-size:14px!important;color:#111!important;background:white!important;
+  }
+  body.sp-mode:not(.pc-mode) #poi-radius-map-command.on span:last-child {display:none!important}
+}
+</style>
 
 <!-- v9.19 PC-only: return daylight to original sidebar, resolve inherited layout conflicts. -->
 <style id="pc-sidebar-original-layout-20261122">
