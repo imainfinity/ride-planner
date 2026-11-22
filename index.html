@@ -1109,7 +1109,7 @@ body.sp-mode .terrain-detail-cell strong{font-size:12px}
         <div class="map-float-stack map-poi-stack" aria-label="POI検索">
           <div class="map-float-stack-label">POI</div>
           <select id="poi-radius-quick-select" class="poi-range-quick" onchange="setQuickPoiRadius(this.value)" title="POI検索範囲" aria-label="POI検索範囲">
-            <option value="1000">1km</option><option value="2000">2km</option><option value="3000">3km</option><option value="4000">4km</option><option value="5000">5km</option><option value="6000">6km</option><option value="7000">7km</option><option value="8000">8km</option><option value="9000">9km</option><option value="10000">10km</option>
+            <option value="1000">1km</option><option value="2000">2km</option><option value="3000">3km</option><option value="4000">4km</option><option value="5000">5km</option><option value="6000">6km</option><option value="7000">7km</option><option value="8000">8km</option><option value="9000">9km</option><option value="10000">10km</option><option value="20000">20km</option><option value="30000">30km</option>
           </select>
           <button class="poi-float-btn" data-poi-label="コンビニ" onclick="selectPOICategory('コンビニ')" title="コンビニ">🏪<div>CVS</div></button>
           <button class="poi-float-btn" data-poi-label="カフェ" onclick="selectPOICategory('カフェ')" title="カフェ">☕<div>Café</div></button>
@@ -1332,6 +1332,7 @@ body.sp-mode .terrain-detail-cell strong{font-size:12px}
     <button class="bs" onclick="reverseCourseDirection()" title="スタート・ゴールを入れ替える（GPX対応）" style="font-size:11px;padding:4px 8px">🔁 反転</button>
     <button class="bs" onclick="returnToCurrentLocation()" title="現在地へ地図を戻す" style="font-size:11px;padding:4px 8px">◎ 現在地</button>
     <button class="course-btn" id="route-lock-inline" onclick="toggleRouteLock()" title="コースを固定する">🔓 編集可能</button>
+    <button type="button" class="bs" onclick="openSettingsModal()" title="速度・体重・心拍などの条件設定" style="font-size:11px;font-weight:800;min-height:35px;padding:6px 10px">⚙️ 速度・条件設定</button>
     <button class="bp" onclick="downloadGPX()" title="作成したコースをGPXで保存" style="font-size:12px;padding:6px 12px;font-weight:800;background:var(--green);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.18)">💾 GPX保存</button>
     <button class="bs" type="button" onclick="triggerGPXImport()" title="GPXファイルからコースを読み込む" style="font-size:12px;padding:6px 12px;font-weight:800;min-height:35px">📂 GPX読込</button>
     <button class="bs" type="button" onclick="reverifyGoogleElevation()" title="同じルートの標高をGoogle Elevation APIで再取得して再集計" style="font-size:11px;padding:6px 9px;font-weight:800">⛰ 標高再検証</button>
@@ -1382,7 +1383,7 @@ body.sp-mode .terrain-detail-cell strong{font-size:12px}
         <option value="7000">7km</option>
         <option value="8000">8km</option>
         <option value="9000">9km</option>
-        <option value="10000">10km</option>
+        <option value="10000">10km</option><option value="20000">20km</option><option value="30000">30km</option>
       </select> を検索</div>
       <button onclick="cancelPOISelect()" style="margin-top:4px;padding:2px 8px;border:0.5px solid var(--border2);border-radius:3px;background:var(--bg);color:var(--text2);font-size:10px;cursor:pointer">キャンセル</button>
     </div>
@@ -4488,14 +4489,19 @@ function toggleMapFocusMode(force){
 }
 
 function setQuickPoiRadius(value){
-  const meters=Math.max(1000,Math.min(10000,Math.round((Number(value)||1000)/1000)*1000));
+  const meters=Math.max(1000,Math.min(30000,Math.round((Number(value)||1000)/1000)*1000));
   const base=document.getElementById('poi-radius-sel');
   const previous=Number(base?.value||1000);
   ['poi-radius-sel','poi-radius-map-select','poi-radius-quick-select'].forEach(id=>{
     const el=document.getElementById(id);
     if(el) el.value=String(meters);
   });
-  try{localStorage.setItem('rpp_poi_radius',String(meters));}catch(e){}
+  try{
+    localStorage.setItem('rpp_poi_radius',String(meters));
+    if(typeof _poiSelectedLabel!=='undefined'&&_poiSelectedLabel){
+      localStorage.setItem('rpp_poi_radius_for_'+encodeURIComponent(_poiSelectedLabel),String(meters));
+    }
+  }catch(e){}
   // 半径変更後に古い検索地点・広い半径のPOIを地図へ残さない。
   // 再検索はしない。カテゴリー選択中の地図タップ待機は維持する。
   if(previous!==meters && typeof resetPOIVisibleScope==='function'){
@@ -8320,11 +8326,21 @@ const POI_TYPES={
   'カフェ':     {keyword:'カフェ coffee cafe',                 type:'cafe',              icon:'☕',col:'#8b5cf6'},
   'レストラン': {keyword:'レストラン 食堂 ランチ',             type:'restaurant',        icon:'🍽️',col:'#f59e0b'},
   '公園':       {keyword:'公園',                               type:'park',              icon:'🌳',col:'#22c55e'},
-  '絶景':       {keyword:'展望台 絶景 景色 ビュースポット',    type:'tourist_attraction',icon:'🏔️',col:'#0284c7'},
+  '絶景':       {keyword:'展望台',                         type:'tourist_attraction',icon:'🏔️',col:'#0284c7'},
   '史跡':       {keyword:'史跡 城跡 遺跡 古墳 歴史',          type:'tourist_attraction',icon:'🏯',col:'#92400e'},
-  '名所・観光': {keyword:'観光 名所 神社 寺 城',              type:'tourist_attraction', icon:'⛩️',col:'#0ea5e9'},
-  '温泉':       {keyword:'温泉 銭湯 湯',                       type:'spa',               icon:'♨️',col:'#f97316'},
+  '名所・観光': {keyword:'',                              type:'tourist_attraction', icon:'⛩️',col:'#0ea5e9'},
+  '温泉':       {keyword:'温泉',                            type:'spa',               icon:'♨️',col:'#f97316'},
 };
+// Sightseeing is intentionally wider than routine amenities.  One tap = one nearby request.
+const POI_WIDE_CATEGORIES=new Set(['絶景','名所・観光','温泉']);
+function poiPreferredRadius(label){
+  const fallback=POI_WIDE_CATEGORIES.has(label)?20000:1000;
+  try{
+    const value=Number(localStorage.getItem('rpp_poi_radius_for_'+encodeURIComponent(label)));
+    if(Number.isFinite(value)&&value>=1000&&value<=30000) return value;
+  }catch(_e){}
+  return fallback;
+}
 const WORLD_POI_KEYWORDS={
   'コンビニ':'convenience store supermarket','カフェ':'coffee cafe','レストラン':'restaurant food',
   '公園':'park','絶景':'scenic viewpoint observation deck','史跡':'historic site ruins castle',
@@ -8473,9 +8489,11 @@ function beginPOICategorySearch(label){
   if(!cfg||!gmap) return;
   if(_poiSelectMode) cancelPOISelect(true);
   _poiSelectMode=true; _poiSelectedLabel=label;
+  // A scenic destination is normally tens of km away; local services are not.
+  setQuickPoiRadius(poiPreferredRadius(label));
   syncPOIButtonStates();
   const prompt=document.getElementById('poi-area-prompt');
-  document.getElementById('poi-prompt-label').textContent=`${visual.icon} ${label}を探したいエリアを地図でタップ`;
+  document.getElementById('poi-prompt-label').textContent=`${visual.icon} ${label}（半径${poiPreferredRadius(label)/1000}km）を探したいエリアを地図でタップ`;
   prompt.style.display='block';
   gmap.setOptions({draggableCursor:'crosshair'});
   _poiClickListener=gmap.addListener('click',e=>{ executePOISearch(label,e.latLng); });
@@ -8504,7 +8522,7 @@ function executePOISearch(label,latLng){
     notifyRouteEdit('POI検索中です。完了後に別の地点を指定してください');
     return;
   }
-  const radius=Math.max(1000,Math.min(10000,Number(document.getElementById('poi-radius-sel')?.value)||1000));
+  const radius=Math.max(1000,Math.min(30000,Number(document.getElementById('poi-radius-sel')?.value)||1000));
   const lat=latLng.lat(),lng=latLng.lng();
   if(!Number.isFinite(lat)||!Number.isFinite(lng)) return;
   if(_poiClickListener){google.maps.event.removeListener(_poiClickListener);_poiClickListener=null;}
@@ -8545,7 +8563,10 @@ function executePOISearch(label,latLng){
   // Googleのradius指定だけでは検索範囲外の候補が混ざる場合があるため、
   // レスポンスを実距離で二重チェックする（新たなAPI呼び出しは増やさない）。
   try{
-    placesService.nearbySearch({location:latLng,radius,keyword},(res,status)=>{
+    const request={location:latLng,radius};
+    if(label==='名所・観光') request.type='tourist_attraction';
+    else request.keyword=keyword;
+    placesService.nearbySearch(request,(res,status)=>{
       _poiRequestPending=false;
       if(_poiRequestVersion!==version) return; // 旧中心・旧半径の結果は破棄
       const ok=status===google.maps.places.PlacesServiceStatus.OK;
@@ -9123,7 +9144,7 @@ function mcpFlushAll(totalMins, moveSpdEff){
     document.getElementById('mcp-end-m').textContent = '--';
   }
   document.getElementById('mcp-total').textContent = totalMins ? fmtD(totalMins) : '—';
-  if(!totalMins) updateTopCalorie(0, currentActivityMode==='run'?'Run':'Ride');
+  if(!totalMins){ let mode='ride'; try{mode=localStorage.getItem('rpp_exercise_mode')||'ride'}catch(_e){} updateTopCalorie(0,mode==='run'?'Run':'Ride'); }
   const srcLabel = mcp.source === 'route' ? '📍 ルート反映' : '🔒 設定値反映';
   const _srcEl=document.getElementById('mcp-source'); if(_srcEl) _srcEl.textContent = srcLabel;
   // PC サイドバー同期
@@ -11216,14 +11237,14 @@ body.pc-mode .ride-settings-col{overflow-y:auto}
     command.id='poi-radius-map-command';
     command.innerHTML='<span>📍 POI範囲</span><select id="poi-radius-map-select" aria-label="POI検索範囲"></select><span>地図をタップ</span>';
     var select=command.querySelector('select');
-    for(var km=1;km<=10;km++){
+    for(var km of [1,2,3,4,5,6,7,8,9,10,20,30]){
       var option=document.createElement('option');
       option.value=String(km*1000); option.textContent=km+' km';
       select.appendChild(option);
     }
     var base=document.getElementById('poi-radius-sel');
     var stored=localStorage.getItem('rpp_poi_radius') || (base&&base.value) || '1000';
-    select.value=String(Math.max(1000,Math.min(10000,Number(stored)||1000)));
+    select.value=String(Math.max(1000,Math.min(30000,Number(stored)||1000)));
     if(base) base.value=select.value;
     var quick=document.getElementById('poi-radius-quick-select');
     if(quick) quick.value=select.value;
@@ -13646,142 +13667,179 @@ body.map-focus-mode #map-stage #daylight-panel{z-index:57!important}
 </script>
 
 
-<!-- Mobile collapsed daylight/elevation dock v9.16 -->
-<style>
-/* Only the phone layout uses the compact bottom dock. PC panels stay unchanged. */
-#mobile-map-data-dock { display:none; }
-body.sp-mode:not(.pc-mode) #map-stage #mobile-map-data-dock {
-  display:flex!important; align-items:center; justify-content:center; gap:7px;
-  position:absolute; bottom:calc(7px + env(safe-area-inset-bottom, 0px));
-  left:50%; transform:translateX(-50%); z-index:85;
-  width:max-content; max-width:calc(100% - 116px); box-sizing:border-box;
-  padding:5px 6px; border-radius:13px;
-  background:rgba(12,19,28,.93); border:1px solid rgba(255,255,255,.35);
-  box-shadow:0 4px 13px rgba(0,0,0,.34); backdrop-filter:blur(8px);
-  -webkit-backdrop-filter:blur(8px); pointer-events:auto;
+<!-- Mobile sunlight/elevation dock: visible above the map, never at an offscreen map bottom. -->
+<style id="mobile-map-dock-visibility-fix-20261122">
+#mobile-map-data-dock{display:none}
+body.sp-mode:not(.pc-mode) #map-stage #mobile-map-data-dock{
+  display:flex!important;align-items:center;justify-content:center;gap:7px;
+  position:fixed!important;top:var(--mobile-dock-top,72px)!important;
+  bottom:auto!important;left:50%!important;right:auto!important;
+  transform:translateX(-50%)!important;z-index:98!important;
+  width:max-content!important;max-width:calc(100vw - 24px)!important;
+  box-sizing:border-box;padding:5px 7px;border-radius:12px;
+  background:rgba(12,19,28,.94);border:1px solid rgba(255,255,255,.36);
+  box-shadow:0 4px 13px rgba(0,0,0,.34);backdrop-filter:blur(8px);
+  pointer-events:auto;visibility:hidden;
 }
-body.sp-mode:not(.pc-mode) #mobile-map-data-dock .map-data-dock-btn {
-  display:inline-flex; gap:5px; align-items:center; justify-content:center;
-  min-height:37px; min-width:85px; padding:5px 10px;
-  border-radius:9px; border:1px solid rgba(255,255,255,.25);
-  background:rgba(255,255,255,.12); color:#fff;
-  font-weight:800; font-size:13px; line-height:1.15;
-  white-space:nowrap; cursor:pointer; touch-action:manipulation;
+body.sp-mode:not(.pc-mode) #mobile-map-data-dock .map-data-dock-btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  min-height:38px;min-width:87px;padding:5px 11px;border-radius:9px;
+  border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.12);
+  color:#fff;font-size:13px;font-weight:800;white-space:nowrap;
+  cursor:pointer;touch-action:manipulation
 }
-body.sp-mode:not(.pc-mode) #mobile-map-data-dock .map-data-dock-btn[aria-expanded="true"] {
-  background:#176557; border-color:#6fdabc; color:#fff;
+body.sp-mode:not(.pc-mode) #mobile-map-data-dock .map-data-dock-btn[aria-expanded="true"]{
+  background:#166558;border-color:#79dfbf;color:#fff
 }
-body.sp-mode:not(.pc-mode) #mobile-map-data-dock .map-data-dock-btn[aria-disabled="true"] {
-  opacity:.56;
-}
-body.sp-mode:not(.pc-mode) #mobile-map-data-dock .map-data-dock-btn:focus-visible {
-  outline:2px solid #9bd3ff;outline-offset:2px;
-}
-/* Hide both overlays by default on phones. Their existing calculation and state remain untouched. */
+body.sp-mode:not(.pc-mode) #mobile-map-data-dock .map-data-dock-btn[aria-disabled="true"]{opacity:.58}
+body.sp-mode:not(.pc-mode) #mobile-map-data-dock .map-data-dock-btn:focus-visible{outline:2px solid #8cd2ff;outline-offset:2px}
 body.sp-mode:not(.pc-mode) #map-stage #daylight-panel:not(.mobile-overlay-expanded),
-body.sp-mode:not(.pc-mode) #map-stage #elev-wrap:not(.mobile-overlay-expanded) {
-  display:none!important;
+body.sp-mode:not(.pc-mode) #map-stage #elev-wrap:not(.mobile-overlay-expanded){display:none!important}
+/* Open panels track the same visible viewport as the dock, even while the page scrolls. */
+body.sp-mode:not(.pc-mode) #map-stage #daylight-panel.mobile-overlay-expanded{
+  display:block!important;position:fixed!important;top:var(--mobile-expanded-top,132px)!important;
+  bottom:auto!important;left:12px!important;right:12px!important;
+  width:auto!important;max-width:none!important;z-index:100!important;
+  max-height:calc(100dvh - var(--mobile-expanded-top,132px) - 12px)!important;
+  overflow-x:hidden!important;overflow-y:auto!important
 }
-/* Elevated panel sits above the two bottom tabs; do not remove existing drag behavior. */
-body.sp-mode:not(.pc-mode) #map-stage #daylight-panel.mobile-overlay-expanded {
-  z-index:73!important;
+body.sp-mode:not(.pc-mode) #map-stage #elev-wrap.mobile-overlay-expanded{
+  display:block!important;position:fixed!important;top:var(--mobile-expanded-top,132px)!important;
+  bottom:auto!important;left:8px!important;right:8px!important;
+  width:auto!important;z-index:100!important;
+  max-height:calc(100dvh - var(--mobile-expanded-top,132px) - 12px)!important;
+  overflow-x:hidden!important;overflow-y:auto!important
 }
-body.sp-mode:not(.pc-mode) #map-stage #elev-wrap.mobile-overlay-expanded {
-  z-index:73!important;
-}
-/* Existing goal and zoom buttons must not sit on top of the compact dock. */
+/* Existing map controls stay interactive; tapping the map does not dismiss a chart. */
 body.sp-mode:not(.pc-mode) #map-stage .mobile-goal-float,
-body.sp-mode:not(.pc-mode) #map-stage .mobile-zoom-float {
-  bottom:calc(65px + env(safe-area-inset-bottom, 0px))!important;
+body.sp-mode:not(.pc-mode) #map-stage .mobile-zoom-float{bottom:14px!important}
+@media(max-width:375px){
+ body.sp-mode:not(.pc-mode) #mobile-map-data-dock .map-data-dock-btn{min-width:75px;padding:5px 8px;font-size:12px}
 }
-@media(max-width:355px) {
-  body.sp-mode:not(.pc-mode) #mobile-map-data-dock .map-data-dock-btn {
-    min-width:70px; padding:5px 7px; font-size:12px;
-  }
+/* PC controls remain in the original right-hand panel, no horizontal content overflow. */
+body.pc-mode .ride-settings-col,body.pc-mode #drawer-content{
+  min-width:0!important;max-width:100%!important;overflow-x:hidden!important;
 }
+body.pc-mode #locked-course-panel>.settings-quick-tile,
+body.pc-mode #locked-course-panel>.route-register-top{display:none!important}
 </style>
 <script>
 (function(){
-  'use strict';
-  const byId=id=>document.getElementById(id);
-  const isPhone=()=>document.body.classList.contains('sp-mode') && !document.body.classList.contains('pc-mode');
-  let active=null;
-  let ready=false;
-  function profileAvailable(){
-    const elev=byId('elev-wrap');
-    return !!(elev && elev.style.display!=='none');
-  }
-  function sync(){
-    const day=byId('daylight-panel'),elev=byId('elev-wrap');
-    const btnDay=byId('mobile-dock-daylight'),btnElev=byId('mobile-dock-elevation');
-    if(!day||!elev||!btnDay||!btnElev)return;
-    if(!isPhone())active=null;
-    if(active==='elev'&&!profileAvailable())active=null;
-    const dayOn=isPhone()&&active==='day';
-    const elevOn=isPhone()&&active==='elev';
-    day.classList.toggle('mobile-overlay-expanded',dayOn);
-    elev.classList.toggle('mobile-overlay-expanded',elevOn);
-    btnDay.setAttribute('aria-expanded',String(dayOn));
-    btnElev.setAttribute('aria-expanded',String(elevOn));
-    btnElev.setAttribute('aria-disabled',String(!profileAvailable()));
-  }
-  function close(){if(active===null)return;active=null;sync();}
-  function toggle(which){
-    if(!isPhone())return;
-    if(which==='elev'&&!profileAvailable()){
-      if(typeof notifyRouteEdit==='function')notifyRouteEdit('コース作成後に標高グラフを表示できます');
-      return;
-    }
-    active=(active===which)?null:which;
-    sync();
-    if(active==='day'){
-      requestAnimationFrame(()=>{
-        if(typeof renderDaylight==='function')renderDaylight();
-        if(typeof renderLinkedRouteProgress==='function')renderLinkedRouteProgress('mobile-dock');
-      });
-    }
-    if(active==='elev'){
-      requestAnimationFrame(()=>{
-        if(typeof drawElevProfile==='function'&&typeof lastElevResults!=='undefined'&&lastElevResults?.length)drawElevProfile(lastElevResults);
-        if(typeof renderLinkedRouteProgress==='function')renderLinkedRouteProgress('mobile-dock');
-      });
-    }
-  }
-  function init(){
-    if(ready)return;
-    const stage=byId('map-stage');if(!stage||!byId('elev-wrap')||!byId('daylight-panel'))return;
-    ready=true;
-    const dock=document.createElement('div');
-    dock.id='mobile-map-data-dock';
-    dock.setAttribute('role','group');
-    dock.setAttribute('aria-label','地図の情報バー');
-    dock.innerHTML='<button type="button" class="map-data-dock-btn" id="mobile-dock-daylight" aria-controls="daylight-panel" aria-expanded="false">☀️ 日照</button>'+
+ 'use strict';
+ const byId=id=>document.getElementById(id);
+ const isPhone=()=>document.body.classList.contains('sp-mode')&&!document.body.classList.contains('pc-mode');
+ let active=null,ready=false,frame=0,manualTop=null,drag=null;
+ function profileAvailable(){const e=byId('elev-wrap');return !!(e&&e.style.display!=='none')}
+ function updateDockPosition(){
+   if(!ready)return;
+   const dock=byId('mobile-map-data-dock'),stage=byId('map-stage');
+   if(!dock||!stage)return;
+   if(!isPhone()) {dock.style.visibility='hidden';return;}
+   const r=stage.getBoundingClientRect();
+   const header=document.querySelector('header');
+   const headerBottom=header?Math.max(0,header.getBoundingClientRect().bottom):0;
+   // The mobile KPI header is also sticky; never put the dock underneath it.
+   const metrics=byId('mcp-bar');
+   const metricsRect=metrics?.getBoundingClientRect();
+   const metricsSticky=metrics&&getComputedStyle(metrics).position==='sticky'&&metricsRect&&metricsRect.top<=headerBottom+10;
+   const occupiedTop=metricsSticky?Math.max(headerBottom,metricsRect.bottom):headerBottom;
+   const viewportHeight=window.visualViewport?.height||innerHeight;
+   const minTop=occupiedTop+7;
+   const visible=(r.bottom>minTop+64&&r.top<viewportHeight-54);
+   dock.style.visibility=visible?'visible':'hidden';
+   if(!visible)return;
+   const top=Math.max(minTop,r.top+8);
+   dock.style.setProperty('--mobile-dock-top',Math.round(top)+'px');
+   const targetTop=Math.min(Math.max(top+dock.offsetHeight+7,minTop+50),viewportHeight-110);
+   for(const id of ['daylight-panel','elev-wrap']){
+     const el=byId(id);if(!el)continue;
+     const chosen=manualTop!==null?Math.min(Math.max(minTop+4,manualTop),viewportHeight-70):targetTop;
+     el.style.setProperty('--mobile-expanded-top',Math.round(chosen)+'px');
+   }
+ }
+ function queuePosition(){if(frame)cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>{frame=0;updateDockPosition()})}
+ function sync(){
+   const day=byId('daylight-panel'),elev=byId('elev-wrap');
+   const bday=byId('mobile-dock-daylight'),belev=byId('mobile-dock-elevation');
+   if(!day||!elev||!bday||!belev)return;
+   if(!isPhone())active=null;
+   if(active==='elev'&&!profileAvailable())active=null;
+   const dayOn=isPhone()&&active==='day',elevOn=isPhone()&&active==='elev';
+   day.classList.toggle('mobile-overlay-expanded',dayOn);
+   elev.classList.toggle('mobile-overlay-expanded',elevOn);
+   bday.setAttribute('aria-expanded',String(dayOn));
+   belev.setAttribute('aria-expanded',String(elevOn));
+   belev.setAttribute('aria-disabled',String(!profileAvailable()));
+   queuePosition();
+ }
+ function close(){active=null;manualTop=null;sync()}
+ function toggle(which){
+   if(!isPhone())return;
+   if(which==='elev'&&!profileAvailable()){
+     if(typeof notifyRouteEdit==='function')notifyRouteEdit('コース作成後に標高グラフを表示できます');
+     return;
+   }
+   active=active===which?null:which;manualTop=null;sync();
+   if(active==='day')requestAnimationFrame(()=>{
+     if(typeof renderDaylight==='function')renderDaylight();
+     if(typeof renderLinkedRouteProgress==='function')renderLinkedRouteProgress('mobile-dock');
+     queuePosition();
+   });
+   if(active==='elev')requestAnimationFrame(()=>{
+     if(typeof drawElevProfile==='function'&&typeof lastElevResults!=='undefined'&&lastElevResults?.length)drawElevProfile(lastElevResults);
+     if(typeof renderLinkedRouteProgress==='function')renderLinkedRouteProgress('mobile-dock');
+     queuePosition();
+   });
+ }
+ function bindPanelDrag(gripId,panelId,which){
+   const grip=byId(gripId),panel=byId(panelId);if(!grip||!panel)return;
+   grip.addEventListener('pointerdown',e=>{
+     if(!isPhone()||active!==which||e.button!==0||e.target.closest('button,input,select'))return;
+     e.stopImmediatePropagation();e.preventDefault();
+     drag={id:e.pointerId,y:e.clientY,top:panel.getBoundingClientRect().top,which};
+     grip.setPointerCapture(e.pointerId);
+   },true);
+   grip.addEventListener('pointermove',e=>{
+     if(!drag||drag.which!==which||drag.id!==e.pointerId)return;
+     e.stopImmediatePropagation();e.preventDefault();
+     manualTop=drag.top+e.clientY-drag.y;
+     queuePosition();
+   },true);
+   for(const eventName of ['pointerup','pointercancel'])grip.addEventListener(eventName,e=>{
+     if(!drag||drag.which!==which||drag.id!==e.pointerId)return;
+     e.stopImmediatePropagation();drag=null;queuePosition();
+   },true);
+ }
+ function init(){
+   if(ready)return;
+   const stage=byId('map-stage');if(!stage||!byId('elev-wrap')||!byId('daylight-panel'))return;
+   ready=true;
+   const dock=document.createElement('div');
+   dock.id='mobile-map-data-dock';dock.setAttribute('role','group');
+   dock.setAttribute('aria-label','日照と標高の情報バー');
+   dock.innerHTML='<button type="button" class="map-data-dock-btn" id="mobile-dock-daylight" aria-controls="daylight-panel" aria-expanded="false">☀️ 日照</button>'+
       '<button type="button" class="map-data-dock-btn" id="mobile-dock-elevation" aria-controls="elev-wrap" aria-expanded="false">⛰️ 標高</button>';
-    stage.appendChild(dock);
-    byId('mobile-dock-daylight').addEventListener('click',ev=>{ev.preventDefault();ev.stopPropagation();toggle('day')});
-    byId('mobile-dock-elevation').addEventListener('click',ev=>{ev.preventDefault();ev.stopPropagation();toggle('elev')});
-    // A tap on the route/map puts both bars away, without consuming the map gesture.
-    stage.addEventListener('pointerdown',ev=>{
-      if(!isPhone()||!active)return;
-      if(ev.target.closest('#mobile-map-data-dock,#daylight-panel,#elev-wrap'))return;
-      close();
-    },{capture:true,passive:true});
-    document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&isPhone())close()});
-    const goal=byId('goal-flag-btn'),zoom=stage.querySelector('button[onclick*="gmap.setZoom"]');
-    goal?.parentElement?.classList.add('mobile-goal-float');
-    zoom?.parentElement?.classList.add('mobile-zoom-float');
-    new MutationObserver(sync).observe(document.body,{attributes:true,attributeFilter:['class']});
-    // Route changes toggle the elevation panel's inline display state.
-    new MutationObserver(()=>{
-      const disabled=byId('mobile-dock-elevation')?.getAttribute('aria-disabled');
-      const available=profileAvailable();
-      if((disabled==='true')===available || (active==='elev'&&!available))sync();
-    }).observe(byId('elev-wrap'),{attributes:true,attributeFilter:['style']});
-    sync();
-  }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});
-  else init();
-  window.mobileRouteDataDockClose=close;
+   stage.appendChild(dock);
+   byId('mobile-dock-daylight').addEventListener('click',e=>{e.preventDefault();e.stopPropagation();toggle('day')});
+   byId('mobile-dock-elevation').addEventListener('click',e=>{e.preventDefault();e.stopPropagation();toggle('elev')});
+   // Explicit toggles only. A route tap must not unexpectedly close the selected chart.
+   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&isPhone())close()});
+   new MutationObserver(()=>{sync();queuePosition()}).observe(document.body,{attributes:true,attributeFilter:['class']});
+   new MutationObserver(()=>{
+     const disabled=byId('mobile-dock-elevation')?.getAttribute('aria-disabled');
+     const available=profileAvailable();
+     if((disabled==='true')===available||(active==='elev'&&!available))sync();
+   }).observe(byId('elev-wrap'),{attributes:true,attributeFilter:['style']});
+   bindPanelDrag('dl-overlay-grip','daylight-panel','day');
+   bindPanelDrag('elev-drag-grip','elev-wrap','elev');
+   window.addEventListener('scroll',queuePosition,{passive:true});
+   window.addEventListener('resize',queuePosition,{passive:true});
+   window.visualViewport?.addEventListener('resize',queuePosition,{passive:true});
+   if(typeof ResizeObserver==='function'){const ro=new ResizeObserver(queuePosition);ro.observe(stage);const metrics=byId('mcp-bar');if(metrics)ro.observe(metrics)}
+   sync();queuePosition();
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+ window.mobileRouteDataDockClose=close;
 })();
 </script>
 
