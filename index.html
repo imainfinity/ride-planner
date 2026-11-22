@@ -3981,6 +3981,8 @@ function onTimeCanvasHover(e){
   }
   tip.style.transform='translateX(-50%)';
   tip.textContent=`${status} ${hToHHMM(h)}${dayLabel}｜経過 ${elapsedLabel}｜${totalKm.toFixed(1)} km${linkedLaps>1?'（'+lapNumber+'周目・周内'+currentLapKm.toFixed(1)+'km）':''}`;
+  const mobileReadout=document.getElementById('dl-mobile-time-readout');
+  if(mobileReadout)mobileReadout.textContent=tip.textContent;
 }
 
 function drawTimeCanvas(tw, startH, endH, dist, moveSpd){
@@ -6968,6 +6970,8 @@ function renderLinkedRouteProgress(source,opts={}){
       tooltip.style.left=left+'px';
       tooltip.style.transform='translateX(-50%)';
       tooltip.textContent=`🕒 ${hToHHMM(hour)}${lap>1?'｜'+lapNumber+'周目':''}｜経過 ${Math.floor(minutes/60)}:${String(minutes%60).padStart(2,'0')}｜${(route*ensureRouteDistanceIndex().totalM/1000).toFixed(1)} km`;
+      const mobileReadout=document.getElementById('dl-mobile-time-readout');
+      if(mobileReadout)mobileReadout.textContent=tooltip.textContent;
     }
   }
   if(gmap&&window.google?.maps){
@@ -13596,6 +13600,11 @@ body.map-focus-mode #map-stage #daylight-panel{z-index:57!important}
     grip.setAttribute('aria-valuemin','0');grip.setAttribute('aria-valuemax','100');
     grip.innerHTML='<span class="dl-grip-dots" aria-hidden="true"></span><span class="dl-grip-label">☀ 日照 <span id="dl-overlay-summary"></span></span><button type="button" id="dl-settings-toggle" class="dl-overlay-action" aria-expanded="false" aria-controls="dl-controls">⚙ 日付・地域</button><button type="button" id="dl-overlay-reset" class="dl-overlay-action" title="日照バーを初期位置に戻す">↺ 位置</button>';
     panel.insertBefore(grip,panel.firstChild);
+    const mobileReadout=document.createElement('div');
+    mobileReadout.id='dl-mobile-time-readout';
+    mobileReadout.setAttribute('aria-live','off');
+    mobileReadout.textContent='時間軸をなぞると通過予定時刻を表示';
+    grip.insertAdjacentElement('afterend',mobileReadout);
     fraction=savedFraction();
     // Restoring PC mode must restore its previous position, not inherit the phone dock.
     let activePositionKey=key();
@@ -13669,25 +13678,25 @@ body.map-focus-mode #map-stage #daylight-panel{z-index:57!important}
 </script>
 
 
-<!-- Mobile sunlight/elevation dock: visible above the map, never at an offscreen map bottom. -->
-<style id="mobile-map-dock-visibility-fix-20261122">
+<!-- Mobile overlay controller: separate normal/focus layout and per-panel persisted preferences. -->
+<style id="mobile-map-overlay-position-controls-v20261123">
 #mobile-map-data-dock{display:none}
 body.sp-mode:not(.pc-mode) #map-stage #mobile-map-data-dock{
-  display:flex!important;align-items:center;justify-content:center;gap:7px;
+  display:flex!important;align-items:center;justify-content:center;gap:5px;
   position:fixed!important;top:var(--mobile-dock-top,72px)!important;
   bottom:auto!important;left:50%!important;right:auto!important;
   transform:translateX(-50%)!important;z-index:98!important;
   width:max-content!important;max-width:calc(100vw - 24px)!important;
-  box-sizing:border-box;padding:5px 7px;border-radius:12px;
+  box-sizing:border-box;padding:5px 6px;border-radius:12px;
   background:rgba(12,19,28,.94);border:1px solid rgba(255,255,255,.36);
   box-shadow:0 4px 13px rgba(0,0,0,.34);backdrop-filter:blur(8px);
   pointer-events:auto;visibility:hidden;
 }
 body.sp-mode:not(.pc-mode) #mobile-map-data-dock .map-data-dock-btn{
-  display:inline-flex;align-items:center;justify-content:center;gap:6px;
-  min-height:38px;min-width:87px;padding:5px 11px;border-radius:9px;
+  display:inline-flex;align-items:center;justify-content:center;gap:5px;
+  min-height:36px;min-width:77px;padding:5px 8px;border-radius:9px;
   border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.12);
-  color:#fff;font-size:13px;font-weight:800;white-space:nowrap;
+  color:#fff;font-size:12px;font-weight:800;white-space:nowrap;
   cursor:pointer;touch-action:manipulation
 }
 body.sp-mode:not(.pc-mode) #mobile-map-data-dock .map-data-dock-btn[aria-expanded="true"]{
@@ -13695,30 +13704,75 @@ body.sp-mode:not(.pc-mode) #mobile-map-data-dock .map-data-dock-btn[aria-expande
 }
 body.sp-mode:not(.pc-mode) #mobile-map-data-dock .map-data-dock-btn[aria-disabled="true"]{opacity:.58}
 body.sp-mode:not(.pc-mode) #mobile-map-data-dock .map-data-dock-btn:focus-visible{outline:2px solid #8cd2ff;outline-offset:2px}
+body.sp-mode:not(.pc-mode) #mobile-map-data-dock #mobile-dock-settings{
+  min-width:36px;width:36px;padding:4px;font-size:18px;
+}
 body.sp-mode:not(.pc-mode) #map-stage #daylight-panel:not(.mobile-overlay-expanded),
 body.sp-mode:not(.pc-mode) #map-stage #elev-wrap:not(.mobile-overlay-expanded){display:none!important}
-/* Open panels track the same visible viewport as the dock, even while the page scrolls. */
 body.sp-mode:not(.pc-mode) #map-stage #daylight-panel.mobile-overlay-expanded{
   display:block!important;position:fixed!important;top:var(--mobile-expanded-top,132px)!important;
   bottom:auto!important;left:12px!important;right:12px!important;
   width:auto!important;max-width:none!important;z-index:100!important;
-  max-height:calc(100dvh - var(--mobile-expanded-top,132px) - 12px)!important;
-  overflow-x:hidden!important;overflow-y:auto!important
+  max-height:var(--mobile-expanded-height,calc(100dvh - 150px))!important;
+  overflow-x:hidden!important;overflow-y:auto!important;
 }
 body.sp-mode:not(.pc-mode) #map-stage #elev-wrap.mobile-overlay-expanded{
   display:block!important;position:fixed!important;top:var(--mobile-expanded-top,132px)!important;
   bottom:auto!important;left:8px!important;right:8px!important;
   width:auto!important;z-index:100!important;
-  max-height:calc(100dvh - var(--mobile-expanded-top,132px) - 12px)!important;
-  overflow-x:hidden!important;overflow-y:auto!important
+  max-height:var(--mobile-expanded-height,calc(100dvh - 150px))!important;
+  overflow-x:hidden!important;overflow-y:auto!important;
 }
-/* Existing map controls stay interactive; tapping the map does not dismiss a chart. */
+/* Current time is shown above the touched timeline rather than under the finger. */
+#dl-mobile-time-readout{display:none}
+body.sp-mode:not(.pc-mode) #daylight-panel.mobile-overlay-expanded #dl-mobile-time-readout{
+  display:flex;align-items:center;justify-content:center;
+  min-height:31px;margin:1px 0 5px;padding:4px 6px;
+  border-radius:7px;background:rgba(12,58,80,.95);border:1px solid rgba(143,205,242,.35);
+  color:#fff;font-size:12px;line-height:1.25;font-weight:800;
+  text-align:center;font-variant-numeric:tabular-nums;
+}
+body.sp-mode:not(.pc-mode) #daylight-panel.mobile-overlay-expanded #dl-time-tooltip{display:none!important}
+/* Mobile setting dialog, with independent normal/fullscreen profiles. */
+#mobile-map-overlay-settings{display:none}
+body.sp-mode:not(.pc-mode) #mobile-map-overlay-settings.is-open{
+  position:fixed;inset:0;z-index:100100;display:flex;align-items:center;
+  justify-content:center;padding:16px;background:rgba(0,0,0,.68);
+  box-sizing:border-box;pointer-events:auto;
+}
+#mobile-map-overlay-settings .map-ui-setting-card{
+  box-sizing:border-box;width:min(100%,410px);max-height:calc(100dvh - 45px);
+  overflow-y:auto;padding:16px;border-radius:15px;background:#18232e;
+  border:1px solid #5a7083;color:#f9fbfd;
+  box-shadow:0 12px 45px rgba(0,0,0,.55)
+}
+#mobile-map-overlay-settings .map-ui-setting-row{
+  display:grid;grid-template-columns:1fr 122px;align-items:center;gap:10px;margin:11px 0;
+}
+#mobile-map-overlay-settings .map-ui-setting-row label{font-size:13px;font-weight:700;color:#eff5ff}
+#mobile-map-overlay-settings select{
+  min-width:0;width:100%;min-height:39px;color:#fff;background:#2a3b4c;
+  border:1px solid #8193a2;border-radius:8px;padding:5px;
+  font-size:13px;font-weight:700;
+}
+#mobile-map-overlay-settings .map-ui-mode-switch{display:flex;gap:6px;margin:10px 0}
+#mobile-map-overlay-settings .map-ui-mode-switch button{
+  flex:1;min-height:37px;border:1px solid #8293a4;border-radius:8px;
+  color:#fff;background:#283642;font-weight:800;
+}
+#mobile-map-overlay-settings .map-ui-mode-switch button[aria-pressed="true"]{background:#146a58;border-color:#81dabb}
+#mobile-map-overlay-settings .map-ui-setting-actions{display:flex;gap:8px;margin-top:15px}
+#mobile-map-overlay-settings .map-ui-setting-actions button{
+  flex:1;border:1px solid #8da0ae;border-radius:8px;min-height:42px;
+  color:#fff;background:#304353;font-weight:800;
+}
+#mobile-map-overlay-settings .map-ui-setting-actions .primary{background:#176b59;border-color:#75c7ad}
 body.sp-mode:not(.pc-mode) #map-stage .mobile-goal-float,
 body.sp-mode:not(.pc-mode) #map-stage .mobile-zoom-float{bottom:14px!important}
 @media(max-width:375px){
- body.sp-mode:not(.pc-mode) #mobile-map-data-dock .map-data-dock-btn{min-width:75px;padding:5px 8px;font-size:12px}
+ body.sp-mode:not(.pc-mode) #mobile-map-data-dock .map-data-dock-btn{min-width:70px;padding:5px 6px;font-size:11px}
 }
-/* PC controls remain in the original right-hand panel, no horizontal content overflow. */
+/* PC layout is intentionally unchanged by this mobile-only controller. */
 body.pc-mode .ride-settings-col,body.pc-mode #drawer-content{
   min-width:0!important;max-width:100%!important;overflow-x:hidden!important;
 }
@@ -13730,59 +13784,111 @@ body.pc-mode #locked-course-panel>.route-register-top{display:none!important}
  'use strict';
  const byId=id=>document.getElementById(id);
  const isPhone=()=>document.body.classList.contains('sp-mode')&&!document.body.classList.contains('pc-mode');
- let active=null,ready=false,frame=0,manualTop=null,drag=null;
- function profileAvailable(){const e=byId('elev-wrap');return !!(e&&e.style.display!=='none')}
- function updateDockPosition(){
+ const isFocus=()=>document.body.classList.contains('map-focus-mode');
+ const storageKey='rpp-mobile-map-overlay-positions-v20261123';
+ const defaults=()=>({normal:{dock:'bottom',day:'bottom',elev:'bottom'},focus:{dock:'top',day:'bottom',elev:'bottom'}});
+ const allowed=['top','middle','bottom','custom'];
+ const prefs=defaults();
+ try{
+   const loaded=JSON.parse(localStorage.getItem(storageKey)||'null');
+   for(const mode of ['normal','focus'])for(const name of ['dock','day','elev']){
+     const value=loaded?.[mode]?.[name];
+     if(allowed.includes(value))prefs[mode][name]=value;
+   }
+   for(const mode of ['normal','focus'])for(const name of ['day','elev']){
+     const value=loaded?.[mode]?.[name+'Ratio'];
+     if(Number.isFinite(value))prefs[mode][name+'Ratio']=Math.min(1,Math.max(0,value));
+   }
+ }catch(_e){}
+ const save=()=>{try{localStorage.setItem(storageKey,JSON.stringify(prefs))}catch(_e){}};
+ const mode=()=>isFocus()?'focus':'normal';
+ const clamp=(n,lo,hi)=>Math.min(hi,Math.max(lo,n));
+ let active=null,ready=false,frame=0,drag=null,editorMode='normal',lastMode=null;
+ const profileAvailable=()=>{const e=byId('elev-wrap');return !!(e&&e.style.display!=='none')};
+ function bounds(){
+   const stage=byId('map-stage');if(!stage)return null;
+   const rect=stage.getBoundingClientRect();
+   const vv=window.visualViewport;
+   const viewTop=vv?.offsetTop||0;
+   const viewBottom=viewTop+(vv?.height||innerHeight);
+   const top=Math.max(viewTop,rect.top);
+   const bottom=Math.min(viewBottom,rect.bottom);
+   const header=document.querySelector('header');
+   let reserved=top;
+   if(!isFocus()){
+     const head=header?.getBoundingClientRect();
+     if(head&&head.bottom>viewTop&&head.top<=top+15)reserved=Math.max(reserved,head.bottom);
+     const bar=byId('mcp-bar'),m=bar?.getBoundingClientRect();
+     if(m&&getComputedStyle(bar).position==='sticky'&&m.top<=reserved+10)reserved=Math.max(reserved,m.bottom);
+   }
+   return {top,bottom,min:Math.max(top+7,reserved+7),visible:bottom-Math.max(top,reserved)};
+ }
+ function updatePositions(){
    if(!ready)return;
    const dock=byId('mobile-map-data-dock'),stage=byId('map-stage');
    if(!dock||!stage)return;
-   if(!isPhone()) {dock.style.visibility='hidden';return;}
-   const r=stage.getBoundingClientRect();
-   const header=document.querySelector('header');
-   const headerBottom=header?Math.max(0,header.getBoundingClientRect().bottom):0;
-   // The mobile KPI header is also sticky; never put the dock underneath it.
-   const metrics=byId('mcp-bar');
-   const metricsRect=metrics?.getBoundingClientRect();
-   const metricsSticky=metrics&&getComputedStyle(metrics).position==='sticky'&&metricsRect&&metricsRect.top<=headerBottom+10;
-   const occupiedTop=metricsSticky?Math.max(headerBottom,metricsRect.bottom):headerBottom;
-   const viewportHeight=window.visualViewport?.height||innerHeight;
-   const minTop=occupiedTop+7;
-   const visible=(r.bottom>minTop+64&&r.top<viewportHeight-54);
+   if(!isPhone()){dock.style.visibility='hidden';return;}
+   const b=bounds();if(!b){dock.style.visibility='hidden';return;}
+   const dockHeight=dock.offsetHeight||49;
+   const available=b.bottom-b.min;
+   const visible=available>=Math.max(115,dockHeight+54);
    dock.style.visibility=visible?'visible':'hidden';
    if(!visible)return;
-   const top=Math.max(minTop,r.top+8);
-   dock.style.setProperty('--mobile-dock-top',Math.round(top)+'px');
-   document.body.style.setProperty('--poi-search-visibility-top',Math.round(top+dock.offsetHeight+9)+'px');
-   const targetTop=Math.min(Math.max(top+dock.offsetHeight+7,minTop+50),viewportHeight-110);
-   for(const id of ['daylight-panel','elev-wrap']){
-     const el=byId(id);if(!el)continue;
-     const chosen=manualTop!==null?Math.min(Math.max(minTop+4,manualTop),viewportHeight-70):targetTop;
-     el.style.setProperty('--mobile-expanded-top',Math.round(chosen)+'px');
+   const m=mode();const data=prefs[m];
+   let dockTop;
+   if(data.dock==='top'){
+     // On fullscreen the compact route stats occupy the map's upper centre.
+     const mini=isFocus()?byId('fs-mini-panel')?.getBoundingClientRect():null;
+     const miniBottom=mini&&mini.height>0?mini.bottom:0;
+     dockTop=clamp(Math.max(b.min+7,miniBottom+7),b.min,b.bottom-dockHeight-8);
+   }else if(data.dock==='middle'){
+     dockTop=clamp((b.min+b.bottom-dockHeight)/2,b.min,b.bottom-dockHeight-8);
+   }else{
+     dockTop=clamp(b.bottom-dockHeight-11,b.min,b.bottom-dockHeight-8);
    }
+   dock.style.setProperty('--mobile-dock-top',Math.round(dockTop)+'px');
+   // Radius selector must stay visible and separate from both dock and map POIs.
+   const poiTop=data.dock==='bottom'?b.min+58:dockTop+dockHeight+7;
+   document.body.style.setProperty('--poi-search-visibility-top',Math.round(clamp(poiTop,b.min+7,b.bottom-48))+'px');
+   const panel=byId(active==='day'?'daylight-panel':'elev-wrap');
+   if(!panel||!active)return;
+   const gripGap=8;
+   const panelHeight=Math.max(active==='day'?168:140,panel.scrollHeight||0,panel.offsetHeight||0);
+   // Exclude the dock from the area that can be occupied by the chart.
+   const topBound=clamp(data.dock==='top'?dockTop+dockHeight+gripGap:b.min+7,b.min,b.bottom-70);
+   const bottomBound=data.dock==='bottom'?dockTop-8:b.bottom-12;
+   const maxTop=Math.max(topBound,bottomBound-Math.min(panelHeight,bottomBound-topBound));
+   const position=data[active]||'bottom';
+   const ratio=position==='top'?0:position==='middle'?.5:position==='custom'?(data[active+'Ratio']??1):1;
+   const wanted=topBound+(maxTop-topBound)*ratio;
+   const chosen=clamp(drag&&drag.which===active?drag.top:wanted,topBound,maxTop);
+   panel.style.setProperty('--mobile-expanded-top',Math.round(chosen)+'px');
+   panel.style.setProperty('--mobile-expanded-height',Math.round(Math.max(60,bottomBound-chosen))+'px');
+   if(drag&&drag.which===active){drag.top=chosen;drag.min=topBound;drag.max=maxTop}
  }
- function queuePosition(){if(frame)cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>{frame=0;updateDockPosition()})}
+ function queuePosition(){if(frame)cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>{frame=0;updatePositions()})}
  function sync(){
    const day=byId('daylight-panel'),elev=byId('elev-wrap');
    const bday=byId('mobile-dock-daylight'),belev=byId('mobile-dock-elevation');
    if(!day||!elev||!bday||!belev)return;
    if(!isPhone())active=null;
    if(active==='elev'&&!profileAvailable())active=null;
-   const dayOn=isPhone()&&active==='day',elevOn=isPhone()&&active==='elev';
-   day.classList.toggle('mobile-overlay-expanded',dayOn);
-   elev.classList.toggle('mobile-overlay-expanded',elevOn);
-   bday.setAttribute('aria-expanded',String(dayOn));
-   belev.setAttribute('aria-expanded',String(elevOn));
+   const d=isPhone()&&active==='day',e=isPhone()&&active==='elev';
+   day.classList.toggle('mobile-overlay-expanded',d);
+   elev.classList.toggle('mobile-overlay-expanded',e);
+   bday.setAttribute('aria-expanded',String(d));
+   belev.setAttribute('aria-expanded',String(e));
    belev.setAttribute('aria-disabled',String(!profileAvailable()));
    queuePosition();
  }
- function close(){active=null;manualTop=null;sync()}
+ function close(){active=null;drag=null;sync()}
  function toggle(which){
    if(!isPhone())return;
    if(which==='elev'&&!profileAvailable()){
      if(typeof notifyRouteEdit==='function')notifyRouteEdit('コース作成後に標高グラフを表示できます');
      return;
    }
-   active=active===which?null:which;manualTop=null;sync();
+   active=active===which?null:which;drag=null;sync();
    if(active==='day')requestAnimationFrame(()=>{
      if(typeof renderDaylight==='function')renderDaylight();
      if(typeof renderLinkedRouteProgress==='function')renderLinkedRouteProgress('mobile-dock');
@@ -13793,6 +13899,47 @@ body.pc-mode #locked-course-panel>.route-register-top{display:none!important}
      if(typeof renderLinkedRouteProgress==='function')renderLinkedRouteProgress('mobile-dock');
      queuePosition();
    });
+ }
+ function buildEditor(stage){
+   const backdrop=document.createElement('div');
+   backdrop.id='mobile-map-overlay-settings';backdrop.setAttribute('role','dialog');
+   backdrop.setAttribute('aria-modal','true');backdrop.setAttribute('aria-label','日照と標高の表示位置');
+   backdrop.innerHTML='<div class="map-ui-setting-card">'+
+    '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">'+
+    '<strong style="font-size:17px">⚙ 表示位置の設定</strong><button type="button" id="map-ui-setting-x" style="color:#fff;background:#364b5c;border:0;border-radius:6px;padding:6px 11px;font-size:17px" aria-label="閉じる">×</button></div>'+
+    '<p style="font-size:12px;line-height:1.55;color:#c9d7e3;margin:9px 0">スマホ通常表示と全画面を別々に保存。日照・標高バーも個別に設定できます。バーの取っ手をドラッグしても位置を記憶します。</p>'+
+    '<div class="map-ui-mode-switch"><button id="map-ui-normal" type="button">通常表示</button><button id="map-ui-focus" type="button">全画面</button></div>'+
+    '<div class="map-ui-setting-row"><label for="map-ui-dock-location">☀️ ⛰️ 切替ボタン</label><select id="map-ui-dock-location"><option value="top">上部</option><option value="bottom">下部</option></select></div>'+
+    '<div class="map-ui-setting-row"><label for="map-ui-day-location">☀️ 日照バー</label><select id="map-ui-day-location"><option value="top">上部</option><option value="middle">中央</option><option value="bottom">下部</option><option value="custom">ドラッグ位置</option></select></div>'+
+    '<div class="map-ui-setting-row"><label for="map-ui-elev-location">⛰️ 標高バー</label><select id="map-ui-elev-location"><option value="top">上部</option><option value="middle">中央</option><option value="bottom">下部</option><option value="custom">ドラッグ位置</option></select></div>'+
+    '<div class="map-ui-setting-actions"><button type="button" id="map-ui-reset">初期設定に戻す</button><button type="button" class="primary" id="map-ui-done">保存して閉じる</button></div></div>';
+   stage.appendChild(backdrop);
+   const select=(id)=>byId('map-ui-'+id);
+   function refresh(){
+     select('normal').setAttribute('aria-pressed',String(editorMode==='normal'));
+     select('focus').setAttribute('aria-pressed',String(editorMode==='focus'));
+     select('dock-location').value=prefs[editorMode].dock;
+     select('day-location').value=prefs[editorMode].day;
+     select('elev-location').value=prefs[editorMode].elev;
+   }
+   function open(){editorMode=mode();refresh();backdrop.classList.add('is-open');select('done').focus()}
+   function closeEditor(){backdrop.classList.remove('is-open');save();queuePosition()}
+   select('normal').addEventListener('click',()=>{editorMode='normal';refresh()});
+   select('focus').addEventListener('click',()=>{editorMode='focus';refresh()});
+   for(const [id,key] of [['dock-location','dock'],['day-location','day'],['elev-location','elev']]){
+     select(id).addEventListener('change',e=>{
+       prefs[editorMode][key]=e.target.value;
+       save();queuePosition();
+     });
+   }
+   select('reset').addEventListener('click',()=>{
+     const fresh=defaults()[editorMode];prefs[editorMode]={...fresh};refresh();save();queuePosition();
+   });
+   select('done').addEventListener('click',closeEditor);
+   select('setting-x').addEventListener('click',closeEditor);
+   backdrop.addEventListener('click',e=>{if(e.target===backdrop)closeEditor()});
+   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&backdrop.classList.contains('is-open')){e.stopPropagation();closeEditor()}},true);
+   return open;
  }
  function bindPanelDrag(gripId,panelId,which){
    const grip=byId(gripId),panel=byId(panelId);if(!grip||!panel)return;
@@ -13805,12 +13952,18 @@ body.pc-mode #locked-course-panel>.route-register-top{display:none!important}
    grip.addEventListener('pointermove',e=>{
      if(!drag||drag.which!==which||drag.id!==e.pointerId)return;
      e.stopImmediatePropagation();e.preventDefault();
-     manualTop=drag.top+e.clientY-drag.y;
+     drag.top+=e.clientY-drag.y;drag.y=e.clientY;
      queuePosition();
    },true);
    for(const eventName of ['pointerup','pointercancel'])grip.addEventListener(eventName,e=>{
      if(!drag||drag.which!==which||drag.id!==e.pointerId)return;
-     e.stopImmediatePropagation();drag=null;queuePosition();
+     e.stopImmediatePropagation();
+     const m=mode();
+     if(drag.max>drag.min){
+       prefs[m][which+'Ratio']=clamp((drag.top-drag.min)/(drag.max-drag.min),0,1);
+       prefs[m][which]='custom';save();
+     }
+     drag=null;queuePosition();
    },true);
  }
  function init(){
@@ -13821,13 +13974,20 @@ body.pc-mode #locked-course-panel>.route-register-top{display:none!important}
    dock.id='mobile-map-data-dock';dock.setAttribute('role','group');
    dock.setAttribute('aria-label','日照と標高の情報バー');
    dock.innerHTML='<button type="button" class="map-data-dock-btn" id="mobile-dock-daylight" aria-controls="daylight-panel" aria-expanded="false">☀️ 日照</button>'+
-      '<button type="button" class="map-data-dock-btn" id="mobile-dock-elevation" aria-controls="elev-wrap" aria-expanded="false">⛰️ 標高</button>';
+    '<button type="button" class="map-data-dock-btn" id="mobile-dock-elevation" aria-controls="elev-wrap" aria-expanded="false">⛰️ 標高</button>'+
+    '<button type="button" class="map-data-dock-btn" id="mobile-dock-settings" title="通常・全画面の表示位置を設定" aria-label="日照と標高の配置設定">⚙</button>';
    stage.appendChild(dock);
+   const openSettings=buildEditor(stage);
+   byId('mobile-dock-settings').addEventListener('click',e=>{e.preventDefault();e.stopPropagation();openSettings()});
    byId('mobile-dock-daylight').addEventListener('click',e=>{e.preventDefault();e.stopPropagation();toggle('day')});
    byId('mobile-dock-elevation').addEventListener('click',e=>{e.preventDefault();e.stopPropagation();toggle('elev')});
-   // Explicit toggles only. A route tap must not unexpectedly close the selected chart.
    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&isPhone())close()});
-   new MutationObserver(()=>{sync();queuePosition()}).observe(document.body,{attributes:true,attributeFilter:['class']});
+   lastMode=mode();
+   new MutationObserver(()=>{
+     const current=mode();
+     if(current!==lastMode){lastMode=current;close()}
+     sync();queuePosition();
+   }).observe(document.body,{attributes:true,attributeFilter:['class']});
    new MutationObserver(()=>{
      const disabled=byId('mobile-dock-elevation')?.getAttribute('aria-disabled');
      const available=profileAvailable();
@@ -13837,15 +13997,19 @@ body.pc-mode #locked-course-panel>.route-register-top{display:none!important}
    bindPanelDrag('elev-drag-grip','elev-wrap','elev');
    window.addEventListener('scroll',queuePosition,{passive:true});
    window.addEventListener('resize',queuePosition,{passive:true});
+   window.visualViewport?.addEventListener('scroll',queuePosition,{passive:true});
    window.visualViewport?.addEventListener('resize',queuePosition,{passive:true});
-   if(typeof ResizeObserver==='function'){const ro=new ResizeObserver(queuePosition);ro.observe(stage);const metrics=byId('mcp-bar');if(metrics)ro.observe(metrics)}
+   if(typeof ResizeObserver==='function'){
+     const ro=new ResizeObserver(queuePosition);ro.observe(stage);
+     const metrics=byId('mcp-bar');if(metrics)ro.observe(metrics);
+     ro.observe(dock);ro.observe(byId('daylight-panel'));ro.observe(byId('elev-wrap'));
+   }
    sync();queuePosition();
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
  window.mobileRouteDataDockClose=close;
 })();
 </script>
-
 
 
 <!-- v9.20: POI search controls remain visible below mobile daylight/elevation dock. -->
