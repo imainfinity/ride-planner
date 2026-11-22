@@ -1446,8 +1446,9 @@ body.sp-mode .terrain-detail-cell strong{font-size:12px}
     </div>
     <!-- 時刻軸Canvas -->
     <!-- 時刻軸Canvas（1段・ホバーで距離表示） -->
-    <div id="dl-time-wrap" style="overflow-x:auto;overflow-y:hidden;border-radius:5px;margin-bottom:2px;position:relative" onscroll="onTimeCanvasScroll(this)">
-      <canvas id="dl-time-canvas" height="32" style="display:block;min-width:100%;cursor:crosshair"></canvas>
+    <div id="dl-time-wrap" style="overflow-x:auto;overflow-y:hidden;border-radius:5px;margin-bottom:2px;position:relative" onscroll="onTimeCanvasScroll(this,event)">
+      <canvas id="dl-time-canvas" height="32" style="display:block;min-width:100%;cursor:crosshair;touch-action:none" aria-label="日照と通過時刻。ドラッグでコース位置を確認"></canvas>
+      <div id="dl-sync-cursor" aria-hidden="true" style="display:none;position:absolute;top:0;left:0;height:32px;width:2px;background:#ff6040;box-shadow:0 0 0 1px rgba(0,0,0,.65),0 0 5px #ff6040;pointer-events:none;z-index:7"></div>
       <div id="dl-time-tooltip" style="display:none;position:absolute;top:4px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.82);color:#fff;border-radius:6px;padding:4px 10px;font-size:11px;pointer-events:none;white-space:nowrap;z-index:10"></div>
     </div>
   </div>
@@ -3880,20 +3881,27 @@ function renderDaylight(){
   // 時刻Canvasにマウス／タッチ共通の位置表示を設定
   const tc=document.getElementById('dl-time-canvas');
   if(tc){
-    tc.onmousemove=onTimeCanvasHover;
-    tc.onpointerdown=onTimeCanvasHover;
+    tc.onmousemove=e=>{if(!tc._syncDragging)onTimeCanvasHover(e);};
+    tc.onpointerdown=e=>{
+      tc._syncDragging=true;
+      try{tc.setPointerCapture(e.pointerId);}catch(err){}
+      onTimeCanvasHover(e);
+      if(e.cancelable)e.preventDefault();
+    };
+    tc.onpointermove=e=>{
+      if(tc._syncDragging){onTimeCanvasHover(e);if(e.cancelable)e.preventDefault();}
+    };
+    const endTimeDrag=e=>{
+      tc._syncDragging=false;
+      try{if(tc.hasPointerCapture(e.pointerId))tc.releasePointerCapture(e.pointerId);}catch(err){}
+    };
+    tc.onpointerup=endTimeDrag;
+    tc.onpointercancel=endTimeDrag;
     tc.onclick=onTimeCanvasHover;
-    tc.onpointerleave=(event)=>{
-      // タッチ後は結果を残し、マウスが外れた時だけ閉じる。
-      if(event.pointerType&&event.pointerType!=='mouse') return;
-      const t=document.getElementById('dl-time-tooltip');
-      if(t) t.style.display='none';
-    };
-    tc.onmouseleave=(event)=>{
-      if(event.pointerType&&event.pointerType!=='mouse') return;
-      const t=document.getElementById('dl-time-tooltip');
-      if(t) t.style.display='none';
-    };
+    // 最後に選択した地点を保持し、離しただけでは他の表示を解除しない。
+    tc.onpointerleave=()=>{};
+    tc.onmouseleave=()=>{};
+    if(_linkedTripProgress!==null)renderLinkedRouteProgress('timeline-redraw');
   }
 }
 
@@ -3923,9 +3931,16 @@ function onTimeCanvasHover(e){
   // 発着範囲内の比率から、予想経過時間と予想経過距離を同じ基準で算出。
   const rideHours=Math.max(0.001,d.endH-d.startH);
   const rideRatio=Math.max(0,Math.min(1,(h-d.startH)/rideHours));
+  setLinkedRouteProgress(rideRatio,'daylight');
   const elapsedMinutes=Math.round(rideRatio*rideHours*60);
   const elapsedLabel=`${Math.floor(elapsedMinutes/60)}:${String(elapsedMinutes%60).padStart(2,'0')}`;
-  const km=(rideRatio*d.dist).toFixed(1);
+  // 周回コースでは「総走行距離」と「今の周回内の距離」を区別する。
+  const linkedLaps=linkedLapCount();
+  const linkedBaseKm=ensureRouteDistanceIndex().totalM/1000;
+  const routeRatio=routeFractionFromTrip(rideRatio);
+  const totalKm=linkedBaseKm>0?rideRatio*linkedBaseKm*linkedLaps:rideRatio*d.dist;
+  const currentLapKm=linkedBaseKm>0?routeRatio*linkedBaseKm:rideRatio*d.dist;
+  const lapNumber=Math.min(linkedLaps,Math.floor(Math.min(.999999999,rideRatio)*linkedLaps)+1);
 
   // 翌日薄明
   const tw=d.tw;
@@ -3959,7 +3974,7 @@ function onTimeCanvasHover(e){
     tip.style.left=Math.max(minX,Math.min(maxX,wrap.scrollLeft+visibleX))+'px';
   }
   tip.style.transform='translateX(-50%)';
-  tip.textContent=`${status} ${hToHHMM(h)}${dayLabel}｜経過 ${elapsedLabel}｜${km} km`;
+  tip.textContent=`${status} ${hToHHMM(h)}${dayLabel}｜経過 ${elapsedLabel}｜${totalKm.toFixed(1)} km${linkedLaps>1?'（'+lapNumber+'周目・周内'+currentLapKm.toFixed(1)+'km）':''}`;
 }
 
 function drawTimeCanvas(tw, startH, endH, dist, moveSpd){
@@ -5490,8 +5505,7 @@ function initMap(){
   ec.addEventListener('pointerup',endElevPointer);
   ec.addEventListener('pointercancel',endElevPointer);
   ec.addEventListener('mouseleave',()=>{
-    document.getElementById('elev-cursor').style.display='none';
-    if(hoverPolyline){hoverPolyline.setMap(null);hoverPolyline=null;}
+    // 日照・地図・標高の最終選択位置を維持する（再ホバーで更新）。
   });
 
   // 全画面ミニパネル制御
@@ -6685,20 +6699,13 @@ function setupRouteDragOverlay(result){
 
   // ホバーでカーソル変更とリアルタイム地点情報
   overlay.addListener('mousemove',(e)=>{
-    const popup=document.getElementById('map-hover');
-    if(!lastElevResults) return;
-    const ll=e.latLng;
-    const {km,elev,gain,grade}=getRouteInfoAtLatLng(ll);
-    showMapHoverBar(popup);
-    document.getElementById('mh-dist').textContent=`📍 ${km.toFixed(1)} km`;
-    document.getElementById('mh-elev').textContent=`⛰ ${elev.toFixed(0)} m`;
-    document.getElementById('mh-gain').textContent=`📈 +${gain.toFixed(0)} m`;
-    document.getElementById('mh-grade').textContent=`∠ ${grade.toFixed(1)}%`;
-    updateRouteHoverPassageTime(km);
+    if(!lastElevResults||!lastRoutePath||_linkedMarkerDragging)return;
+    const hint=_linkedTripProgress===null?0:routeFractionFromTrip(_linkedTripProgress);
+    const routeRatio=routeDistanceRatioNearLatLng(e.latLng,hint);
+    setLinkedRouteProgress(tripFractionFromRoute(routeRatio),'map-route');
   });
-  overlay.addListener('mouseout',()=>{
-    document.getElementById('map-hover').style.display='none';
-  });
+  // ルートからマウスが離れても、連動した位置・数値を維持する。
+  overlay.addListener('mouseout',()=>{});
 }
 
 
@@ -6772,7 +6779,8 @@ function getRouteInfoAtLatLng(ll, knownDistanceRatio){
     :routeDistanceRatioAtLatLng(ll);
   const idx=ensureRouteDistanceIndex();
   const km=(idx.totalM*ratio)/1000;
-  const elevIdx=Math.max(0,Math.min(lastElevResults.length-1,Math.round(ratio*(lastElevResults.length-1))));
+  // 距離が不等間隔のGPXでも標高グラフのカーソルと同じ標高地点を読む。
+  const elevIdx=Math.max(0,Math.min(lastElevResults.length-1,Math.round(linkedElevationCanvasFraction(ratio)*(lastElevResults.length-1))));
 
   let gain=0;
   for(let i=1;i<=elevIdx;i++){
@@ -6831,6 +6839,168 @@ function showMapHoverBar(popup=document.getElementById('map-hover')){
   popup.style.display='flex';
 }
 
+/* ══ 日照 ⇄ 標高 ⇄ 地図：共通の通過位置（全周回の0〜1） ══ */
+let _linkedTripProgress=null;
+let _linkedPathRef=null;
+let _linkedMarkerDragging=false;
+function linkedClamp01(v){return Math.min(1,Math.max(0,Number(v)||0));}
+function linkedLapCount(){
+  return Math.max(1,Math.min(50,Math.round(Number(document.getElementById('lap-count-display')?.textContent)||1)));
+}
+function routeFractionFromTrip(tripFraction){
+  const r=linkedClamp01(tripFraction),laps=linkedLapCount();
+  if(r>=1) return 1;
+  return linkedClamp01((r*laps)%1);
+}
+function tripFractionFromRoute(routeFraction){
+  const laps=linkedLapCount();
+  const prior=_linkedTripProgress===null?0:_linkedTripProgress;
+  const lapIndex=Math.min(laps-1,Math.floor(Math.min(.999999999,prior)*laps));
+  return linkedClamp01((lapIndex+linkedClamp01(routeFraction))/laps);
+}
+/* 標高サンプルが不等距離でも、距離比→グラフのサンプル番号へ逆補間する。 */
+function linkedElevationCanvasFraction(routeFraction){
+  const points=lastElevResults;
+  const n=points?.length||0;
+  if(n<2)return linkedClamp01(routeFraction);
+  const r=linkedClamp01(routeFraction);
+  const first=Number(points[0].distanceRatio),last=Number(points[n-1].distanceRatio);
+  if(!Number.isFinite(first)||!Number.isFinite(last)||last<=first)return r;
+  let lo=0,hi=n-1;
+  while(lo<hi){
+    const mid=Math.floor((lo+hi)/2);
+    if((Number(points[mid].distanceRatio)||0)<r)lo=mid+1;
+    else hi=mid;
+  }
+  if(lo===0)return 0;
+  const prev=Number(points[lo-1].distanceRatio),next=Number(points[lo].distanceRatio);
+  const f=next>prev?linkedClamp01((r-prev)/(next-prev)):0;
+  return linkedClamp01((lo-1+f)/(n-1));
+}
+/* 重複した道路・往復路の最近傍候補は前回の通過順を優先する。 */
+function routeDistanceRatioNearLatLng(ll,preferredRatio){
+  const idx=ensureRouteDistanceIndex(),path=lastRoutePath;
+  if(!ll||!path||path.length<2||!(idx.totalM>0))return 0;
+  let bestDistance=Infinity,bestRatio=0;
+  const preferred=linkedClamp01(preferredRatio);
+  for(let i=1;i<path.length;i++){
+    const a=path[i-1],b=path[i];
+    const len=Math.max(.001,idx.cum[i]-idx.cum[i-1]);
+    const heading=google.maps.geometry.spherical.computeHeading(a,b);
+    const dStart=google.maps.geometry.spherical.computeDistanceBetween(a,ll);
+    const relHeading=google.maps.geometry.spherical.computeHeading(a,ll);
+    const along=Math.max(0,Math.min(len,dStart*Math.cos((relHeading-heading)*Math.PI/180)));
+    const projected=google.maps.geometry.spherical.computeOffset(a,along,heading);
+    const lateral=google.maps.geometry.spherical.computeDistanceBetween(projected,ll);
+    const candidate=(idx.cum[i-1]+along)/idx.totalM;
+    if(lateral<bestDistance-.75||(Math.abs(lateral-bestDistance)<=.75&&Math.abs(candidate-preferred)<Math.abs(bestRatio-preferred))){
+      bestDistance=lateral;
+      bestRatio=candidate;
+    }
+  }
+  return linkedClamp01(bestRatio);
+}
+function renderLinkedRouteProgress(source,opts={}){
+  if(_linkedTripProgress===null||!lastElevResults?.length||!lastRoutePath?.length)return;
+  const trip=linkedClamp01(_linkedTripProgress);
+  const route=routeFractionFromTrip(trip);
+  const ll=routePointAtDistanceRatio(route);
+  if(!ll)return;
+  const profile=document.getElementById('elev-canvas');
+  const cursor=document.getElementById('elev-cursor');
+  if(profile&&cursor){
+    cursor.style.display='block';
+    cursor.style.left=(linkedElevationCanvasFraction(route)*profile.getBoundingClientRect().width)+'px';
+  }
+  const td=window._dlHoverData;
+  const timeCanvas=document.getElementById('dl-time-canvas');
+  const timeCursor=document.getElementById('dl-sync-cursor');
+  if(td&&timeCanvas&&timeCursor){
+    const hour=td.startH+(td.endH-td.startH)*trip;
+    const x=(hour-(td.startH-.5))/(td.endH-td.startH+1)*timeCanvas.getBoundingClientRect().width;
+    timeCursor.style.left=x+'px';
+    timeCursor.style.display='block';
+    const tooltip=document.getElementById('dl-time-tooltip');
+    const wrap=document.getElementById('dl-time-wrap');
+    if(tooltip&&wrap){
+      const minutes=Math.round((hour-td.startH)*60);
+      const lap=linkedLapCount();
+      const lapNumber=Math.min(lap,Math.floor(Math.min(.99999999,trip)*lap)+1);
+      tooltip.style.display='block';
+      tooltip.style.maxWidth='calc(100% - 12px)';
+      tooltip.style.whiteSpace='normal';
+      tooltip.style.textAlign='center';
+      tooltip.style.boxSizing='border-box';
+      const left=Math.max(wrap.scrollLeft+Math.min(56,wrap.clientWidth/2),Math.min(wrap.scrollLeft+wrap.clientWidth-Math.min(56,wrap.clientWidth/2),x));
+      tooltip.style.left=left+'px';
+      tooltip.style.transform='translateX(-50%)';
+      tooltip.textContent=`🕒 ${hToHHMM(hour)}${lap>1?'｜'+lapNumber+'周目':''}｜経過 ${Math.floor(minutes/60)}:${String(minutes%60).padStart(2,'0')}｜${(route*ensureRouteDistanceIndex().totalM/1000).toFixed(1)} km`;
+    }
+  }
+  if(gmap&&window.google?.maps){
+    if(!hoverPolyline){
+      hoverPolyline=new google.maps.Marker({
+        position:ll,map:gmap,zIndex:250,draggable:true,
+        title:'通過地点：ドラッグすると日照バー・標高グラフも連動します',
+        icon:{path:google.maps.SymbolPath.CIRCLE,scale:8,fillColor:'#ff6040',fillOpacity:1,strokeColor:'#fff',strokeWeight:2.5}
+      });
+      hoverPolyline.addListener('dragstart',()=>{_linkedMarkerDragging=true;});
+      hoverPolyline.addListener('drag',e=>{
+        if(!e.latLng)return;
+        const r=routeDistanceRatioNearLatLng(e.latLng,routeFractionFromTrip(_linkedTripProgress));
+        setLinkedRouteProgress(tripFractionFromRoute(r),'map-marker',{skipMarker:true});
+      });
+      hoverPolyline.addListener('dragend',e=>{
+        _linkedMarkerDragging=false;
+        if(e.latLng){
+          const r=routeDistanceRatioNearLatLng(e.latLng,routeFractionFromTrip(_linkedTripProgress));
+          setLinkedRouteProgress(tripFractionFromRoute(r),'map-marker');
+        }else renderLinkedRouteProgress('map-marker');
+      });
+    }else if(!opts.skipMarker){
+      hoverPolyline.setMap(gmap);
+      hoverPolyline.setPosition(ll);
+    }
+    if(opts.centerMap&&gmap)gmap.panTo(ll);
+  }
+  const {km,elev,gain,grade}=getRouteInfoAtLatLng(ll,route);
+  showMapHoverBar();
+  const setText=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value;};
+  setText('mh-dist',`📍 ${km.toFixed(1)} km`);
+  setText('mh-elev',`⛰️ ${elev.toFixed(0)} m`);
+  setText('mh-gain',`📈 累計+${gain.toFixed(0)} m`);
+  setText('mh-grade',`📐 斜度 ${grade.toFixed(1)}%`);
+  const timeEl=document.getElementById('mh-time');
+  if(timeEl&&td){
+    const h=td.startH+(td.endH-td.startH)*trip;
+    const lap=linkedLapCount();
+    const lapNumber=Math.min(lap,Math.floor(Math.min(.9999999,trip)*lap)+1);
+    const day=Math.floor(h/24);
+    timeEl.textContent=`🕒 通過予定 ${hToHHMM(h)}${day>0?' +'+day+'日':''}${lap>1?' ('+lapNumber+'周目)':''}`;
+  }else updateRouteHoverPassageTime(km);
+}
+function setLinkedRouteProgress(tripFraction,source,opts={}){
+  if(!lastRoutePath?.length||!lastElevResults?.length)return;
+  if(_linkedPathRef&&_linkedPathRef!==lastRoutePath){
+    if(hoverPolyline){hoverPolyline.setMap(null);hoverPolyline=null;}
+  }
+  _linkedPathRef=lastRoutePath;
+  _linkedTripProgress=linkedClamp01(tripFraction);
+  renderLinkedRouteProgress(source,opts);
+}
+function clearLinkedRouteProgress(){
+  _linkedTripProgress=null;_linkedPathRef=null;_linkedMarkerDragging=false;
+  if(hoverPolyline){hoverPolyline.setMap(null);hoverPolyline=null;}
+  const cursor=document.getElementById('elev-cursor');
+  const timeCursor=document.getElementById('dl-sync-cursor');
+  if(cursor)cursor.style.display='none';
+  if(timeCursor)timeCursor.style.display='none';
+  const tooltip=document.getElementById('dl-time-tooltip');
+  if(tooltip)tooltip.style.display='none';
+  const popup=document.getElementById('map-hover');
+  if(popup)popup.style.display='none';
+}
+
 /* ── 標高プロファイルホバー ── */
 function onElevHover(e,centerMap=false){
   if(!lastElevResults||!lastRoutePath) return;
@@ -6850,32 +7020,9 @@ function onElevHover(e,centerMap=false){
     ?Math.max(0,Math.min(1,ra+(rb-ra)*(samplePos-a)))
     :graphRatio;
 
-  // カーソル線
-  const cur=document.getElementById('elev-cursor');
-  cur.style.display='block';
-  cur.style.left=px+'px';
-
-  // 地図上のポイントは配列番号ではなく、実走距離比率で対応させる
-  const ll=routePointAtDistanceRatio(ratio);
-  if(!ll) return;
-  if(hoverPolyline) hoverPolyline.setMap(null);
-  hoverPolyline=new google.maps.Marker({
-    position:ll, map:gmap, zIndex:200,
-    icon:{path:google.maps.SymbolPath.CIRCLE, scale:7,
-          fillColor:'#ff6440', fillOpacity:1, strokeColor:'#fff', strokeWeight:2}
-  });
-  if(centerMap&&gmap) gmap.panTo(ll);
-
-  // 地点情報
-  const {km,elev,gain,grade}=getRouteInfoAtLatLng(ll,ratio);
-  const popup=document.getElementById('map-hover');
-  showMapHoverBar(popup);
-  document.getElementById('mh-dist').textContent=`📍 ${km.toFixed(1)} km`;
-  document.getElementById('mh-elev').textContent=`⛰️ ${elev.toFixed(0)} m`;
-  document.getElementById('mh-gain').textContent=`📈 累計+${gain.toFixed(0)} m`;
-  document.getElementById('mh-grade').textContent=`📐 斜度 ${grade.toFixed(1)}%`;
-  updateRouteHoverPassageTime(km);
-  return ll;
+  // グラフの位置→実走距離比は既存の計算を使い、3面を同じ通過地点へ統一する。
+  setLinkedRouteProgress(tripFractionFromRoute(ratio),'elevation',{centerMap});
+  return routePointAtDistanceRatio(ratio);
 }
 
 /* ── 標高プロファイル描画 ── */
@@ -6937,6 +7084,10 @@ function drawElevProfile(elevResults){
   ctx.font='600 9px Helvetica Neue,Arial,sans-serif';
   ctx.textAlign='left'; ctx.fillText(`${Math.round(maxE)}m`,3,11);
   ctx.fillText(`${Math.round(minE)}m`,3,H-2);
+  // ズームやウィンドウサイズ変更で描き直した後も、共通カーソルを維持。
+  if(_linkedTripProgress!==null&&_linkedPathRef===lastRoutePath){
+    requestAnimationFrame(()=>renderLinkedRouteProgress('profile-redraw'));
+  }
 }
 
 /* ── 標高の再検証・距離準拠サンプリング（ルート形状は変更しない） ── */
@@ -7693,7 +7844,7 @@ function hardClearRoute(){
   markers.forEach(m=>m.setMap(null)); markers=[];
   poiMarkers.forEach(m=>m.setMap(null)); poiMarkers=[];
   clearRouteEditOverlays();
-  if(hoverPolyline){hoverPolyline.setMap(null);hoverPolyline=null;}
+  clearLinkedRouteProgress();
   if(sharedIW){sharedIW.close();sharedIW=null;}
   if(window._mergedPolyline){window._mergedPolyline.setMap(null);window._mergedPolyline=null;}
   try{ directionsRenderer.setDirections({routes:[]}); }catch(e){}
@@ -7912,7 +8063,7 @@ function _resetRouteForGPXImport(){
   window.__gpxPendingRouteEdit=false;
   markers.forEach(m=>m&&m.setMap(null)); markers=[];
   clearRouteEditOverlays();
-  if(hoverPolyline){hoverPolyline.setMap(null);hoverPolyline=null;}
+  clearLinkedRouteProgress();
   if(window._mergedPolyline){window._mergedPolyline.setMap(null);window._mergedPolyline=null;}
   try{ directionsRenderer.setDirections({routes:[]}); }catch(e){}
   lastElevResults=null; lastRoutePath=[]; lastRouteResult=null;
@@ -8812,7 +8963,7 @@ function syncTimelineScroll(el){
 
 /* ── 時刻Canvasスクロール → アイコンハイライト ── */
 let _lastTwPhases=[];
-function onTimeCanvasScroll(el){
+function onTimeCanvasScroll(el,evt){
   const wrap=el;
   const canvas=document.getElementById('dl-time-canvas');
   if(!canvas||!wrap) return;
@@ -8840,6 +8991,12 @@ function onTimeCanvasScroll(el){
     cell.style.transform=current?'scale(1.04)':'scale(1)';
     cell.querySelector('.twi-time').style.color=current?p.col:'var(--text)';
   });
+  // 長距離ルートの横スクロールも通過位置の選択として扱う。
+  // JSによる再描画・幅変更で発生したスクロールでは選択位置を上書きしない。
+  if(evt?.isTrusted&&lastRoutePath?.length&&lastElevResults?.length){
+    const totalHours=hoverData.endH-hoverData.startH;
+    if(totalHours>0)setLinkedRouteProgress((viewMid-hoverData.startH)/totalHours,'daylight-scroll');
+  }
 }
 
 
