@@ -4489,11 +4489,20 @@ function toggleMapFocusMode(force){
 
 function setQuickPoiRadius(value){
   const meters=Math.max(1000,Math.min(10000,Math.round((Number(value)||1000)/1000)*1000));
+  const base=document.getElementById('poi-radius-sel');
+  const previous=Number(base?.value||1000);
   ['poi-radius-sel','poi-radius-map-select','poi-radius-quick-select'].forEach(id=>{
     const el=document.getElementById(id);
     if(el) el.value=String(meters);
   });
   try{localStorage.setItem('rpp_poi_radius',String(meters));}catch(e){}
+  // 半径変更後に古い検索地点・広い半径のPOIを地図へ残さない。
+  // 再検索はしない。カテゴリー選択中の地図タップ待機は維持する。
+  if(previous!==meters && typeof resetPOIVisibleScope==='function'){
+    resetPOIVisibleScope();
+    const prompt=document.getElementById('poi-prompt-label');
+    if(_poiSelectMode&&prompt) prompt.textContent=`📍 半径${meters/1000}kmで探す地点を地図でタップ`;
+  }
 }
 
 function setBlueDot(lat,lng){
@@ -8379,9 +8388,37 @@ let _poiSelectMode=false;
 let _poiSelectedLabel=null;
 let _poiClickListener=null;
 let _poiSearchCircle=null;
-const _poiCache=new Map(); // key: `${label}:${lat.toFixed(3)},${lng.toFixed(3)}:${radius}`
+const _poiCache=new Map(); // 同一カテゴリ・位置（約1m精度）・半径のキャッシュ
 const activePOIs=new Set();
 let sharedIW=null;
+let _poiVisibleScope=null; // 画面に表示するPOIは、最後にタップした円の範囲に限定
+let _poiRequestVersion=0; // 旧検索の遅延応答を無視
+let _poiRequestPending=false; // 操作連打で同時にPlaces APIを呼ばない
+
+function poiDistanceMeters(aLat,aLng,bLat,bLng){
+  const rad=Math.PI/180, dLat=(bLat-aLat)*rad, dLng=(bLng-aLng)*rad;
+  const q=Math.sin(dLat/2)**2+Math.cos(aLat*rad)*Math.cos(bLat*rad)*Math.sin(dLng/2)**2;
+  return 6371008.8*2*Math.asin(Math.min(1,Math.sqrt(q)));
+}
+function poiWithinRadius(place,lat,lng,radius){
+  const point=place?.geometry?.location;
+  if(!point) return false;
+  const pLat=typeof point.lat==='function'?point.lat():Number(point.lat);
+  const pLng=typeof point.lng==='function'?point.lng():Number(point.lng);
+  return Number.isFinite(pLat)&&Number.isFinite(pLng)&&poiDistanceMeters(lat,lng,pLat,pLng)<=radius;
+}
+function resetPOIVisibleScope(){
+  ++_poiRequestVersion; // 進行中のAPI応答を表示に反映させない
+  poiMarkers.forEach(m=>m.setMap(null));
+  poiMarkers=[];
+  activePOIs.clear();
+  _poiVisibleScope=null;
+  if(sharedIW) sharedIW.close();
+  const box=document.getElementById('poi-results');
+  if(box) box.innerHTML='';
+  syncPOIButtonStates();
+}
+
 
 function syncPOIButtonStates(){
   document.querySelectorAll('[data-poi-label]').forEach(button=>{
@@ -8458,46 +8495,81 @@ function cancelPOISelect(silent=false){
   syncPOIButtonStates();
 }
 
-/* ── エリアクリック後：1リクエストで検索 ── */
+/* ── エリアクリック後：明示タップ1回につき最大1 APIリクエスト ── */
 function executePOISearch(label,latLng){
   const cfg=POI_TYPES[label];
-  const visual=getPOIVisual(label,cfg,latLng);
-  if(!cfg)return;
+  if(!cfg||!latLng||!gmap)return;
+  // 連打してもAPIを多重発行しない。タップ待機は残す。
+  if(_poiRequestPending){
+    notifyRouteEdit('POI検索中です。完了後に別の地点を指定してください');
+    return;
+  }
+  const radius=Math.max(1000,Math.min(10000,Number(document.getElementById('poi-radius-sel')?.value)||1000));
+  const lat=latLng.lat(),lng=latLng.lng();
+  if(!Number.isFinite(lat)||!Number.isFinite(lng)) return;
   if(_poiClickListener){google.maps.event.removeListener(_poiClickListener);_poiClickListener=null;}
   gmap.setOptions({draggableCursor:null});
   document.getElementById('poi-area-prompt').style.display='none';
   _poiSelectMode=false; _poiSelectedLabel=null;
-  const radius=+document.getElementById('poi-radius-sel').value||1000;
-  const lat=latLng.lat(),lng=latLng.lng();
+  const version=_poiRequestVersion+1;
+  // 中心または半径を変更したら、他地域の旧マーカーも一括削除。
+  const prior=_poiVisibleScope;
+  if(!prior||prior.radius!==radius||poiDistanceMeters(prior.lat,prior.lng,lat,lng)>1){
+    resetPOIVisibleScope();
+  }
+  _poiVisibleScope={lat,lng,radius};
+  _poiRequestVersion=version;
+  const visual=getPOIVisual(label,cfg,latLng);
   const worldMode=isWorldPOIContext(latLng);
   const keyword=worldMode?(WORLD_POI_KEYWORDS[label]||cfg.keyword):cfg.keyword;
-  const cacheKey=`${worldMode?'world':'jp'}:${label}:${lat.toFixed(3)},${lng.toFixed(3)}:${radius}`;
-  // 検索円を2.5秒表示
+  const cacheKey=`${worldMode?'world':'jp'}:${label}:${lat.toFixed(5)},${lng.toFixed(5)}:${radius}`;
+  // 検索円は指定半径そのもの。地図縮尺は変えない。
   if(_poiSearchCircle)_poiSearchCircle.setMap(null);
-  _poiSearchCircle=new google.maps.Circle({center:latLng,radius,map:gmap,
+  const circle=new google.maps.Circle({center:latLng,radius,map:gmap,
     fillColor:cfg.col,fillOpacity:0.12,strokeColor:cfg.col,strokeWeight:1.5,strokeOpacity:0.7});
-  setTimeout(()=>{if(_poiSearchCircle){_poiSearchCircle.setMap(null);_poiSearchCircle=null;}},2500);
-  // キャッシュヒット
-  if(_poiCache.has(cacheKey)){
+  _poiSearchCircle=circle;
+  setTimeout(()=>{if(_poiSearchCircle===circle){circle.setMap(null);_poiSearchCircle=null;}},2500);
+  const source=_poiCache.get(cacheKey);
+  if(source){
+    // キャッシュも厳密に現在の中心から距離で再フィルタ。
+    const limited=source.filter(p=>poiWithinRadius(p,lat,lng,radius)).slice(0,20);
     activePOIs.add(label);
-    renderPOI(_poiCache.get(cacheKey),cfg,label,true);
+    renderPOI(limited,cfg,label,true,{lat,lng,radius});
     return;
   }
-  document.getElementById('poi-results').innerHTML=
-    `<div style="font-size:11px;color:var(--text2);padding:4px">🔍 ${visual.icon} ${label}を検索中…</div>`;
+  const box=document.getElementById('poi-results');
+  if(box) box.innerHTML=`<div style="font-size:11px;color:var(--text2);padding:4px">🔍 ${visual.icon} ${label}を半径${radius/1000}km内で検索中…</div>`;
   document.getElementById('poi-cache-badge').style.display='none';
   if(!placesService)return;
-  // ★ 1リクエストのみ（コース全自動スキャン廃止）
-  placesService.nearbySearch({location:latLng,radius,keyword},(res,status)=>{
-    const places=(status==='OK'&&res)?res:[];
-    _poiCache.set(cacheKey,places);
-    activePOIs.add(label);
-    renderPOI(places,cfg,label,false);
-  });
+  _poiRequestPending=true;
+  // Googleのradius指定だけでは検索範囲外の候補が混ざる場合があるため、
+  // レスポンスを実距離で二重チェックする（新たなAPI呼び出しは増やさない）。
+  try{
+    placesService.nearbySearch({location:latLng,radius,keyword},(res,status)=>{
+      _poiRequestPending=false;
+      if(_poiRequestVersion!==version) return; // 旧中心・旧半径の結果は破棄
+      const ok=status===google.maps.places.PlacesServiceStatus.OK;
+      const empty=status===google.maps.places.PlacesServiceStatus.ZERO_RESULTS;
+      if(!ok&&!empty){
+        if(box) box.textContent=`${label}の検索に失敗しました（${status}）。検索地点を選び直してください。`;
+        return; // エラーはキャッシュしない
+      }
+      const returned=(ok&&Array.isArray(res))?res:[];
+      const limited=returned.filter(p=>poiWithinRadius(p,lat,lng,radius)).slice(0,20);
+      _poiCache.set(cacheKey,limited);
+      activePOIs.add(label);
+      renderPOI(limited,cfg,label,false,{lat,lng,radius,excluded:returned.length-limited.length});
+    });
+  }catch(e){
+    _poiRequestPending=false;
+    if(_poiRequestVersion===version&&box) box.textContent='POI検索に失敗しました。もう一度お試しください。';
+  }
 }
 
 /* ── マーカー描画 ── */
-function renderPOI(places,cfg,label,fromCache=false){
+function renderPOI(places,cfg,label,fromCache=false,scope=null){
+  // 表示直前も中心＋半径でチェックし、古いキャッシュや範囲外のマーカーを防ぐ。
+  if(scope) places=(Array.isArray(places)?places:[]).filter(p=>poiWithinRadius(p,scope.lat,scope.lng,scope.radius));
   const visual=getPOIVisual(label,cfg,places?.[0]?.geometry?.location||null);
   if(!sharedIW)sharedIW=new google.maps.InfoWindow();
   // 同カテゴリの旧マーカー削除
@@ -8529,7 +8601,7 @@ function renderPOI(places,cfg,label,fromCache=false){
   const newContent=places.length===0
     ?`<div style="font-size:11px;color:var(--text3);padding:4px 0">${visual.icon} ${label}は周辺に見つかりませんでした<br>
        <span style="font-size:10px">半径を広げるか別エリアで再検索してください</span></div>`
-    :`<div style="font-size:10px;font-weight:700;color:var(--text3);padding:4px 0 3px">${visual.icon} ${label} ${places.length}件${tag}
+    :`<div style="font-size:10px;font-weight:700;color:var(--text3);padding:4px 0 3px">${visual.icon} ${label} ${places.length}件（半径${(scope?.radius||1000)/1000}km内のみ）${tag}
        <button onclick="startAdditionalPOISearch('${label}')"
          style="margin-left:6px;font-size:9px;padding:1px 6px;border:0.5px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text2);cursor:pointer">別エリア検索</button>
      </div>`+
@@ -8549,7 +8621,7 @@ function renderPOI(places,cfg,label,fromCache=false){
 /* ── POIクリア系 ── */
 function clearPOI(){poiMarkers.forEach(m=>m.setMap(null));poiMarkers=[];}
 function clearAllPOI(){
-  activePOIs.clear(); cancelPOISelect(true); clearPOI();
+  resetPOIVisibleScope(); cancelPOISelect(true); clearPOI();
   syncPOIButtonStates();
   document.getElementById('poi-results').innerHTML='';
   document.getElementById('poi-cache-badge').style.display='none';
@@ -12859,21 +12931,14 @@ body.map-focus-mode #elev-wrap {bottom:var(--elev-user-bottom,0px)!important;}
     wrap.style.setProperty('--elev-user-bottom',amount+'px');
     if(grip)grip.setAttribute('aria-valuenow',String(Math.round(100*activeFraction)));
     if(save)try{localStorage.setItem(onMobile()?MOBILE_KEY:KEY,String(activeFraction));}catch(_e){}
-    if(typeof window.syncDockedDaylightOverlay==='function')window.syncDockedDaylightOverlay();
   }
-  // Keep the elevation at its current visible height if daylight is later undocked.
-  window.persistElevationBarAtPixelBottom=function(bottomPx){
-    const limit=maxBottom();
-    setFraction(limit>0?Math.max(0,Math.min(1,bottomPx/limit)):0);
-    render(true);
-  };
   function init(){
     const grip=el('elev-drag-grip'),reset=el('elev-position-reset'),wrap=el('elev-wrap');
     if(!grip||!wrap)return;
     grip.addEventListener('pointerdown',e=>{
       if(e.target.closest('#elev-position-reset, #elev-fit-route')||e.button!==0)return;
       e.preventDefault();e.stopPropagation();
-      dragging={id:e.pointerId,y:e.clientY,at:parseFloat(getComputedStyle(wrap).bottom)||0};
+      dragging={id:e.pointerId,y:e.clientY,at:parseFloat(wrap.style.bottom)||0};
       grip.setPointerCapture(e.pointerId);wrap.classList.add('dragging');
     });
     grip.addEventListener('pointermove',e=>{
@@ -13451,68 +13516,26 @@ body.map-focus-mode #map-stage #daylight-panel{z-index:57!important}
   #daylight-panel .dl-grip-label{font-size:9px}
   #daylight-panel .dl-overlay-action{font-size:8px!important;padding:1px 3px!important}
 }
-
-/* Mobile daylight + elevation: visible stacked cards, independent vertical dragging. */
-@media(max-width:600px){
-  body.sp-mode #map-stage #daylight-panel{
-    left:7px!important;right:7px!important;max-width:none!important;
-    padding:0 7px 7px!important;
-    border-radius:10px!important;
-    border:1px solid rgba(174,208,229,.48)!important;
-    background:rgba(12,19,29,.96)!important;
-    box-shadow:0 7px 22px rgba(0,0,0,.46)!important;
-    backdrop-filter:blur(9px)!important;-webkit-backdrop-filter:blur(9px)!important;
-    z-index:31!important;
-  }
-  body.sp-mode #daylight-panel .dl-overlay-grip{
-    margin:0 -7px 5px!important;padding:5px 9px!important;
-    min-height:33px!important;background:rgba(35,49,65,.94)!important;
-    font-size:11px!important;color:#fff!important;
-  }
-  body.sp-mode #daylight-panel .dl-grip-dots{width:20px;flex-basis:20px;}
-  body.sp-mode #daylight-panel .dl-grip-label{font-size:11px!important;color:#f6fbff!important;}
-  body.sp-mode #daylight-panel .dl-overlay-action{
-    font-size:10px!important;min-height:25px!important;padding:2px 6px!important;
-  }
-  body.sp-mode #daylight-panel #dl-time-wrap{
-    background:rgba(0,7,17,.65)!important;border:1px solid rgba(188,210,242,.4)!important;
-  }
-  body.sp-mode #daylight-panel #dl-timeline-row{min-width:0!important;}
-  body.sp-mode #daylight-panel .twi-time{font-size:10px!important;color:#fff!important;}
-  body.sp-mode #daylight-panel .twi-cell{min-width:0!important;}
-  body.sp-mode #elev-wrap{
-    bottom:max(var(--elev-user-bottom,0px),var(--dl-dock-reserve,0px))!important;
-  }
-}
-@media(max-width:355px){
-  body.sp-mode #map-stage #daylight-panel{left:5px!important;right:5px!important;}
-  body.sp-mode #daylight-panel .dl-overlay-action{font-size:9px!important;padding:1px 4px!important;}
-}
 </style>
 <script>
 (function(){
   'use strict';
   const $=id=>document.getElementById(id);
   const mobile=()=>document.body.classList.contains('sp-mode') || innerWidth<=600;
-  // A new mobile storage key intentionally resets the old detached placement once.
-  const key=()=>mobile()?'rpp-daylight-overlay-top-mobile-v2':'rpp-daylight-overlay-top-pc-v1';
-  const initial=()=>mobile()?.18:.13;
-  const GAP=5;
-  let fraction=initial(),drag=null,lastWidth=0,initialized=false,frame=0;
-  let docked=true; // mobile default: immediately below elevation, until user moves the sunlight panel
+  // Only the actual smartphone layout receives the new unobstructed initial dock.
+  // Desktop and user-selected PC layout retain their original storage key and location.
+  const mobileScreen=()=>innerWidth<=600 && !document.body.classList.contains('pc-mode');
+  const key=()=>mobileScreen()?'rpp-daylight-overlay-top-mobile-v2':(mobile()?'rpp-daylight-overlay-top-mobile-v1':'rpp-daylight-overlay-top-pc-v1');
+  const initial=()=>mobileScreen()?.01:(mobile()?.18:.13);
+  let fraction=initial(),drag=null,lastWidth=0,initialized=false;
   const clamp=(v,min,max)=>Math.min(max,Math.max(min,v));
-  function hasSaved(){try{return localStorage.getItem(key())!==null}catch(_e){return false}}
   function savedFraction(){
-    try{const n=Number(localStorage.getItem(key()));return Number.isFinite(n)&&hasSaved()?clamp(n,0,1):initial();}
+    try{const n=Number(localStorage.getItem(key()));return Number.isFinite(n)&&localStorage.getItem(key())!==null?clamp(n,0,1):initial();}
     catch(_e){return initial();}
   }
   function maxTop(){
     const panel=$('daylight-panel'),stage=$('map-stage');
     return panel&&stage?Math.max(0,stage.clientHeight-panel.offsetHeight-8):0;
-  }
-  function releaseDock(){
-    const elev=$('elev-wrap');
-    if(elev)elev.style.removeProperty('--dl-dock-reserve');
   }
   function applyPosition(save){
     const panel=$('daylight-panel'),grip=$('dl-overlay-grip');if(!panel)return;
@@ -13522,39 +13545,6 @@ body.map-focus-mode #map-stage #daylight-panel{z-index:57!important}
     if(grip)grip.setAttribute('aria-valuenow',String(Math.round(100*fraction)));
     if(save)try{localStorage.setItem(key(),String(fraction))}catch(_e){}
   }
-  function dockBelowElevation(){
-    if(!mobile()||!docked)return false;
-    const stage=$('map-stage'),panel=$('daylight-panel'),elev=$('elev-wrap');
-    if(!stage||!panel)return false;
-    const grip=$('dl-overlay-grip');
-    const stageRect=stage.getBoundingClientRect();
-    if(!elev||getComputedStyle(elev).display==='none'||elev.offsetHeight<=0){
-      releaseDock();
-      const top=clamp(Math.round(stage.clientHeight*.38),0,maxTop());
-      panel.style.setProperty('--dl-overlay-top',top+'px');
-      if(grip)grip.setAttribute('aria-valuenow','0');
-      return true;
-    }
-    // Reserve enough room so the elevation chart remains ABOVE the daylight panel,
-    // including on devices where the saved elevation position was at the map bottom.
-    const reserve=Math.ceil(panel.offsetHeight+GAP+8);
-    elev.style.setProperty('--dl-dock-reserve',reserve+'px');
-    const elevRect=elev.getBoundingClientRect();
-    let top=elevRect.bottom-stageRect.top+GAP;
-    top=clamp(Math.round(top),0,maxTop());
-    panel.style.setProperty('--dl-overlay-top',top+'px');
-    if(grip)grip.setAttribute('aria-valuenow','0');
-    return true;
-  }
-  function schedulePosition(){
-    cancelAnimationFrame(frame);
-    frame=requestAnimationFrame(()=>{
-      if(mobile()&&docked)dockBelowElevation();
-      else{releaseDock();applyPosition(false);}
-    });
-  }
-  // The elevation strip invokes this after its own drag/reset/resize updates.
-  window.syncDockedDaylightOverlay=()=>{if(mobile()&&docked)schedulePosition()};
   function refreshSummary(){
     const date=$('dl-date'),pref=$('dl-pref'),t=$('dl-overlay-summary');
     if(!t)return;
@@ -13569,7 +13559,7 @@ body.map-focus-mode #map-stage #daylight-panel{z-index:57!important}
     if(typeof renderDaylight==='function'){
       try{renderDaylight()}catch(e){console.warn('Daylight overlay render:',e)}
     }
-    schedulePosition();
+    applyPosition(false);
   }
   function init(){
     if(initialized)return;
@@ -13583,29 +13573,24 @@ body.map-focus-mode #map-stage #daylight-panel{z-index:57!important}
     grip.setAttribute('aria-valuemin','0');grip.setAttribute('aria-valuemax','100');
     grip.innerHTML='<span class="dl-grip-dots" aria-hidden="true"></span><span class="dl-grip-label">☀ 日照 <span id="dl-overlay-summary"></span></span><button type="button" id="dl-settings-toggle" class="dl-overlay-action" aria-expanded="false" aria-controls="dl-controls">⚙ 日付・地域</button><button type="button" id="dl-overlay-reset" class="dl-overlay-action" title="日照バーを初期位置に戻す">↺ 位置</button>';
     panel.insertBefore(grip,panel.firstChild);
-    docked=mobile()&&!hasSaved();
     fraction=savedFraction();
-    function updateResetLabel(){
-      const b=$('dl-overlay-reset');if(!b)return;
-      b.textContent=mobile()?'↺ 標高の下へ':'↺ 位置';
-      b.title=mobile()?'日照バーを標高バーの直下へ戻す':'日照バーを初期位置に戻す';
-    }
-    updateResetLabel();
+    // Restoring PC mode must restore its previous position, not inherit the phone dock.
+    let activePositionKey=key();
+    new MutationObserver(()=>{
+      const next=key();
+      if(next===activePositionKey)return;
+      activePositionKey=next;
+      fraction=savedFraction();
+      requestAnimationFrame(()=>applyPosition(false));
+    }).observe(document.body,{attributes:true,attributeFilter:['class']});
     $('dl-settings-toggle').addEventListener('click',e=>{
       e.preventDefault();e.stopPropagation();
       const expanded=panel.classList.toggle('dl-settings-open');
       e.currentTarget.setAttribute('aria-expanded',String(expanded));
-      requestAnimationFrame(redraw);
+      requestAnimationFrame(()=>{applyPosition(false);redraw()});
     });
     $('dl-overlay-reset').addEventListener('click',e=>{
-      e.preventDefault();e.stopPropagation();
-      if(mobile()){
-        docked=true;
-        try{localStorage.removeItem(key())}catch(_e){}
-        schedulePosition();
-      }else{
-        docked=false;fraction=initial();releaseDock();applyPosition(true);
-      }
+      e.preventDefault();e.stopPropagation();fraction=initial();applyPosition(true);
     });
     for(const id of ['dl-date','dl-pref']){
       $(id)?.addEventListener('change',refreshSummary);
@@ -13614,19 +13599,7 @@ body.map-focus-mode #map-stage #daylight-panel{z-index:57!important}
     grip.addEventListener('pointerdown',e=>{
       if(e.button!==0||e.target.closest('button,input,select'))return;
       e.preventDefault();e.stopPropagation();
-      const visibleTop=parseFloat(getComputedStyle(panel).top)||0;
-      if(mobile()&&docked){
-        // Preserve the elevation chart position when breaking the linked stack.
-        const elev=$('elev-wrap');
-        const bottom=elev?(parseFloat(getComputedStyle(elev).bottom)||0):0;
-        docked=false;
-        if(elev&&typeof window.persistElevationBarAtPixelBottom==='function')
-          window.persistElevationBarAtPixelBottom(bottom);
-        releaseDock();
-      }
-      drag={id:e.pointerId,y:e.clientY,at:visibleTop};
-      const limit=maxTop();
-      fraction=limit?clamp(visibleTop/limit,0,1):0;
+      drag={id:e.pointerId,y:e.clientY,at:parseFloat(getComputedStyle(panel).top)||0};
       grip.setPointerCapture(e.pointerId);panel.classList.add('dl-overlay-dragging');
     });
     grip.addEventListener('pointermove',e=>{
@@ -13645,16 +13618,6 @@ body.map-focus-mode #map-stage #daylight-panel{z-index:57!important}
     grip.addEventListener('keydown',e=>{
       if(e.target!==grip||!['ArrowUp','ArrowDown','Home','End'].includes(e.key))return;
       e.preventDefault();
-      if(mobile()&&docked){
-        const elev=$('elev-wrap');
-        const bottom=elev?(parseFloat(getComputedStyle(elev).bottom)||0):0;
-        docked=false;
-        if(elev&&typeof window.persistElevationBarAtPixelBottom==='function')
-          window.persistElevationBarAtPixelBottom(bottom);
-        releaseDock();
-        const top=parseFloat(getComputedStyle(panel).top)||0;
-        fraction=maxTop()>0?clamp(top/maxTop(),0,1):0;
-      }
       const limit=maxTop();
       if(e.key==='Home')fraction=0;
       else if(e.key==='End')fraction=1;
@@ -13662,22 +13625,18 @@ body.map-focus-mode #map-stage #daylight-panel{z-index:57!important}
       applyPosition(true);
     });
     if(typeof ResizeObserver!=='undefined'){
-      let resizeFrame=0;
+      let frame=0;
       const observer=new ResizeObserver(()=>{
-        cancelAnimationFrame(resizeFrame);
-        resizeFrame=requestAnimationFrame(()=>{
+        cancelAnimationFrame(frame);
+        frame=requestAnimationFrame(()=>{
           const width=panel.clientWidth;
-          schedulePosition();
+          applyPosition(false);
           if(width>0&&Math.abs(width-lastWidth)>1){lastWidth=width;redraw();}
         });
       });
       observer.observe(stage);observer.observe(panel);
-      const elev=$('elev-wrap');if(elev)observer.observe(elev);
     }
-    window.addEventListener('resize',()=>{
-      docked=mobile()&&!hasSaved();
-      fraction=savedFraction();updateResetLabel();requestAnimationFrame(redraw);
-    });
+    window.addEventListener('resize',()=>{fraction=savedFraction();requestAnimationFrame(redraw)});
     refreshSummary();
     requestAnimationFrame(redraw);
   }
