@@ -7145,23 +7145,15 @@ function robustGradeStats(elevations,totalM){
   return {values,maxGrade,rawMaxGrade,steepPct,windowM:actualWindowM,clamped:rawMaxGrade>35};
 }
 
-/* パネルと標高検証モーダル：既存の計算・原本を変更せず検証可能にする */
-function openElevationAuditPanel(){
-  if(!window._routeData||!elevationMetricsState){alert('先にコースを作成、または標高付きGPXを読み込んでください。');return;}
-  const audit=window.__lastElevationAudit;
-  if(audit&&audit.routePath===lastRoutePath){
-    showElevationAnomalyCandidates(audit.heights,audit.distances,audit.apply,audit.routePath,true);
-    return;
-  }
-  ensureElevationAnomalyDialog();
-  showElevationAnomalyCandidates([],[],()=>{},lastRoutePath,true);
-}
-/* ── 標高急変候補チェック：元データを初期値として保持 ── */
-let elevationAnomalyDialogState=null;
-let elevationAnomalyDialogSuppress=false;
-let elevationBridgeReferenceM=100; // 検証専用・初期値100m。補正の自動適用はしない。
-// 橋梁候補の道路面を前後50/100/150mの勾配から推定する（通常のBALANCED集計は変更しない）。
-// 勾配が安定しない場合、曲線外挿をやめて端点間の線形補間にフォールバックする。
+/* ── 獲得標高：安全側の自動調整（ユーザー操作不要） ──
+   目的：Google地形標高の細かなノイズと明確な谷型誤差の影響を抑制。
+   生標高は elevationMetricsState.original / __lastElevationAudit.original に保持。
+   補正は道路の実測標高を保証しない。RAW/BALANCED/STABLE は補正後の同一系列に適用する。
+   50m窓は近所の激坂GPXで検証し、100m一律窓による過剰平滑化を避ける。
+*/
+const ELEVATION_AUTO_WINDOW_M=50;
+const ELEVATION_AUTO_BRIDGE_REFERENCE_M=100;
+let elevationBridgeReferenceM=ELEVATION_AUTO_BRIDGE_REFERENCE_M;
 function elevationInterpolateAt(heights,distances,target){
   if(target<distances[0]||target>distances[distances.length-1])return null;
   let lo=0,hi=distances.length-1;
@@ -7263,210 +7255,89 @@ function detectElevationValleyCandidates(elevations,distances,referenceM=elevati
   }
   return picked.sort((a,b)=>a.left-b.left);
 }
-// 距離スライダー連動の「モデル試算」。橋候補の有無に依存せず、路線全体の
-// 距離加重標高トレンドを計算する。元データ/BALANCEDの標準計算は変えない。
-// 端点の正味上昇量を維持するため、先頭/末尾は原標高に固定する。
-function elevationDistanceWindowEstimate(heights,distances,windowM){
+
+// GPS距離に応じた50mの弱いトレンド調整（端点固定）。急坂を消さないため大きな窓を一律使用しない。
+function elevationAutoDistanceTrend(heights,distances,windowM=ELEVATION_AUTO_WINDOW_M){
   if(!Array.isArray(heights)||heights.length<3||distances.length!==heights.length)return heights.slice();
-  const radius=Math.max(1,Number(windowM)||100);
-  const n=heights.length, result=heights.slice();
-  let lo=0,hi=0;
+  const result=heights.slice(),n=heights.length, radius=Math.max(10,windowM);
+  let left=0,right=0;
   for(let i=1;i<n-1;i++){
     if(!Number.isFinite(heights[i])||!Number.isFinite(distances[i]))continue;
-    while(lo<i&&distances[i]-distances[lo]>radius)lo++;
-    if(hi<i)hi=i;
-    while(hi+1<n&&distances[hi+1]-distances[i]<=radius)hi++;
-    let total=0,weight=0;
-    for(let j=lo;j<=hi;j++){
+    while(left<i&&distances[i]-distances[left]>radius)left++;
+    if(right<i)right=i;
+    while(right+1<n&&distances[right+1]-distances[i]<=radius)right++;
+    let weightedSum=0,weightSum=0;
+    for(let j=left;j<=right;j++){
       if(!Number.isFinite(heights[j])||!Number.isFinite(distances[j]))continue;
-      const d=Math.abs(distances[j]-distances[i]);
-      const w=Math.max(0,1-d/radius);
-      total+=heights[j]*w;weight+=w;
+      const weight=Math.max(0,1-Math.abs(distances[j]-distances[i])/radius);
+      weightedSum+=heights[j]*weight;weightSum+=weight;
     }
-    if(weight>0)result[i]=total/weight;
+    if(weightSum>0)result[i]=weightedSum/weightSum;
   }
-  // トレンド平滑化で全コースの終端標高が変わることは避ける。
   result[0]=heights[0];result[n-1]=heights[n-1];
   return result;
 }
-function ensureElevationAnomalyDialog(){
-  if(document.getElementById('elevation-anomaly-dialog')) return;
-  const style=document.createElement('style');
-  style.textContent=`#elevation-anomaly-dialog{display:none;position:fixed;inset:0;z-index:100060;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.56);backdrop-filter:blur(4px)}
-  #elevation-anomaly-dialog.visible{display:flex}#elevation-anomaly-dialog .eac-card{background:var(--panel,#fff);color:var(--text,#222);border:1px solid var(--border,#ddd);border-radius:15px;width:min(560px,100%);max-height:87vh;overflow:auto;padding:20px;box-shadow:0 18px 54px #0004}
-  #elevation-anomaly-dialog .eac-row{display:flex;align-items:center;gap:10px;padding:10px 3px;border-bottom:1px solid var(--border,#ddd)}
-  #elevation-anomaly-dialog .eac-row input{width:20px;height:20px;flex-shrink:0;accent-color:#317bd4}#elevation-anomaly-dialog .eac-actions{display:flex;gap:9px;flex-wrap:wrap;justify-content:flex-end;margin-top:16px}
-  #elevation-anomaly-dialog button{border-radius:9px;padding:10px 13px;font-weight:700;cursor:pointer;border:1px solid var(--border,#aaa)}
-  #elevation-anomaly-dialog .eac-keep{background:var(--panel,#fff);color:var(--text,#222)}#elevation-anomaly-dialog .eac-apply{background:#2677bf;color:white;border-color:#2677bf}
-  #elevation-anomaly-dialog .eac-apply:disabled{opacity:.4;cursor:not-allowed}
-  .elevation-audit-trigger{cursor:pointer;text-align:left;font:inherit;color:inherit}
-  .elevation-audit-trigger:hover,.elevation-audit-trigger:focus-visible{border-color:#268b62!important;box-shadow:0 0 0 2px #268b6228;outline:none}
-  #elevation-anomaly-dialog .eac-audit-table{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:12px 0}
-  #elevation-anomaly-dialog .eac-audit-cell{padding:10px 7px;border:1px solid var(--border,#ddd);border-radius:9px;text-align:center;font-size:12px}
-  #elevation-anomaly-dialog .eac-audit-cell strong{display:block;font-size:18px;margin-top:3px}
-  #elevation-anomaly-dialog .eac-google{background:var(--bg2,#eee);color:var(--text,#222)}`;
-  document.head.appendChild(style);
-  const div=document.createElement('div');div.id='elevation-anomaly-dialog';
-  div.setAttribute('role','dialog');div.setAttribute('aria-modal','true');div.setAttribute('aria-label','標高急変の確認');
-  div.innerHTML=`<div class="eac-card"><div style="display:flex;align-items:start;justify-content:space-between;gap:12px"><div><div style="font-size:18px;font-weight:800">⛰ 獲得標高の検証</div><p style="font-size:12px;opacity:.75;margin:7px 0">橋・谷・道路の急勾配などの可能性があります。誤差とは断定できません。</p></div><button type="button" class="eac-close" aria-label="閉じる">×</button></div><p class="eac-summary" style="font-size:13px;margin:12px 0"></p><p class="eac-live-label" style="font-size:12px;font-weight:700;color:#25855c;margin:9px 0 0">参照距離に応じた獲得標高の推定（未反映）</p><div class="eac-audit-table" aria-live="polite"></div><div class="eac-reference" style="padding:11px 12px;border:1px solid var(--border,#ddd);border-radius:10px;margin:12px 0"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><strong style="font-size:13px">標高トレンドの参照距離</strong><strong class="eac-reference-value" style="font-size:14px">100m</strong></div><input type="range" class="eac-reference-slider" min="30" max="300" step="10" value="100" style="display:block;width:100%;margin:12px 0 5px;accent-color:#25855c" aria-label="橋梁の前後勾配の参照距離"><div style="display:flex;justify-content:space-between;font-size:11px;opacity:.75"><span>30m</span><span>100m（標準）</span><span>300m</span></div><p class="eac-reference-windows" style="font-size:12px;margin:7px 0 0">前後100mの標高変化から推定</p><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><button type="button" class="eac-ref-preset" data-ref="50" style="padding:5px 9px">50m</button><button type="button" class="eac-ref-preset" data-ref="100" style="padding:5px 9px">100m</button><button type="button" class="eac-ref-preset" data-ref="150" style="padding:5px 9px">150m</button></div><p style="font-size:11px;opacity:.8;margin:8px 0 0">スライダーはコース全体の標高トレンドを距離加重で再評価します。50・100・150mなどで上の3数値が連動します。大きな距離では実際の短い坂も減るため、あくまで比較用です。元データは反映操作まで保持します。</p></div><div class="eac-items"></div><label style="display:flex;align-items:center;gap:9px;padding:10px 5px;font-size:12px;font-weight:700"><input type="checkbox" class="eac-model-accept" style="width:19px;height:19px;accent-color:#25855c">この距離での推定標高をルートに反映する（任意）</label><p class="eac-preview" style="font-size:13px;font-weight:700;margin:14px 0 0"></p><p style="font-size:12px;opacity:.72;margin:7px 0">初期状態は元データ維持です。上の数値は参照距離で標高データ全体を調整した仮試算です。橋・谷の疑わしい区間は下のチェックで追加補正できます。実際の反映には確認チェックが必要です。距離を長くすると本物の激坂も平滑化される可能性があります。</p><div class="eac-actions"><button type="button" class="eac-google">⛰ Googleで再取得</button><button type="button" class="eac-keep">元の標高を維持・閉じる</button><button type="button" class="eac-apply" disabled>選択した試算を反映</button></div></div>`;
-  document.body.appendChild(div);
-  const restoreElevationPanel=()=>{
-    const state=elevationAnomalyDialogState;
-    if(!state)return;
-    const display=document.getElementById('mcp-elev-display');
-    const sub=document.querySelector('#elevation-audit-trigger .locked-sub');
-    if(display&&state.panelOriginalValue!==undefined)display.textContent=state.panelOriginalValue;
-    if(sub&&state.panelOriginalSub!==undefined)sub.textContent=state.panelOriginalSub;
-  };
-  const close=()=>{restoreElevationPanel();div.classList.remove('visible');elevationAnomalyDialogState=null;};
-  div.querySelector('.eac-close').addEventListener('click',close);
-  div.querySelector('.eac-keep').addEventListener('click',close);
-  div.querySelector('.eac-google').addEventListener('click',()=>{
-    if(!confirm('現在のルートをGoogle Elevation APIで再取得します。取得すると表示・GPX出力用の標高データがGoogleの値に更新されます。続けますか？'))return;
-    close();reverifyGoogleElevation();
-  });
-  div.addEventListener('click',e=>{if(e.target===div)close();});
-  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&div.classList.contains('visible'))close();});
-  const updateElevationPreview=()=>{
-    const state=elevationAnomalyDialogState;if(!state)return;
-    const selected=[...div.querySelectorAll('input.eac-pick:checked')].map(e=>+e.value);
-    const accept=div.querySelector('.eac-model-accept').checked;
-    div.querySelector('.eac-apply').disabled=!accept;
-    // 常に「距離依存のトレンド調整」を試算する。V字候補が0か所でも変化する。
-    const corrected=elevationDistanceWindowEstimate(state.heights,state.distances,state.referenceM);
-    if(selected.length){
-      const valleyAdjusted=applySelectedElevationValleys(corrected,state.distances,state.candidates,selected,state.referenceM);
-      for(let i=0;i<corrected.length;i++)corrected[i]=valleyAdjusted[i];
-    }
-    state.estimatedHeights=corrected;
-    const original=computeElevationModeMetrics(state.heights);
-    const estimate=computeElevationModeMetrics(corrected);
-    div.querySelector('.eac-audit-table').innerHTML=['raw','balanced','stable'].map(key=>{
-      const oldVal=Math.round(original[key]);
-      const newVal=Math.round(estimate[key]);
-      const delta=newVal-oldVal;
-      return `<div class="eac-audit-cell" style="${key===elevationCalculationMode?'border-color:#299b63;background:#299b6312':''}">${key.toUpperCase()}<strong>${newVal}m</strong><span style="font-size:11px;opacity:.8">元 ${oldVal}m ／ 差 ${delta>0?'+':''}${delta}m</span></div>`;
-    }).join('');
-    const before=Math.round(original[elevationCalculationMode]);
-    const revised=Math.round(estimate[elevationCalculationMode]);
-    // 上部の獲得標高パネルも「試算値」と明示して即時連動。
-    // routeData / GPX / 本来のBALANCED値は明示的に反映するまで変更しない。
-    const panelValue=document.getElementById('mcp-elev-display');
-    const panelSub=document.querySelector('#elevation-audit-trigger .locked-sub');
-    if(panelValue)panelValue.textContent=revised+' m（試算）';
-    if(panelSub)panelSub.textContent='元 '+Math.round(original[elevationCalculationMode])+'m ／ 未反映';
-    const indicator=selected.length?`＋橋梁候補 ${selected.length}か所`:'（橋梁候補の追加補正なし）';
-    div.querySelector('.eac-live-label').textContent=`参照 ${state.referenceM}mの推定値 ${indicator}・未反映`;
-    div.querySelector('.eac-preview').textContent=state.heights.length
-      ?`標高トレンド試算 ${before}m → ${revised}m（${revised-before>=0?'+':''}${revised-before}m）。元のコース表示は変更していません。`
-      :'検証する標高データがありません。';
-  };
-  const updateElevationReference=(value)=>{
-    const state=elevationAnomalyDialogState;if(!state)return;
-    state.referenceM=Math.max(30,Math.min(300,Math.round(Number(value)/10)*10||100));
-    elevationBridgeReferenceM=state.referenceM;
-    const slider=div.querySelector('.eac-reference-slider');slider.value=String(state.referenceM);
-    div.querySelector('.eac-reference-value').textContent=state.referenceM+'m';
-    const windows=[0.5,1,1.5].map(k=>Math.round(state.referenceM*k));
-    div.querySelector('.eac-reference-windows').textContent=`前後 ${windows.join('・')}m を使い、標高トレンドを試算`;
-    const prior=[...div.querySelectorAll('input.eac-pick:checked')].map(e=>{
-      const candidate=state.candidates[+e.value];return candidate?[candidate.left,candidate.right]:null;
-    }).filter(Boolean);
-    state.candidates=detectElevationValleyCandidates(state.heights,state.distances,state.referenceM);
-    renderElevationCandidateRows(div.querySelector('.eac-items'),state.candidates,prior);
-    div.querySelector('.eac-summary').textContent=state.summaryText(state.candidates.length);
-    updateElevationPreview();
-  };
-  div.querySelector('.eac-items').addEventListener('change',updateElevationPreview);
-  div.querySelector('.eac-model-accept').addEventListener('change',updateElevationPreview);
-  div.querySelector('.eac-reference-slider').addEventListener('input',e=>updateElevationReference(e.target.value));
-  div.querySelectorAll('.eac-ref-preset').forEach(button=>button.addEventListener('click',()=>updateElevationReference(button.dataset.ref)));
-  div.querySelector('.eac-apply').addEventListener('click',()=>{
-    const state=elevationAnomalyDialogState;if(!state)return;
-    if(state.routePath!==lastRoutePath){close();return;}
-    if(!div.querySelector('.eac-model-accept').checked)return;
-    if(!Array.isArray(state.estimatedHeights)||state.estimatedHeights.length!==state.heights.length)return;
-    const heights=state.estimatedHeights.slice();
-    const apply=state.apply;close();
-    elevationAnomalyDialogSuppress=true;
-    try{apply(heights);}finally{elevationAnomalyDialogSuppress=false;}
-  });
-}
-function applySelectedElevationValleys(original,distances,candidates,selected,referenceM=elevationBridgeReferenceM){
-  const output=original.slice();
-  for(const id of selected){
-    const c=candidates[id];if(!c)continue;
-    const proposal=proposeElevationBridgeSurface(original,distances,c,referenceM);
-    for(let i=c.left+1;i<c.right;i++)output[i]=proposal.heights[i];
+function autoCorrectElevationProfile(heights,distances){
+  const original=heights.map(Number);
+  const empty={original,active:original.slice(),candidates:[],applied:[],windowM:0,originalMetrics:computeElevationModeMetrics(original),activeMetrics:computeElevationModeMetrics(original)};
+  if(original.length<5||original.length!==distances.length||original.some(v=>!Number.isFinite(v)))return empty;
+  if(distances.some((v,i)=>!Number.isFinite(v)||(i>0&&v<distances[i-1])))return empty;
+  const candidates=detectElevationValleyCandidates(original,distances,ELEVATION_AUTO_BRIDGE_REFERENCE_M);
+  // 厳格な自動判定。単なる高勾配や長い下り→登りは対象外。
+  // 15mのV字は検査候補に留め、補正は25m以上・450m以内・20m以上の見かけ上昇だけ。
+  const applied=candidates.filter(c=>c.span<=450&&c.drop>=25&&c.rebound>=25&&c.impact>=20&&
+    Math.abs(original[c.right]-original[c.left])<=Math.max(8,c.drop*0.25));
+  let valleys=original.slice();
+  for(const c of applied){
+    const estimate=proposeElevationBridgeSurface(original,distances,c,ELEVATION_AUTO_BRIDGE_REFERENCE_M);
+    for(let i=c.left+1;i<c.right;i++)valleys[i]=estimate.heights[i];
   }
-  return output;
+  const trended=elevationAutoDistanceTrend(valleys,distances,ELEVATION_AUTO_WINDOW_M);
+  // ノイズ補正で獲得標高が逆に増えるなら、生データ側を維持。
+  const originalMetrics=computeElevationModeMetrics(original);
+  const adjustedMetrics=computeElevationModeMetrics(trended);
+  const active=adjustedMetrics.balanced<=originalMetrics.balanced+0.5?trended:valleys;
+  return {original,active,candidates,applied,windowM:ELEVATION_AUTO_WINDOW_M,
+    originalMetrics,activeMetrics:computeElevationModeMetrics(active)};
 }
-function renderElevationCandidateRows(items,candidates,priorSelected=[]){
-  items.replaceChildren();
-  for(const [i,c] of candidates.entries()){
-    const row=document.createElement('label');row.className='eac-row';
-    const input=document.createElement('input');input.type='checkbox';input.className='eac-pick';input.value=String(i);
-    input.checked=priorSelected.some(pair=>pair[0]===c.left&&pair[1]===c.right);
-    const content=document.createElement('div');
-    const slopeLabel=(edge)=>{const p=edge?.probes||[];return p.length?p.map(v=>`${v.windowM}m:${(v.slope*100).toFixed(1)}%`).join(' / '):'データ不足';};
-    content.innerHTML=`<strong>${c.startKm.toFixed(2)}〜${c.endKm.toFixed(2)} km</strong><div style="font-size:12px;opacity:.8">下降 ${c.drop.toFixed(1)}m → 再上昇 ${c.rebound.toFixed(1)}m ／ 区間 ${Math.round(c.span)}m ／ 推定方式 ${c.model==='grade'?'前後勾配による推定':'端点補間（勾配不安定・参照距離で標高差が変わらない場合あり）'} ／ 補正影響目安 −${Math.round(c.impact)}m</div><div style="font-size:11px;opacity:.72;margin-top:3px">手前勾配 ${slopeLabel(c.before)} ／ 先勾配 ${slopeLabel(c.after)}</div>`;
-    row.append(input,content);items.appendChild(row);
+function showElevationAuditSummary(){
+  const audit=window.__lastElevationAudit;
+  if(!audit||!elevationMetricsState){alert('先にルートを作成、または標高付きGPXを読み込んでください。');return;}
+  let overlay=document.getElementById('elevation-auto-audit');
+  if(!overlay){
+    overlay=document.createElement('div');overlay.id='elevation-auto-audit';
+    overlay.style.cssText='position:fixed;inset:0;z-index:100060;background:rgba(0,0,0,.58);display:flex;align-items:center;justify-content:center;padding:14px';
+    overlay.innerHTML=`<section role="dialog" aria-modal="true" aria-label="獲得標高の自動補正" style="background:var(--panel,#fff);color:var(--text,#20242a);width:min(500px,100%);max-height:84dvh;overflow:auto;border-radius:14px;padding:20px;box-shadow:0 15px 50px #0005">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><strong style="font-size:18px">⛰ 獲得標高の自動補正</strong><button type="button" class="eaa-close" style="font-size:19px;padding:5px 11px">×</button></div>
+      <p class="eaa-summary" style="font-size:14px;line-height:1.7"></p>
+      <div class="eaa-modes" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:12px 0"></div>
+      <div class="eaa-detail" style="font-size:13px;line-height:1.7"></div>
+      <p style="font-size:12px;opacity:.75">補正は自動適用されています。生標高は内部に保持しています。Googleの地形標高と実際の橋の路面高度は一致しない場合があり、通行可否も保証されません。</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><button type="button" class="eaa-recheck">Google標高を再取得</button><button type="button" class="eaa-close">閉じる</button></div>
+    </section>`;
+    document.body.appendChild(overlay);
+    overlay.querySelectorAll('.eaa-close').forEach(b=>b.addEventListener('click',()=>overlay.style.display='none'));
+    overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.style.display='none';});
+    overlay.querySelector('.eaa-recheck').addEventListener('click',()=>{
+      if(!confirm('現在のルートのGoogle標高を再取得します。元のGPXの標高とは異なる場合があります。続けますか？'))return;
+      overlay.style.display='none';reverifyGoogleElevation();
+    });
   }
+  const {originalMetrics,activeMetrics,applied,candidates,windowM}=audit;
+  const current=window._routeData?.gainM;
+  const diff=Math.round(activeMetrics.balanced-originalMetrics.balanced);
+  overlay.querySelector('.eaa-summary').textContent=`表示 ${Math.round(current??activeMetrics.balanced)}m（${elevationCalculationMode.toUpperCase()}）／ 通常計算の元値 ${Math.round(originalMetrics.balanced)}m → 自動調整後 ${Math.round(activeMetrics.balanced)}m（${diff>=0?'+':''}${diff}m）。`;
+  overlay.querySelector('.eaa-modes').innerHTML=['raw','balanced','stable'].map(key=>`<div style="border:1px solid #8885;border-radius:9px;padding:9px 4px;text-align:center;font-size:12px">${key.toUpperCase()}<strong style="display:block;font-size:17px">${Math.round(activeMetrics[key])}m</strong><small>元 ${Math.round(originalMetrics[key])}m</small></div>`).join('');
+  const spans=applied.map(c=>`${c.startKm.toFixed(2)}〜${c.endKm.toFixed(2)}km`).join('、');
+  overlay.querySelector('.eaa-detail').textContent=`短いV字型異常候補 ${candidates.length}か所／自動補正 ${applied.length}か所${spans?'（'+spans+'）':''}。その他に前後${windowM}mの小幅な標高変動を調整。補正対象外の誤差や未解決の過大計上が残る可能性があります。`;
+  overlay.style.display='flex';
 }
-function showElevationAnomalyCandidates(heights,distances,apply,routePath,forceOpen=false){
-  if(elevationAnomalyDialogSuppress) return;
-  // 検出ゼロ件でもパネルから再オープンできるよう原標高・距離・適用関数を保持。
-  if(heights.length>=2&&distances.length===heights.length)
-    window.__lastElevationAudit={heights:heights.slice(),distances:distances.slice(),apply,routePath};
-  const candidates=detectElevationValleyCandidates(heights,distances);
-  if(!candidates.length&&!forceOpen) return;
-  ensureElevationAnomalyDialog();
-  const panelValue=document.getElementById('mcp-elev-display');
-  const panelSub=document.querySelector('#elevation-audit-trigger .locked-sub');
-  elevationAnomalyDialogState={heights:heights.slice(),distances:distances.slice(),candidates,apply,routePath,referenceM:elevationBridgeReferenceM,
-    panelOriginalValue:panelValue?.textContent,panelOriginalSub:panelSub?.textContent};
-  const modal=document.getElementById('elevation-anomaly-dialog');
-  const items=modal.querySelector('.eac-items');
-  renderElevationCandidateRows(items,candidates);
-  const slider=modal.querySelector('.eac-reference-slider');
-  slider.value=String(elevationBridgeReferenceM);
-  modal.querySelector('.eac-reference-value').textContent=elevationBridgeReferenceM+'m';
-  modal.querySelector('.eac-reference-windows').textContent=`前後 ${[0.5,1,1.5].map(k=>Math.round(elevationBridgeReferenceM*k)).join('・')}m を使い、標高トレンドを試算`;
-  const mode=elevationCalculationMode.toUpperCase();
-  const routeGain=window._routeData?.gainM;
-  const summaryText=count=>heights.length
-    ?`現在の表示 ${Number.isFinite(routeGain)?Math.round(routeGain)+'m':'—'}（${mode}）／ 橋・谷の異常候補 ${count}か所。上部3数値は距離に応じて変化する仮試算です。`
-    :'標高データの検証情報がまだありません。標高付きルートを再読込してください。';
-  elevationAnomalyDialogState.summaryText=summaryText;
-  modal.querySelector('.eac-summary').textContent=summaryText(candidates.length);
-  modal.querySelector('.eac-apply').disabled=true;
-  modal.querySelector('.eac-model-accept').checked=false;
-  modal.classList.add('visible');
-  slider.dispatchEvent(new Event('input', {bubbles:true}));
+function openElevationAuditPanel(){showElevationAuditSummary();}
+function setElevationAutoAudit(audit,routePath){
+  window.__lastElevationAudit={...audit,routePath};
+  const hint=document.querySelector('#elevation-audit-trigger .locked-sub');
+  if(hint)hint.textContent=`自動補正 ${audit.applied.length}か所・タップで内訳`; 
 }
-function inspectGoogleElevationAnomalies(elevResults,distKm,path){
-  if(elevationAnomalyDialogSuppress||!elevResults||elevResults.length<5||!path||path.length<2)return;
-  const totalM=buildRouteDistanceIndex(path).totalM;
-  const heights=elevResults.map(p=>Number(p.elevation));
-  const distances=heights.map((_,i)=>totalM*i/(heights.length-1));
-  showElevationAnomalyCandidates(heights,distances,updated=>{
-    const revised=elevResults.map((p,i)=>({...p,elevation:updated[i]}));
-    const source=window._routeData?.source,filename=window._routeData?.filename;
-    processElevation(revised,distKm,path, Array.isArray(elevationMetricsState?.original)&&elevationMetricsState.original.length===revised.length?elevationMetricsState.original:heights);
-    if(source){window._routeData.source=source;window._routeData.filename=filename;}
-  },path);
-}
-function inspectGPXElevationAnomalies(gpxPts,path,filename){
-  if(elevationAnomalyDialogSuppress||gpxPts.length<5||gpxPts.some(p=>!Number.isFinite(p.ele)))return;
-  const ix=buildRouteDistanceIndex(gpxPts.map(p=>new google.maps.LatLng(p.lat,p.lng)));
-  const heights=gpxPts.map(p=>p.ele);
-  showElevationAnomalyCandidates(heights,ix.cum,updated=>{
-    const corrected=gpxPts.map((p,i)=>({...p,ele:updated[i]}));
-    window._gpxImportedPoints=corrected.map(p=>({...p}));
-    _applyGPXMetrics(corrected,path,filename,Array.isArray(elevationMetricsState?.original)&&elevationMetricsState.original.length===corrected.length?elevationMetricsState.original:heights);
-  },path);
-}
-
 /* ── 標高 → プランナー反映 ── */
 // 上り/下りの走行区間を分けて、獲得標高による全距離平均とは別に計算する。
 function directionalGradeStats(heights,totalM,distanceMeters=null){
@@ -7506,6 +7377,12 @@ function updateDirectionalGradeUi(heights,totalM,distances=null){
   return result;
 }
 function processElevation(elevResults,distKm,path,originalHeights=null){
+  const rawHeights=(Array.isArray(originalHeights)&&originalHeights.length===elevResults.length
+    ?originalHeights:elevResults.map(e=>e.elevation)).map(Number);
+  const routeLength=path&&path.length>1?buildRouteDistanceIndex(path).totalM:(+distKm)*1000;
+  const distances=rawHeights.map((_,i)=>i*routeLength/Math.max(1,rawHeights.length-1));
+  const autoAudit=autoCorrectElevationProfile(rawHeights,distances);
+  elevResults=elevResults.map((e,i)=>({...e,elevation:autoAudit.active[i]}));
   const elevs=elevResults.map(e=>e.elevation);
   const totalM=(+distKm)*1000;
   const gradeStats=robustGradeStats(elevs,totalM);
@@ -7513,7 +7390,7 @@ function processElevation(elevResults,distKm,path,originalHeights=null){
   const maxElev=filtered.length?Math.max(...filtered):0;
   // 上昇量には生のGoogle標高列を使用。最大斜度は既存の平滑化方式を維持。
   const maxGrade=gradeStats.maxGrade;
-  const gainM=setElevationMetricsSource(elevs,originalHeights,'google');
+  const gainM=setElevationMetricsSource(elevs,autoAudit.original,'google');
   // 平均勾配 = 獲得標高 ÷ 総走行距離。ループコースでも0%にならない「平均登坂負荷」の表示。
   const avgGrade=(+distKm)>0 ? (gainM/((+distKm)*1000)*100) : 0;
   const steepPct=gradeStats.steepPct;
@@ -7560,7 +7437,7 @@ function processElevation(elevResults,distKm,path,originalHeights=null){
   updateMapStatsBar(distKm, gainM, maxGrade, avgGrade);
   window._gradeDistances=null;
   updateDirectionalGradeUi(elevs,totalM);
-  inspectGoogleElevationAnomalies(elevResults,distKm,path);
+  setElevationAutoAudit(autoAudit,path);
   fitAfterGoalIfPending();
 }
 
@@ -7989,9 +7866,10 @@ function downloadGPX(){
   const gpx=`<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="Ride Pace Planner"
   xmlns="http://www.topografix.com/GPX/1/1"
+  xmlns:rap="https://imainfinity.github.io/ride-planner/elevation/1"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
-  <metadata><name>${name}</name><time>${now.toISOString()}</time></metadata>
+  <metadata><name>${name}</name><time>${now.toISOString()}</time><extensions><rap:autoElevation version="auto50-v1" /></extensions></metadata>
   <trk><name>${name}</name><type>cycling</type>
     <trkseg>
 ${trkpts}
@@ -8039,6 +7917,7 @@ function _resetRouteForGPXImport(){
   try{ directionsRenderer.setDirections({routes:[]}); }catch(e){}
   lastElevResults=null; lastRoutePath=[]; lastRouteResult=null;
   elevationMetricsState=null;refreshElevationMetricsCompare();
+  window.__lastElevationAudit=null;
   clearRouteRestrictionAlert();
   window._routeDistanceIndex=null; window._mergedLegDists=[];
   window._routeData=null;
@@ -8084,7 +7963,16 @@ function setupGPXRouteEditOverlays(path,routeRequestId){
   setupMergedRouteEditOverlays(virtualResults,routeRequestId,{gpx:true,deferRecalc:true});
 }
 
-function _applyGPXMetrics(gpxPts, path, filename, originalHeights=null){
+function _applyGPXMetrics(gpxPts, path, filename, originalHeights=null,skipAuto=false){
+  const rawPts=gpxPts.map(p=>({...p}));
+  const rawHeights=rawPts.map(p=>p.ele);
+  const originalIndex=buildRouteDistanceIndex(rawPts.map(p=>new google.maps.LatLng(p.lat,p.lng)));
+  // このPlanner自身が自動補正して保存したGPXは二重に平滑化しない。
+  const autoAudit=skipAuto
+    ?{original:rawHeights.slice(),active:rawHeights.slice(),candidates:[],applied:[],windowM:0,
+      originalMetrics:computeElevationModeMetrics(rawHeights),activeMetrics:computeElevationModeMetrics(rawHeights),alreadyAdjusted:true}
+    :autoCorrectElevationProfile(rawHeights,originalIndex.cum);
+  gpxPts=gpxPts.map((p,i)=>({...p,ele:autoAudit.active[i]}));
   const totalM=_gpxPathDistanceMeters(path);
   const distKm=totalM/1000;
   const validElevPts=gpxPts.filter(point=>Number.isFinite(point.ele));
@@ -8096,7 +7984,8 @@ function _applyGPXMetrics(gpxPts, path, filename, originalHeights=null){
   const filteredElevations=gradeStats.values;
   const maxElev=filteredElevations.length?Math.max(...filteredElevations):NaN;
   const maxGrade=gradeStats.maxGrade;
-  const gainM=haveElev?setElevationMetricsSource(metricPts.map(point=>point.ele), originalHeights && originalHeights.length===metricPts.length?originalHeights:null,'gpx'):0;
+  const originalSampled=_sampleArray(rawPts.filter(p=>Number.isFinite(p.ele)),2000).map(p=>p.ele);
+  const gainM=haveElev?setElevationMetricsSource(metricPts.map(point=>point.ele),originalSampled.length===metricPts.length?originalSampled:null,'gpx'):0;
   if(!haveElev){elevationMetricsState=null;refreshElevationMetricsCompare();}
   const avgGrade=totalM>0 ? gainM/totalM*100 : 0;
   const bearing=path.length>1?calcBearing(path[0].lat(),path[0].lng(),path[path.length-1].lat(),path[path.length-1].lng()):0;
@@ -8157,7 +8046,7 @@ function _applyGPXMetrics(gpxPts, path, filename, originalHeights=null){
     for(const id of ['ri-upgrade','ri-downgrade','msb-upgrade','msb-downgrade']){const el=document.getElementById(id);if(el)el.textContent='—';}
   }
   try{ renderWpList(); updateGoalFlagBtn(); }catch(e){}
-  if(haveElev) inspectGPXElevationAnomalies(gpxPts,path,filename);
+  if(haveElev) setElevationAutoAudit(autoAudit,path);
 }
 
 function importGPXText(txt, filename){
@@ -8168,6 +8057,8 @@ function importGPXText(txt, filename){
 
   // namespace付きGPXでも localName で確実に拾う
   const all=[...xml.getElementsByTagName('*')];
+  const alreadyAutoCorrected=all.some(n=>n.localName==='autoElevation'&&
+    n.namespaceURI==='https://imainfinity.github.io/ride-planner/elevation/1'&&n.getAttribute('version')==='auto50-v1');
   let nodes=all.filter(n=>n.localName==='trkpt');
   if(nodes.length<2) nodes=all.filter(n=>n.localName==='rtept');
   if(nodes.length<2) nodes=all.filter(n=>n.localName==='wpt');
@@ -8206,7 +8097,7 @@ function importGPXText(txt, filename){
   path.forEach(ll=>bounds.extend(ll));
   try{gmap.fitBounds(bounds);}catch(e){}
 
-  _applyGPXMetrics(pts,path,filename);
+  _applyGPXMetrics(pts,path,filename,null,alreadyAutoCorrected);
   scheduleRouteFitAroundElevation();
 
   // 標高を持たないGPXだけGoogle Elevationを1回取得。Directions再計算はしない。
