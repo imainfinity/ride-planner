@@ -4500,8 +4500,21 @@ function toggleMapFocusMode(force){
   },80);
 }
 
+// v9.26: API予算保護。飲食系は10km上限、検索結果は10件まで。
+const POI_RESULT_LIMIT=10;
+const POI_FOOD_RADIUS_MAX=10000;
+function poiRadiusLimit(label){return (label==='カフェ'||label==='レストラン')?POI_FOOD_RADIUS_MAX:30000;}
+function syncPoiRadiusOptions(label){
+  const max=poiRadiusLimit(label);
+  ['poi-radius-sel','poi-radius-map-select','poi-radius-quick-select'].forEach(id=>{
+    const el=document.getElementById(id);if(!el)return;
+    Array.from(el.options).forEach(opt=>{opt.disabled=Number(opt.value)>max;opt.hidden=Number(opt.value)>max;});
+    if(Number(el.value)>max)el.value=String(max);
+  });
+}
 function setQuickPoiRadius(value){
-  const meters=Math.max(1000,Math.min(30000,Math.round((Number(value)||1000)/1000)*1000));
+  const meters=Math.max(1000,Math.min(poiRadiusLimit(typeof _poiSelectedLabel!=='undefined'?_poiSelectedLabel:null),Math.round((Number(value)||1000)/1000)*1000));
+  syncPoiRadiusOptions(typeof _poiSelectedLabel!=='undefined'?_poiSelectedLabel:null);
   const base=document.getElementById('poi-radius-sel');
   const previous=Number(base?.value||1000);
   ['poi-radius-sel','poi-radius-map-select','poi-radius-quick-select'].forEach(id=>{
@@ -8508,7 +8521,8 @@ function beginPOICategorySearch(label){
   if(poiMarkers.length||activePOIs.size) resetPOIVisibleScope();
   _poiSelectMode=true; _poiSelectedLabel=label;
   // A scenic destination is normally tens of km away; local services are not.
-  setQuickPoiRadius(poiPreferredRadius(label));
+  syncPoiRadiusOptions(label);
+  setQuickPoiRadius(Math.min(poiPreferredRadius(label),poiRadiusLimit(label)));
   syncPOIButtonStates();
   const prompt=document.getElementById('poi-area-prompt');
   document.getElementById('poi-prompt-label').textContent=`${visual.icon} ${label}（半径${poiPreferredRadius(label)/1000}km）を探したいエリアを地図でタップ`;
@@ -8540,7 +8554,7 @@ function executePOISearch(label,latLng){
     notifyRouteEdit('POI検索中です。完了後に別の地点を指定してください');
     return;
   }
-  const radius=Math.max(1000,Math.min(30000,Number(document.getElementById('poi-radius-sel')?.value)||1000));
+  const radius=Math.max(1000,Math.min(poiRadiusLimit(label),Number(document.getElementById('poi-radius-sel')?.value)||1000));
   const lat=latLng.lat(),lng=latLng.lng();
   if(!Number.isFinite(lat)||!Number.isFinite(lng)) return;
   // 継続検索: POI選択と地図クリックリスナーを維持し、ルート地点の追加を抑止する。
@@ -8568,7 +8582,7 @@ function executePOISearch(label,latLng){
   const source=_poiCache.get(cacheKey);
   if(source){
     // キャッシュも厳密に現在の中心から距離で再フィルタ。
-    const limited=source.filter(p=>poiWithinRadius(p,lat,lng,radius)).slice(0,20);
+    const limited=source.filter(p=>poiWithinRadius(p,lat,lng,radius)).slice(0,POI_RESULT_LIMIT);
     activePOIs.add(label);
     renderPOI(limited,cfg,label,true,{lat,lng,radius});
     return;
@@ -8594,7 +8608,7 @@ function executePOISearch(label,latLng){
         return; // エラーはキャッシュしない
       }
       const returned=(ok&&Array.isArray(res))?res:[];
-      const limited=returned.filter(p=>poiWithinRadius(p,lat,lng,radius)).slice(0,20);
+      const limited=returned.filter(p=>poiWithinRadius(p,lat,lng,radius)).slice(0,POI_RESULT_LIMIT);
       _poiCache.set(cacheKey,limited);
       activePOIs.add(label);
       renderPOI(limited,cfg,label,false,{lat,lng,radius,excluded:returned.length-limited.length});
