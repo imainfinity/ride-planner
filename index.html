@@ -14850,5 +14850,62 @@ body.map-focus-mode.sp-mode:not(.pc-mode) #map-stage #fs-mini-panel{
  body.pc-mode #rpp-kpi-settings-pair #header-kpi-fold-label{font-size:11px!important}
 }
 </style>
+
+<!-- v9.45: one shared fullscreen UI for PC and mobile, with origin-aware return -->
+<style id="rpp-v945-unified-focus">
+/* Fullscreen is always the same map UI; the page layout is restored on exit. */
+body.map-focus-mode #map-stage{position:fixed!important;inset:0!important;width:100vw!important;height:100dvh!important;min-height:100dvh!important;z-index:99980!important;margin:0!important;padding:0!important;border-radius:0!important;overflow:hidden!important}
+body.map-focus-mode #map-stage #gmap{width:100%!important;height:100dvh!important;min-height:100dvh!important}
+body.map-focus-mode #map-stage #mobile-map-data-dock{display:flex!important}
+body.map-focus-mode #map-stage #daylight-panel.dl-settings-open #dl-controls{display:flex!important}
+body.map-focus-mode #map-stage #fs-mini-panel{display:flex!important}
+</style>
+<script>
+(function(){
+ 'use strict';
+ const original=window.toggleMapFocusMode;
+ if(typeof original!=='function')return;
+ let origin=null;
+ function setReturnLabels(){
+   const label=origin==='pc'?'PC画面へ戻る':'モバイル画面へ戻る';
+   const b=document.getElementById('map-focus-toggle');
+   if(b&&document.body.classList.contains('map-focus-mode')){b.title=label;b.innerHTML='↙<div>戻る</div>';b.setAttribute('aria-label',label)}
+   const x=document.querySelector('#fs-mini-panel .fs-focus-actions button:last-child');
+   if(x)x.title=label;
+ }
+ window.toggleMapFocusMode=function(force){
+   const body=document.body;
+   const entering=typeof force==='boolean'?force:!body.classList.contains('map-focus-mode');
+   if(entering&&!body.classList.contains('map-focus-mode')){
+     origin=body.classList.contains('pc-mode')?'pc':'sp';
+     // The mobile fullscreen controller owns the daylight/elevation placement.
+     // Temporarily use its layout class, without changing the saved user preference.
+     if(origin==='pc')body.classList.replace('pc-mode','sp-mode');
+   }
+   const result=original.apply(this,arguments);
+   if(!entering){
+     if(origin==='pc'){
+       body.classList.replace('sp-mode','pc-mode');
+       requestAnimationFrame(()=>{
+         if(typeof setPCHeights==='function')setPCHeights();
+         if(typeof google!=='undefined'&&typeof gmap!=='undefined'&&gmap)google.maps.event.trigger(gmap,'resize');
+       });
+     }
+     origin=null;
+   }else requestAnimationFrame(()=>{setReturnLabels();
+     if(typeof renderDaylight==='function')renderDaylight();
+     if(typeof updateFsMiniPanel==='function')updateFsMiniPanel();
+     setReturnLabels();
+   });
+   return result;
+ };
+ // Prevent mode switching behind an active fullscreen map.
+ const oldLayout=window.toggleLayout;
+ if(typeof oldLayout==='function')window.toggleLayout=function(){
+   if(document.body.classList.contains('map-focus-mode'))window.toggleMapFocusMode(false);
+   return oldLayout.apply(this,arguments);
+ };
+})();
+</script>
 </body>
 </html>
