@@ -306,7 +306,7 @@ body.pc-mode .ride-settings-col{padding-top:0}
   #time-selector-bar{display:grid!important;grid-template-columns:1fr 1fr!important;gap:4px!important}
   #time-selector-bar .modebt{flex:none!important;width:100%!important;font-size:10px!important;padding:5px 4px!important}
   #time-selector-bar .time-chip{grid-column:span 1;justify-content:center;gap:2px!important;padding:3px 4px!important}
-  .time-chip .locked-label{display:none!important}
+  .time-chip .locked-label:not(.clock-launch){display:none!important}
   .time-read{font-size:15px!important;min-width:42px!important}
   .time-mini-btn{width:19px!important;height:23px!important;font-size:9px!important;padding:0!important}
   #locked-course-panel{display:grid!important;grid-template-columns:repeat(3,1fr)!important;gap:4px!important}
@@ -789,6 +789,8 @@ body.sp-mode .terrain-detail-cell strong{font-size:12px}
 @media(max-width:370px){body.sp-mode #time-selector-bar .modebt{font-size:9px!important}body.sp-mode #locked-course-panel>.locked-metric .locked-value{font-size:11px!important}body.sp-mode #lap-control .lap-top-select{display:none!important}}
 
 
+/* v9.29 24-hour clock visibility and MCP scope repair */
+.time-chip .clock-launch{display:inline-flex!important;align-items:center!important;justify-content:center!important;flex:0 0 auto!important;min-width:58px!important;min-height:30px!important;color:#2563eb!important;background:rgba(37,99,235,.10)!important;border:1px solid rgba(37,99,235,.38)!important;border-radius:8px!important;font-size:10px!important;white-space:nowrap!important}
 /* v9.28 24-hour tactile clock */
 .clock-launch{border:0;background:transparent;color:inherit;font:inherit;font-weight:800;cursor:pointer;padding:3px 5px;border-radius:7px;letter-spacing:.05em}
 .clock-launch:hover,.clock-launch:focus-visible{background:rgba(37,99,235,.13);outline:1px solid #60a5fa}
@@ -14294,11 +14296,11 @@ body.map-focus-mode #map-stage #elev-wrap.mobile-overlay-expanded{
  }
  function point(ev){const svg=el('rpp-clock-face'),rect=svg.getBoundingClientRect();const x=(ev.clientX-rect.left)*320/rect.width-160,y=(ev.clientY-rect.top)*320/rect.height-160;const angle=(Math.atan2(x,-y)+2*Math.PI)%(2*Math.PI);return {x,y,angle,dist:Math.hypot(x,y)};}
  function choose(ev){const p=point(ev);if(p.dist<35||p.dist>157)return; if(phase==='hour'){const n=Math.round(p.angle*12/(2*Math.PI))%12;h=n+(p.dist<101?12:0);}else m=Math.round(p.angle*60/(2*Math.PI))%60;redraw();}
- window.rppOpenClock=function(type){kind=type==='end'?'end':'start';phase='hour';const state=window.mcp;if(!state)return;let hh=kind==='start'?state.startH:state.endH,mm=kind==='start'?state.startM:state.endM;if(hh==null){hh=window._mcpPredEndH;mm=window._mcpPredEndM;}h=Number.isFinite(+hh)?+hh:8;m=Number.isFinite(+mm)?+mm:0;el('rpp-clock-title').textContent=kind==='start'?'🟢 START · DEPARTURE':'🔴 GOAL · ARRIVAL';el('rpp-clock-modal').classList.add('open');redraw();};
+ window.rppOpenClock=function(type){kind=type==='end'?'end':'start';phase='hour';const state=(typeof mcp!=='undefined')?mcp:null;if(!state)return;let hh=kind==='start'?state.startH:state.endH,mm=kind==='start'?state.startM:state.endM;if(hh==null){hh=window._mcpPredEndH;mm=window._mcpPredEndM;}h=Number.isFinite(+hh)?+hh:8;m=Number.isFinite(+mm)?+mm:0;el('rpp-clock-title').textContent=kind==='start'?'🟢 START · DEPARTURE':'🔴 GOAL · ARRIVAL';el('rpp-clock-modal').classList.add('open');redraw();};
  window.rppCloseClock=function(){el('rpp-clock-modal').classList.remove('open')};
  window.rppClockPhase=function(v){phase=v;redraw()};
  window.rppClockNow=function(){const d=new Date();h=d.getHours();m=d.getMinutes();redraw()};
- window.rppApplyClock=function(){if(!window.mcp)return;if(kind==='start'){mcp.startH=h;mcp.startM=m;mcp.endH=null;mcp.endM=null;window.__rppTimeAnchor='start';localStorage.setItem('rpp_time_mode','start-first');if(typeof _updateModeButtons==='function')_updateModeButtons('start-first');mcpCalc('start');}else{mcp.endH=h;mcp.endM=m;window.__rppTimeAnchor='end';localStorage.setItem('rpp_time_mode','goal-first');if(typeof _updateModeButtons==='function')_updateModeButtons('goal-first');mcpCalc('end');}rppCloseClock()};
+ window.rppApplyClock=function(){if(typeof mcp==='undefined')return;if(kind==='start'){mcp.startH=h;mcp.startM=m;mcp.endH=null;mcp.endM=null;window.__rppTimeAnchor='start';localStorage.setItem('rpp_time_mode','start-first');if(typeof _updateModeButtons==='function')_updateModeButtons('start-first');mcpCalc('start');}else{mcp.endH=h;mcp.endM=m;window.__rppTimeAnchor='end';localStorage.setItem('rpp_time_mode','goal-first');if(typeof _updateModeButtons==='function')_updateModeButtons('goal-first');mcpCalc('end');}rppCloseClock()};
  document.addEventListener('DOMContentLoaded',()=>{const face=el('rpp-clock-face');face.addEventListener('pointerdown',ev=>{dragging=true;face.setPointerCapture(ev.pointerId);choose(ev);ev.preventDefault()});face.addEventListener('pointermove',ev=>{if(dragging)choose(ev)});face.addEventListener('pointerup',ev=>{if(!dragging)return;dragging=false;choose(ev);if(phase==='hour'){phase='minute';redraw()}});face.addEventListener('pointercancel',()=>dragging=false);document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&el('rpp-clock-modal').classList.contains('open'))rppCloseClock()})});
 })();
 </script></body>
