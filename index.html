@@ -14139,5 +14139,24 @@ body.pc-mode #locked-course-panel>.route-register-top{display:none!important}
 })();
 </script>
 
+
+<!-- v9.21 fullscreen activity button visibility / modal stacking hotfix -->
+<style id="fullscreen-activity-hotfix-v921">
+body.sp-mode:not(.pc-mode) #map-stage #mobile-map-data-dock #mobile-dock-activity{display:inline-flex!important;min-width:42px!important;width:42px!important;flex:0 0 42px!important;padding:4px!important;font-size:20px!important;background:#2563eb!important;border-color:#93c5fd!important;visibility:visible!important;opacity:1!important}
+body.sp-mode:not(.pc-mode) #map-stage #mobile-map-data-dock{gap:4px!important}
+body.sp-mode:not(.pc-mode) #map-stage #mobile-map-data-dock #mobile-dock-daylight,body.sp-mode:not(.pc-mode) #map-stage #mobile-map-data-dock #mobile-dock-elevation{min-width:68px!important;padding:5px 6px!important}
+body.map-focus-mode #settings-modal{z-index:200100!important}
+body.map-focus-mode #settings-modal>div{z-index:200101!important}
+</style>
+<script>
+(function(){
+ function fix(){
+  const b=document.getElementById('mobile-dock-activity');if(!b)return;
+  const update=()=>{const mode=document.querySelector('.modebt.on')?.textContent||'';const stored=localStorage.getItem('rpp_simulation_mode');const run=stored==='run'||(stored!=='ride'&&/RUN|ラン/i.test(mode));b.textContent=run?'🏃':'🚴';};
+  update();b.addEventListener('pointerdown',update,{passive:true});
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',fix);else fix();
+})();
+</script>
 </body>
 </html>
