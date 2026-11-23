@@ -934,7 +934,7 @@ body.map-focus-mode #map-stage #fs-mini-panel .fs-metric-row{display:flex!import
 <!-- GPS再取得ボタン（常時表示） -->
 <button id="gps-retry-btn" onclick="returnToCurrentLocation()" title="現在地へ戻る" aria-label="現在地へ戻る" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">◎</button>
 <header>
-  <h1>RIDE &amp; RUN Planner <span class="ver">v9.31 ELEVATION VIEW LOCK</span></h1>
+  <h1>RIDE &amp; RUN Planner <span class="ver">v9.32 TOP METRICS</span></h1>
   <span class="sub">Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
@@ -14340,5 +14340,42 @@ body.map-focus-mode #map-stage #elev-wrap.mobile-overlay-expanded{
  window.rppApplyClock=function(){if(typeof mcp==='undefined')return;if(kind==='start'){mcp.startH=h;mcp.startM=m;mcp.endH=null;mcp.endM=null;window.__rppTimeAnchor='start';localStorage.setItem('rpp_time_mode','start-first');if(typeof _updateModeButtons==='function')_updateModeButtons('start-first');mcpCalc('start');}else{mcp.endH=h;mcp.endM=m;window.__rppTimeAnchor='end';localStorage.setItem('rpp_time_mode','goal-first');if(typeof _updateModeButtons==='function')_updateModeButtons('goal-first');mcpCalc('end');}rppCloseClock()};
  document.addEventListener('DOMContentLoaded',()=>{const face=el('rpp-clock-face');face.addEventListener('pointerdown',ev=>{dragging=true;face.setPointerCapture(ev.pointerId);choose(ev);ev.preventDefault()});face.addEventListener('pointermove',ev=>{if(dragging)choose(ev)});face.addEventListener('pointerup',ev=>{if(!dragging)return;dragging=false;choose(ev);if(phase==='hour'){phase='minute';redraw()}});face.addEventListener('pointercancel',()=>dragging=false);document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&el('rpp-clock-modal').classList.contains('open'))rppCloseClock()})});
 })();
-</script></body>
+</script>
+<!-- v9.32: compact route metrics anchored to top edge, never mid-map -->
+<style id="rpp-v932-top-metrics">
+/* Hide the fullscreen-only stats outside fullscreen even if inline styles are stale. */
+body:not(.map-focus-mode) #map-stage #fs-mini-panel{display:none!important;}
+/* In fullscreen put metrics at the map's TOP, not at 17vh over the route. */
+body.map-focus-mode #map-stage #fs-mini-panel{
+ top:max(8px,env(safe-area-inset-top))!important;
+ bottom:auto!important;
+ max-width:calc(100% - 112px)!important;
+ z-index:140!important;
+}
+/* The central activity/daylight/elevation toolbar sits beneath the metrics. */
+body.map-focus-mode #map-stage #mobile-map-data-dock{
+ top:var(--mobile-dock-top,82px)!important;
+}
+</style>
+<script>
+/* Recalculate the dock after metric layout changes (and when entering focus). */
+(function(){
+ const previous=window.updateFsMiniPanel;
+ if(typeof previous==='function'){
+  window.updateFsMiniPanel=function(){
+   const result=previous.apply(this,arguments);
+   if(document.body.classList.contains('map-focus-mode')){
+    const panel=document.getElementById('fs-mini-panel');
+    const stage=document.getElementById('map-stage');
+    if(panel&&stage){
+      const h=panel.getBoundingClientRect().bottom-stage.getBoundingClientRect().top;
+      stage.style.setProperty('--rpp-focus-metrics-bottom',Math.ceil(h+8)+'px');
+    }
+   }
+   return result;
+  };
+ }
+})();
+</script>
+</body>
 </html>
