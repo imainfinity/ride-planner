@@ -3858,21 +3858,27 @@ function renderDaylight(){
   _lastTwPhases=phases;
 
   // ② ライド情報をdialStateと_calcResultから直接取得（DOMに依存しない）
-  const _sh=dialState.start.h!=null?dialState.start.h:8;
-  const _sm=dialState.start.m!=null?dialState.start.m:0;
+  // 出発・到着は上部MCPを唯一の時刻基準とする。
+  const hasMcp=typeof mcp!=='undefined' && mcp && Number.isFinite(mcp.startH) && Number.isFinite(mcp.startM);
+  const _sh=hasMcp?mcp.startH:(dialState.start.h??8);
+  const _sm=hasMcp?mcp.startM:(dialState.start.m??0);
   const startH=_sh+_sm/60;
 
-  // 終了時刻
+  // GOAL固定・予想到着ともにMCPの値を優先。日跨ぎはオフセットで保持。
   let endH;
-  if(dialState.end.h!==null){
+  if(hasMcp && Number.isFinite(mcp.endH) && Number.isFinite(mcp.endM)){
+    endH=mcp.endH+mcp.endM/60;
+    if(endH<=startH)endH+=24;
+  }else if(hasMcp && Number.isFinite(window._mcpPredEndH)){
+    endH=window._mcpPredEndH+(window._mcpPredEndM||0)/60;
+    if(endH<=startH)endH+=24;
+  }else if(dialState.end.h!==null){
     endH=dialState.end.h+dialState.end.m/60;
-    if(endH<=startH) endH+=24; // 日をまたぐ場合
-  } else if(window._calcResult){
-    const cr=window._calcResult;
-    const totalMins=window._lastTotalMins||120;
-    endH=startH+totalMins/60;
-  } else {
-    endH=startH+2; // デフォルト2時間
+    if(endH<=startH)endH+=24;
+  }else if(window._calcResult){
+    endH=startH+(window._lastTotalMins||120)/60;
+  }else{
+    endH=startH+2;
   }
 
   const rd=window._routeData;
@@ -9061,10 +9067,9 @@ function syncDialToHidden(type){
 function setDialFromString(type,timeStr){
   if(!timeStr||!timeStr.match(/^\d{2}:\d{2}$/))return;
   const [h,m]=timeStr.split(':').map(Number);
-  // 分は5分スナップで丸める
-  const mSnapped=Math.round(m/5)*5%60;
-  const hAdj=(mSnapped===60)?((h+1)%24):h;
-  dialState[type]={h:hAdj, m:mSnapped===60?0:mSnapped};
+  // MCPで確定した時刻を分単位で厳密に維持する（5分丸めは禁止）。
+  if(!Number.isInteger(h)||!Number.isInteger(m)||h<0||h>23||m<0||m>59)return;
+  dialState[type]={h:h,m:m};
   updateDialDisplay(type);
   syncDialToHidden(type);
   if(type==='end'){const w=document.getElementById('dial-end-wrap');if(w)w.style.opacity='1';}
@@ -14156,6 +14161,36 @@ body.map-focus-mode #settings-modal>div{z-index:200101!important}
   update();b.addEventListener('pointerdown',update,{passive:true});
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',fix);else fix();
+})();
+</script>
+<!-- v9.22: map-bound dock visibility guard -->
+<style id="map-bound-dock-v922">
+body.sp-mode:not(.map-focus-mode) #map-stage{isolation:isolate}
+body.sp-mode:not(.map-focus-mode) #mobile-map-data-dock.map-out-of-view{visibility:hidden!important;pointer-events:none!important}
+</style>
+<script>
+(function(){
+ 'use strict';
+ function guard(){
+  const stage=document.getElementById('map-stage'),dock=document.getElementById('mobile-map-data-dock');
+  if(!stage||!dock)return;
+  if(document.body.classList.contains('map-focus-mode')){dock.classList.remove('map-out-of-view');return;}
+  const r=stage.getBoundingClientRect(),d=dock.getBoundingClientRect();
+  const viewport=window.visualViewport;
+  const top=viewport?viewport.offsetTop:0;
+  const bottom=top+(viewport?viewport.height:window.innerHeight);
+  const stageVisible=Math.max(0,Math.min(r.bottom,bottom)-Math.max(r.top,top));
+  const inside=d.top>=r.top-2&&d.bottom<=r.bottom+2&&d.top>=top-2&&d.bottom<=bottom+2;
+  dock.classList.toggle('map-out-of-view',stageVisible<110||!inside);
+ }
+ let scheduled=false;
+ function check(){if(scheduled)return;scheduled=true;requestAnimationFrame(()=>{scheduled=false;guard()});}
+ document.addEventListener('scroll',check,true);
+ window.addEventListener('resize',check,{passive:true});
+ window.visualViewport?.addEventListener('scroll',check,{passive:true});
+ window.visualViewport?.addEventListener('resize',check,{passive:true});
+ const start=()=>{check();new MutationObserver(check).observe(document.body,{attributes:true,attributeFilter:['class']});};
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })();
 </script>
 </body>
