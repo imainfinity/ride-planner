@@ -5868,7 +5868,11 @@ function applyDefaultTimeMode(mode){
 }
 (function(){
   const saved=localStorage.getItem('rpp_time_mode')||'start-first';
-  setTimeout(()=>applyDefaultTimeMode(saved),800);
+  setTimeout(()=>{
+    // 初期化待機中にユーザーが時刻を操作した場合は、現在時刻で上書きしない。
+    if(window.__rppClockUserEdited || window.__rppTimeUserEdited) return;
+    applyDefaultTimeMode(saved);
+  },800);
 })();
 
 function updateGoalFlagBtn(){
@@ -14357,7 +14361,32 @@ body.map-focus-mode #map-stage #elev-wrap.mobile-overlay-expanded{
  window.rppCloseClock=function(){el('rpp-clock-modal').classList.remove('open')};
  window.rppClockPhase=function(v){phase=v;redraw()};
  window.rppClockNow=function(){const d=new Date();h=d.getHours();m=d.getMinutes();redraw()};
- window.rppApplyClock=function(){if(typeof mcp==='undefined')return;if(kind==='start'){mcp.startH=h;mcp.startM=m;mcp.endH=null;mcp.endM=null;window.__rppTimeAnchor='start';localStorage.setItem('rpp_time_mode','start-first');if(typeof _updateModeButtons==='function')_updateModeButtons('start-first');mcpCalc('start');}else{mcp.endH=h;mcp.endM=m;window.__rppTimeAnchor='end';localStorage.setItem('rpp_time_mode','goal-first');if(typeof _updateModeButtons==='function')_updateModeButtons('goal-first');mcpCalc('end');}rppCloseClock()};
+ window.rppApplyClock=function(){
+  if(typeof mcp==='undefined')return;
+  // ダイヤル確定は「現在時刻」コマンドではない。選択した時刻をそのまま計算起点へ渡す。
+  const selectedH=h, selectedM=m;
+  window.__rppClockUserEdited=true;
+  window.__rppTimeUserEdited=true;
+  const mode=kind==='start'?'start-first':'goal-first';
+  window.__rppTimeAnchor=kind;
+  localStorage.setItem('rpp_time_mode',mode);
+  if(typeof _updateModeButtons==='function')_updateModeButtons(mode); // 表示更新だけ（現在時刻は代入しない）
+  if(kind==='start'){
+    mcp.startH=selectedH; mcp.startM=selectedM;
+    mcp.endH=null; mcp.endM=null;
+  }else{
+    mcp.endH=selectedH; mcp.endM=selectedM;
+  }
+  // 既存の順算・逆算エンジンに委譲。距離・速度・所要時間の計算式は変更しない。
+  mcpCalc(kind==='start'?'start':'end');
+  // 選択起点を再確認。非同期の初期化が選択時刻を現在時刻で上書きしないようにする。
+  if(kind==='start'){
+    mcp.startH=selectedH; mcp.startM=selectedM;
+  }else{
+    mcp.endH=selectedH; mcp.endM=selectedM;
+  }
+  rppCloseClock();
+};
  document.addEventListener('DOMContentLoaded',()=>{const face=el('rpp-clock-face');face.addEventListener('pointerdown',ev=>{dragging=true;face.setPointerCapture(ev.pointerId);choose(ev);ev.preventDefault()});face.addEventListener('pointermove',ev=>{if(dragging)choose(ev)});face.addEventListener('pointerup',ev=>{if(!dragging)return;dragging=false;choose(ev);if(phase==='hour'){phase='minute';redraw()}});face.addEventListener('pointercancel',()=>dragging=false);document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&el('rpp-clock-modal').classList.contains('open'))rppCloseClock()})});
 })();
 </script>
