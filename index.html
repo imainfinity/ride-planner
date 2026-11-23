@@ -1012,9 +1012,12 @@ body.sp-mode #compact-extra-toggle,body.sp-mode #locked-course-panel>.compact-me
     <div class="lap-top-result"><b id="lap-total-label">1周</b><span id="lap-base-label">コース作成後に累積表示</span></div>
   </div>
 
-    <button type="button" id="header-kpi-fold" class="header-kpi-fold" onclick="toggleHeaderKpis()" aria-expanded="true" aria-controls="metrics-panel-shell" title="計算指標パネルを折りたたむ・表示する">
-      <span id="header-kpi-fold-icon">▴</span><span id="header-kpi-fold-label">指標を隠す</span><span id="header-kpi-summary" aria-live="polite"></span>
-    </button>
+    <div id="rpp-kpi-settings-pair">
+      <button type="button" id="header-kpi-fold" class="header-kpi-fold" onclick="toggleHeaderKpis()" aria-expanded="true" aria-controls="metrics-panel-shell" title="計算指標パネルを折りたたむ・表示する">
+        <span id="header-kpi-fold-icon">▴</span><span id="header-kpi-fold-label">指標を隠す</span><span id="header-kpi-summary" aria-live="polite"></span>
+      </button>
+      <button type="button" id="rpp-pc-settings-shortcut" onclick="openSettingsModal()" title="ライド・ラン・ウォークの走力設定を開く">⚙️ 走力設定</button>
+    </div>
   </div><!-- /top-controls-row -->
 
   <!-- 固定操作パネル：Mobileでは見出し単位で折りたたみ -->
@@ -3400,11 +3403,12 @@ function getRunSettingsPanelHtml(){
 
     <div class="g3" style="gap:10px;margin-bottom:12px">
       <div class="field"><label>ラン距離 (km)</label><input type="number" id="run-dist" value="5" step="0.1" oninput="saveRunSettings(true)"><div class="hint">初期値 5km</div></div>
-      <div class="field"><label>1kmペース 分</label><input type="number" id="run-pace-min" value="6" step="1" min="0" oninput="saveRunSettings(true)"></div>
-      <div class="field"><label>1kmペース 秒</label><input type="number" id="run-pace-sec" value="0" step="5" min="0" max="59" oninput="normalizeRunPaceInputs();saveRunSettings(true)"><div class="hint" id="run-pace-speed-hint">6:00/km = 10.0 km/h</div></div>
+      <div class="field rpp-run-pace-field" style="grid-column:span 2"><label>1kmペース（ダイヤル設定）</label>
+        <button type="button" class="rpp-run-dial-launch" onclick="rppOpenRunPaceDial()" aria-label="1kmペースを時計ダイヤルで設定"><span>◷ ペースを設定</span><strong id="rpp-run-pace-summary">6:00 /km</strong></button>
+        <div class="hint" id="run-pace-speed-hint">6:00/km = 10.0 km/h</div>
+        <input type="hidden" id="run-pace-min" value="6"><input type="hidden" id="run-pace-sec" value="0">
+      </div>
     </div>
-
-    <button type="button" class="rpp-run-dial-launch" onclick="rppOpenRunPaceDial()">◷ ランニングペースをダイヤルで設定 <span id="rpp-run-pace-summary">6:00 /km</span></button>
 
     <div class="g3" style="gap:10px;margin-bottom:12px">
       <div class="field"><label>体重 (kg)</label><input type="number" id="run-weight" value="65" step="0.5" oninput="saveRunSettings(true);buildRunHeartZones()"></div>
@@ -14579,5 +14583,22 @@ body.map-focus-mode.sp-mode:not(.pc-mode) #map-stage #fs-mini-panel{
 })();
 </script>
 
+
+<style id="rpp-v937-pc-settings-and-run-pace">
+/* PC: keep the settings entry immediately beside the green metrics toggle. */
+#rpp-kpi-settings-pair{display:flex;align-items:stretch;justify-content:center;gap:7px;flex:0 1 auto;min-width:0;max-width:100%}
+#rpp-pc-settings-shortcut{display:none;border:2px solid #187c69;background:#125b51;color:#fff;border-radius:11px;padding:9px 15px;min-height:46px;font:800 15px/1.25 inherit;white-space:nowrap;cursor:pointer;box-shadow:0 2px 7px rgba(7,51,46,.2)}
+@media(min-width:769px){
+ body.pc-mode #rpp-kpi-settings-pair{width:min(100%,410px);flex:0 1 410px}
+ body.pc-mode #rpp-kpi-settings-pair #header-kpi-fold{display:inline-flex!important;flex:1 1 50%!important;min-width:0!important;margin:0!important;justify-content:center!important;white-space:nowrap!important}
+ body.pc-mode #rpp-pc-settings-shortcut{display:inline-flex;flex:1 1 50%;min-width:0;align-items:center;justify-content:center}
+}
+@media(max-width:768px){body.sp-mode #rpp-kpi-settings-pair{width:100%;grid-column:1/-1;grid-row:3}body.sp-mode #rpp-kpi-settings-pair #header-kpi-fold{width:100%!important;margin:2px 0 0!important}}
+/* Replace the minute/second boxes with the single prominent dial control. */
+#settings-modal .rpp-run-pace-field{min-width:0}
+#settings-modal .rpp-run-pace-field .rpp-run-dial-launch{margin:0!important;min-height:49px;display:flex;align-items:center;justify-content:space-between;gap:8px;white-space:nowrap;font-size:13px}
+#settings-modal .rpp-run-pace-field .rpp-run-dial-launch strong{font-size:20px;color:#d9f4ff;font-variant-numeric:tabular-nums}
+@media(max-width:520px){#settings-modal .rpp-run-pace-field{grid-column:1/-1!important}}
+</style>
 </body>
 </html>
