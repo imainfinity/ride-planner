@@ -1220,6 +1220,7 @@ body.sp-mode #compact-extra-toggle,body.sp-mode #locked-course-panel>.compact-me
           <div class="fs-metric"><div class="fs-metric-label">距離</div><div class="fs-metric-value" id="fsp-dist">—</div></div>
           <div class="fs-metric"><div class="fs-metric-label">所要時間</div><div class="fs-metric-value" id="fsp-time" style="color:#4ade80">—</div></div>
           <div class="fs-metric"><div class="fs-metric-label">獲得標高</div><div class="fs-metric-value" id="fsp-elev">—</div></div>
+          <div class="fs-metric"><div class="fs-metric-label">補正後平均</div><div class="fs-metric-value" id="fsp-speed">—</div></div>
           <div class="fs-metric"><div class="fs-metric-label">到着</div><div class="fs-metric-value" id="fsp-arrive" style="color:#fb923c">—</div></div>
         </div>
         <div class="fs-focus-actions">
@@ -3255,11 +3256,14 @@ function openSettingsModal(){
             <button class="modebt" id="modal-ride-mode-pwr" onclick="setRideInputModeFromSettings('pwr')" style="flex:1;font-size:13px;font-weight:800;padding:10px 8px">⚡ パワー指定から</button>
           </div>
 
+          <div id="rpp-speed-dial-entry" class="rpp-speed-entry">
+            <div class="field" id="modal-spd-field"><label>平地巡航速度（km/h）</label><div class="rpp-speed-entry-row"><input type="number" id="modal-spd" value="30" min="5" max="70" step="0.5" oninput="saveUserPref(true)"><button type="button" id="rpp-speed-dial-launch" onclick="rppOpenSpeedDial()">◷ ダイヤルで設定</button></div><div class="hint">正午方向＝30 km/h。時計の針を回して0.5 km/h刻みで選択</div></div>
+          </div>
           <div class="flow-step-title"><span>2</span>地図コース</div><div class="flow-step-help">距離・獲得標高は地図で作ったルートに連動する読み取り専用値です。</div>
           <div class="g3" style="gap:10px;margin-bottom:12px">
             <div class="field"><label>地図コース距離</label><div id="modal-route-dist-display" class="route-readonly-value">0.0 km</div><input type="hidden" id="modal-dist" value="0"></div>
             <div class="field"><label>地図コース獲得標高</label><div id="modal-route-elev-display" class="route-readonly-value">0 m</div><input type="hidden" id="modal-elev" value="0"></div>
-            <div class="field" id="modal-spd-field"><label>平地基準速度 (km/h)</label><input type="number" id="modal-spd" value="30" step="0.5" oninput="saveUserPref(true)"><div class="hint">平地巡航の基準速度。0/空欄ならセルフ情報から推定</div></div>
+            
           </div>
           <div class="g3" style="gap:10px;margin-bottom:12px">
             <div class="field"><label>体重 (kg)</label><input type="number" id="modal-weight" value="65" step="0.5" oninput="saveUserPref(true);buildModalPowerZones()"></div>
@@ -4459,6 +4463,7 @@ function updateFsMiniPanel(){
     const arr=document.getElementById('msb-arrive');
     document.getElementById('fsp-time').textContent=time?time.textContent:'—';
     document.getElementById('fsp-arrive').textContent=arr?arr.textContent:'—';
+    if(typeof window.rppRefreshFocusSpeed==='function')window.rppRefreshFocusSpeed();
   }
 }
 
@@ -14384,6 +14389,105 @@ body.map-focus-mode #map-stage #mobile-map-data-dock{
    return result;
   };
  }
+})();
+</script>
+
+<!-- v9.34: fullscreen minimal metrics and rider-speed radial dial -->
+<style id="rpp-v934-style">
+body.map-focus-mode #map-stage #fs-mini-panel{top:max(7px,env(safe-area-inset-top))!important;max-width:calc(100% - 106px)!important;padding:5px 6px!important;gap:5px!important;border-radius:10px!important}
+body.map-focus-mode #map-stage #fs-mini-panel .fs-metric-row{gap:7px!important;min-width:0!important}
+body.map-focus-mode #map-stage #fs-mini-panel .fs-metric{min-width:0!important}
+body.map-focus-mode #map-stage #fs-mini-panel .fs-metric-label{font-size:8px!important;white-space:nowrap}
+body.map-focus-mode #map-stage #fs-mini-panel .fs-metric-value{font-size:12px!important;white-space:nowrap}
+body.map-focus-mode #map-stage #fs-mini-panel .fs-focus-actions{gap:3px!important}
+body.map-focus-mode #map-stage #fs-mini-panel .fs-focus-actions button{padding:4px 5px!important;font-size:10px!important}
+@media(max-width:540px){
+ body.map-focus-mode #map-stage #fs-mini-panel{max-width:calc(100% - 90px)!important;gap:3px!important;padding:5px 4px!important}
+ body.map-focus-mode #map-stage #fs-mini-panel .fs-metric-row{gap:5px!important}
+ body.map-focus-mode #map-stage #fs-mini-panel .fs-metric-label{font-size:7px!important}
+ body.map-focus-mode #map-stage #fs-mini-panel .fs-metric-value{font-size:10px!important}
+ body.map-focus-mode #map-stage #fs-mini-panel .fs-focus-actions button{padding:4px!important;font-size:9px!important}
+}
+.rpp-speed-entry{padding:12px;margin:0 0 12px;background:var(--bluebg);border:1px solid var(--blue);border-radius:12px}
+.rpp-speed-entry-row{display:flex;gap:8px;align-items:center}
+.rpp-speed-entry-row input{flex:1;min-width:0;font-size:19px;font-weight:800}
+#rpp-speed-dial-launch{flex:0 0 auto;border:1px solid #2563eb;background:#1d4ed8;color:white;border-radius:9px;padding:10px;font-size:12px;font-weight:800;cursor:pointer}
+#rpp-speed-dial{position:fixed;inset:0;z-index:220000;display:none;align-items:center;justify-content:center;background:rgba(3,10,23,.76);backdrop-filter:blur(8px);padding:18px}
+#rpp-speed-dial.open{display:flex}
+.rpp-speed-card{width:min(420px,100%);padding:20px;border:1px solid rgba(148,163,184,.35);border-radius:22px;background:linear-gradient(155deg,#16263c,#080e1b);color:#e5eefc;box-shadow:0 24px 70px #0008;text-align:center}
+.rpp-speed-card h3{font-size:16px;margin-bottom:4px}
+.rpp-speed-card p{font-size:11px;color:#a8bad2;margin-bottom:14px}
+#rpp-speed-face{width:min(310px,76vw);height:min(310px,76vw);display:block;margin:0 auto;touch-action:none;cursor:grab;user-select:none}
+.rpp-speed-actions{display:flex;gap:10px;margin-top:14px}
+.rpp-speed-actions button{flex:1;padding:12px;border-radius:10px;font-size:13px;font-weight:800;border:1px solid #64748b;background:#26364b;color:white}
+.rpp-speed-actions button:last-child{background:#2563eb;border-color:#2563eb}
+#settings-modal .rpp-route-moved{margin-top:14px}
+#settings-modal .rpp-route-moved .g3{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+</style>
+<div id="rpp-speed-dial" role="dialog" aria-modal="true" aria-label="平地巡航速度のダイヤル設定">
+ <div class="rpp-speed-card"><h3>🚴 平地巡航速度</h3><p>12時方向が30 km/h · 針を回して選択</p>
+ <svg id="rpp-speed-face" viewBox="0 0 320 320" aria-label="速度選択ダイヤル"></svg>
+ <div style="font-size:12px;color:#9eb4d1;margin-top:8px">15.0〜45.0 km/h · 0.5 km/h刻み</div>
+ <div class="rpp-speed-actions"><button type="button" onclick="rppCloseSpeedDial()">キャンセル</button><button type="button" onclick="rppApplySpeedDial()">この速度に設定</button></div></div>
+</div>
+<script>
+(function(){
+ 'use strict';
+ let selected=30,dragging=false;
+ const el=id=>document.getElementById(id);
+ const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+ function readSpeed(){let n=parseFloat(el('modal-spd')?.value);return Number.isFinite(n)&&n>0?n:30;}
+ function svgNode(name,attrs,text){let n=document.createElementNS('http://www.w3.org/2000/svg',name);for(const [k,v] of Object.entries(attrs||{}))n.setAttribute(k,v);if(text!==undefined)n.textContent=text;return n;}
+ function draw(){const face=el('rpp-speed-face');if(!face)return;face.replaceChildren();
+  face.appendChild(svgNode('circle',{cx:160,cy:160,r:150,fill:'#0c1b2e',stroke:'#334d6d','stroke-width':2}));
+  for(let i=0;i<60;i++){let a=i*Math.PI/30-Math.PI/2,major=i%5===0,r1=major?128:135,r2=144;face.appendChild(svgNode('line',{x1:160+Math.cos(a)*r1,y1:160+Math.sin(a)*r1,x2:160+Math.cos(a)*r2,y2:160+Math.sin(a)*r2,stroke:major?'#b3c9e4':'#4b6687','stroke-width':major?2.5:1}));}
+  for(let i=0;i<12;i++){let a=i*Math.PI/6-Math.PI/2;face.appendChild(svgNode('text',{x:160+Math.cos(a)*111,y:160+Math.sin(a)*111+5,fill:'#b8c9df','font-size':13,'font-weight':700,'text-anchor':'middle'},String(30+i*2.5>45?30+i*2.5-30:30+i*2.5)));}
+  // 30 km/h is at twelve o'clock; values rise clockwise to 45, then wrap to 15.
+  let offset=((selected-30+30)%30)/30*2*Math.PI,a=offset-Math.PI/2;
+  face.appendChild(svgNode('line',{x1:160,y1:160,x2:160+Math.cos(a)*91,y2:160+Math.sin(a)*91,stroke:'#38bdf8','stroke-width':5,'stroke-linecap':'round'}));
+  face.appendChild(svgNode('circle',{cx:160+Math.cos(a)*91,cy:160+Math.sin(a)*91,r:10,fill:'#38bdf8',stroke:'#e0f2fe','stroke-width':3}));
+  face.appendChild(svgNode('circle',{cx:160,cy:160,r:64,fill:'#142c49',stroke:'#335a7f','stroke-width':1}));
+  face.appendChild(svgNode('text',{x:160,y:155,fill:'#f1f8ff','font-size':32,'font-weight':800,'text-anchor':'middle'},selected.toFixed(1)));
+  face.appendChild(svgNode('text',{x:160,y:178,fill:'#8dcdf7','font-size':13,'text-anchor':'middle'},'km/h'));
+ }
+ function choose(ev){let rect=el('rpp-speed-face').getBoundingClientRect();let x=(ev.clientX-rect.left)/rect.width*320-160,y=(ev.clientY-rect.top)/rect.height*320-160;
+  if(Math.hypot(x,y)<64)return;
+  let angle=(Math.atan2(y,x)+Math.PI/2+2*Math.PI)%(2*Math.PI);
+  let v=30+Math.round(angle/(2*Math.PI)*60)*.5;
+  if(v>45)v-=30;
+  selected=clamp(v,15,45);draw();
+ }
+ window.rppOpenSpeedDial=function(){selected=clamp(Math.round(readSpeed()*2)/2,15,45);el('rpp-speed-dial').classList.add('open');draw();};
+ window.rppCloseSpeedDial=function(){el('rpp-speed-dial').classList.remove('open');};
+ window.rppApplySpeedDial=function(){const input=el('modal-spd');input.value=selected.toFixed(1);input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));
+  if(typeof window.rppSaveCourseLoad==='function')window.rppSaveCourseLoad(true);
+  if(typeof window.saveUserPref==='function')window.saveUserPref(true);
+  window.rppCloseSpeedDial();window.rppRefreshFocusSpeed();};
+ window.rppRefreshFocusSpeed=function(){const node=el('fsp-speed');if(!node)return;
+  const candidates=['modal-corrected-speed-preview','mcp-corrected-spd-display'];let v=NaN;
+  for(const id of candidates){let t=parseFloat(el(id)?.textContent);if(Number.isFinite(t)&&t>0){v=t;break;}}
+  const dist=parseFloat(el('fsp-dist')?.textContent),time=el('fsp-time')?.textContent||'';
+  if(!Number.isFinite(v)&&Number.isFinite(dist)){let m=time.match(/(\d+):(\d+)/);if(m){let hours=Number(m[1])+Number(m[2])/60;if(hours>0)v=dist/hours;}}
+  node.textContent=Number.isFinite(v)&&v>0?v.toFixed(1)+' km/h':'—';};
+ function reorder(){const speed=el('rpp-speed-dial-entry'),power=el('modal-power-section'),course=el('rpp-course-load-box');if(!speed||!power)return;
+  const routeTitle=[...document.querySelectorAll('.flow-step-title')].find(n=>n.textContent.includes('地図コース'));
+  if(!routeTitle)return;
+  const help=routeTitle.nextElementSibling,routeGrid=help?.nextElementSibling;
+  // First establish the visual order: flat speed → power → course correction → map course.
+  if(course&&power.nextElementSibling!==course)power.after(course);
+  const last=course||power;
+  last.after(routeTitle);routeTitle.after(help);help.after(routeGrid);
+  routeTitle.classList.add('rpp-route-moved');
+  const title=[...document.querySelectorAll('.flow-step-title')].find(n=>n.textContent.includes('走力の基準'));
+  if(title){const buttons=el('modal-ride-mode-spd')?.parentElement;if(buttons&&buttons.nextElementSibling!==speed)buttons.after(speed);}
+ }
+ document.addEventListener('DOMContentLoaded',()=>{const face=el('rpp-speed-face');if(face){face.addEventListener('pointerdown',ev=>{dragging=true;face.setPointerCapture(ev.pointerId);choose(ev);ev.preventDefault()});face.addEventListener('pointermove',ev=>{if(dragging)choose(ev)});face.addEventListener('pointerup',ev=>{if(dragging)choose(ev);dragging=false});face.addEventListener('pointercancel',()=>dragging=false);}
+  const modal=el('rpp-speed-dial');modal?.addEventListener('click',ev=>{if(ev.target===modal)window.rppCloseSpeedDial()});
+  document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&modal?.classList.contains('open'))window.rppCloseSpeedDial()});
+  reorder();setTimeout(reorder,250);setTimeout(reorder,1200);
+  const settings=el('settings-modal');if(settings)new MutationObserver(()=>{if(settings.style.display!=='none')reorder()}).observe(settings,{attributes:true,attributeFilter:['style']});
+  const panel=el('fs-mini-panel');if(panel)new MutationObserver(()=>window.rppRefreshFocusSpeed()).observe(el('fsp-time'),{childList:true,characterData:true,subtree:true});
+ });
 })();
 </script>
 </body>
