@@ -9493,7 +9493,7 @@ function mcpDialAdj(type, part, delta){
       mcp.startH = Math.floor(mod/60); mcp.startM = mod%60;
     }
     mcp.endH = null; mcp.endM = null;
-    mcpCalc('start');
+    window.rppSetClockAnchor('start',mcp.startH,mcp.startM);
   } else {
     // GOALを触った瞬間にGOAL起点へ切替。STARTは所要時間からリアルタイム逆算。
     window.__rppTimeAnchor = 'end';
@@ -9518,7 +9518,7 @@ function mcpDialAdj(type, part, delta){
     }
     const ew = document.getElementById('dial-end-wrap');
     if(ew) ew.style.opacity = '1';
-    mcpCalc('end');
+    window.rppSetClockAnchor('end',mcp.endH,mcp.endM);
   }
 }
 
@@ -10545,7 +10545,7 @@ function refreshLockedPanelValues(){
     if(typeof mcp==='object'){
       mcp.dist=dist; mcp.elev=elev; mcp.spd=spd; window.baseSpdValue=spd;
       var nowParts=_getCurrentTimeParts();
-      var st={h:nowParts.h,m:nowParts.m}, gt={h:nowParts.h,m:nowParts.m};
+      var st={h:mcp.startH??nowParts.h,m:mcp.startM??nowParts.m}, gt={h:mcp.endH??nowParts.h,m:mcp.endM??nowParts.m};
       var mode=localStorage.getItem('rpp_time_mode')||'start-first';
       if(mode==='goal-first'){
         var start=addMin(gt,-tripMin); mcp.startH=start.h; mcp.startM=start.m; mcp.endH=gt.h; mcp.endM=gt.m;
@@ -10772,7 +10772,7 @@ function refreshLockedPanelValues(){
     var totalMin=movingMin/(ratio/100);
     var mode=localStorage.getItem('rpp_time_mode')||'start-first';
     var nowParts=(typeof _getCurrentTimeParts==='function')?_getCurrentTimeParts():{h:new Date().getHours(),m:new Date().getMinutes()};
-    var st={h:nowParts.h,m:nowParts.m}, gt={h:nowParts.h,m:nowParts.m};
+    var st={h:mcp.startH??nowParts.h,m:mcp.startM??nowParts.m}, gt={h:mcp.endH??nowParts.h,m:mcp.endM??nowParts.m};
     if(mode==='goal-first') st=addMinutes(gt,-totalMin); else gt=addMinutes(st,totalMin);
 
     if(typeof mcp==='object'){
@@ -11623,7 +11623,7 @@ body.pc-mode .ride-settings-col{overflow-y:auto}
     var now=new Date(), start,goal;
     if(typeof mcp==='object'){
       if(mode==='goal-first'){
-        goal={h:Number.isFinite(+mcp.endH)?+mcp.endH:now.getHours(),m:Number.isFinite(+mcp.endM)?+mcp.endM:now.getMinutes()};
+        goal={h:mcp.endH!=null && Number.isFinite(+mcp.endH)?+mcp.endH:now.getHours(),m:mcp.endM!=null && Number.isFinite(+mcp.endM)?+mcp.endM:now.getMinutes()};
         start=addTime(goal.h,goal.m,-r.mins);
       }else{
         start={h:Number.isFinite(+mcp.startH)?+mcp.startH:now.getHours(),m:Number.isFinite(+mcp.startM)?+mcp.startM:now.getMinutes()};
@@ -14362,31 +14362,9 @@ body.map-focus-mode #map-stage #elev-wrap.mobile-overlay-expanded{
  window.rppClockPhase=function(v){phase=v;redraw()};
  window.rppClockNow=function(){const d=new Date();h=d.getHours();m=d.getMinutes();redraw()};
  window.rppApplyClock=function(){
-  if(typeof mcp==='undefined')return;
-  // ダイヤル確定は「現在時刻」コマンドではない。選択した時刻をそのまま計算起点へ渡す。
-  const selectedH=h, selectedM=m;
-  window.__rppClockUserEdited=true;
-  window.__rppTimeUserEdited=true;
-  const mode=kind==='start'?'start-first':'goal-first';
-  window.__rppTimeAnchor=kind;
-  localStorage.setItem('rpp_time_mode',mode);
-  if(typeof _updateModeButtons==='function')_updateModeButtons(mode); // 表示更新だけ（現在時刻は代入しない）
-  if(kind==='start'){
-    mcp.startH=selectedH; mcp.startM=selectedM;
-    mcp.endH=null; mcp.endM=null;
-  }else{
-    mcp.endH=selectedH; mcp.endM=selectedM;
-  }
-  // 既存の順算・逆算エンジンに委譲。距離・速度・所要時間の計算式は変更しない。
-  mcpCalc(kind==='start'?'start':'end');
-  // 選択起点を再確認。非同期の初期化が選択時刻を現在時刻で上書きしないようにする。
-  if(kind==='start'){
-    mcp.startH=selectedH; mcp.startM=selectedM;
-  }else{
-    mcp.endH=selectedH; mcp.endM=selectedM;
-  }
+  window.rppSetClockAnchor(kind, h, m);
   rppCloseClock();
-};
+ };
  document.addEventListener('DOMContentLoaded',()=>{const face=el('rpp-clock-face');face.addEventListener('pointerdown',ev=>{dragging=true;face.setPointerCapture(ev.pointerId);choose(ev);ev.preventDefault()});face.addEventListener('pointermove',ev=>{if(dragging)choose(ev)});face.addEventListener('pointerup',ev=>{if(!dragging)return;dragging=false;choose(ev);if(phase==='hour'){phase='minute';redraw()}});face.addEventListener('pointercancel',()=>dragging=false);document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&el('rpp-clock-modal').classList.contains('open'))rppCloseClock()})});
 })();
 </script>
@@ -14629,5 +14607,72 @@ body.map-focus-mode.sp-mode:not(.pc-mode) #map-stage #fs-mini-panel{
 #settings-modal .rpp-run-pace-field .rpp-run-dial-launch strong{font-size:20px;color:#d9f4ff;font-variant-numeric:tabular-nums}
 @media(max-width:520px){#settings-modal .rpp-run-pace-field{grid-column:1/-1!important}}
 </style>
+
+<!-- v9.39: unified time controls. No changes to distance/speed/duration formulas. -->
+<script>
+(function(){
+  'use strict';
+  const byId=id=>document.getElementById(id);
+  const pad=n=>String(n).padStart(2,'0');
+  const norm=t=>((Math.round(t)%1440)+1440)%1440;
+  const getTime=t=>({h:Math.floor(norm(t)/60),m:norm(t)%60});
+  const setText=(id,v)=>{const el=byId(id);if(el)el.textContent=v;};
+  const setValue=(id,v)=>{const el=byId(id);if(el)el.value=v;};
+  function duration(){
+    // Use the existing engine's computed duration; never recalculate its physics.
+    const raw=byId('mcp-total')?.textContent?.trim()||'';
+    const match=raw.match(/(\d+)\s*:\s*(\d{1,2})/);
+    if(match)return +match[1]*60+(+match[2]);
+    return Number.isFinite(window._lastTotalMins)?Math.round(window._lastTotalMins):0;
+  }
+  function sync(){
+    if(typeof mcp==='undefined')return;
+    const mode=localStorage.getItem('rpp_time_mode')||'start-first';
+    const mins=duration();
+    let start,goal;
+    if(mode==='goal-first'&&mcp.endH!=null&&mcp.endM!=null){
+      goal={h:+mcp.endH,m:+mcp.endM};start=getTime(goal.h*60+goal.m-mins);
+    }else{
+      start={h:+mcp.startH||0,m:+mcp.startM||0};goal=getTime(start.h*60+start.m+mins);
+    }
+    mcp.startH=start.h;mcp.startM=start.m;
+    mcp.endH=goal.h;mcp.endM=goal.m;
+    window._mcpPredEndH=goal.h;window._mcpPredEndM=goal.m;
+    for(const [prefix,t] of [['mcp-start',start],['mcp-end',goal],['mcp-sb-start',start],['mcp-sb-end',goal]]){
+      setText(prefix+'-h',pad(t.h));setText(prefix+'-m',pad(t.m));
+    }
+    const st=pad(start.h)+':'+pad(start.m),gt=pad(goal.h)+':'+pad(goal.m);
+    for(const id of ['mcp-start-val','r-start','modal-start','run-start'])setValue(id,st);
+    for(const id of ['mcp-end-val','r-end','modal-goal','run-goal'])setValue(id,gt);
+    for(const id of ['msb-start','modal-start-display','run-start-display'])setText(id,st);
+    for(const id of ['msb-arrive','modal-goal-display','run-goal-display'])setText(id,gt);
+    if(typeof _updateModeButtons==='function')_updateModeButtons(mode);
+  }
+  window.rppSetClockAnchor=function(kind,h,m){
+    if(typeof mcp==='undefined')return;
+    const total=norm(Number(h)*60+Number(m));
+    const chosen=getTime(total);
+    const isGoal=kind==='end';
+    const mode=isGoal?'goal-first':'start-first';
+    window.__rppClockUserEdited=true;window.__rppTimeUserEdited=true;
+    window.__rppTimeAnchor=isGoal?'end':'start';
+    localStorage.setItem('rpp_time_mode',mode);
+    if(isGoal){mcp.endH=chosen.h;mcp.endM=chosen.m;}
+    else{mcp.startH=chosen.h;mcp.startM=chosen.m;mcp.endH=null;mcp.endM=null;}
+    // The native engine remains responsible for all duration calculations.
+    try{
+      const activity=typeof window.getCurrentActivityMode==='function'?window.getCurrentActivityMode():null;
+      if(activity==='run'&&typeof window.applyRunSettings==='function')window.applyRunSettings(true);
+      else if(activity==='walk'&&typeof window.applyWalkSettings==='function')window.applyWalkSettings(true);
+      else if(typeof mcpCalc==='function')mcpCalc(isGoal?'end':'start');
+    }catch(err){console.error('Time recalculation:',err);}
+    // The selected anchor is authoritative even when an older renderer repaints clocks.
+    if(isGoal){mcp.endH=chosen.h;mcp.endM=chosen.m;}
+    else{mcp.startH=chosen.h;mcp.startM=chosen.m;}
+    sync();
+  };
+  window.rppSyncClockDisplays=sync;
+})();
+</script>
 </body>
 </html>
