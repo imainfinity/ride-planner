@@ -13852,7 +13852,7 @@ body.pc-mode #locked-course-panel>.route-register-top{display:none!important}
    }else{
      dockTop=clamp(b.bottom-dockHeight-11,b.min,b.bottom-dockHeight-8);
    }
-   dock.style.setProperty('--mobile-dock-top',Math.round(dockTop)+'px');
+   dock.style.setProperty('--mobile-dock-top',Math.round(dockTop-stage.getBoundingClientRect().top)+'px');
    // Radius selector must stay visible and separate from both dock and map POIs.
    const poiTop=data.dock==='bottom'?b.min+58:dockTop+dockHeight+7;
    document.body.style.setProperty('--poi-search-visibility-top',Math.round(clamp(poiTop,b.min+7,b.bottom-48))+'px');
@@ -14193,5 +14193,15 @@ body.sp-mode:not(.map-focus-mode) #mobile-map-data-dock.map-out-of-view{visibili
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })();
 </script>
+
+<!-- v9.24: dock belongs to the map, never the viewport -->
+<style id="map-local-dock-v924">
+body.sp-mode:not(.pc-mode) #map-stage #mobile-map-data-dock {
+ position:absolute!important;top:var(--mobile-dock-top,72px)!important;
+ left:50%!important;right:auto!important;bottom:auto!important;
+ transform:translateX(-50%)!important;
+}
+body.sp-mode:not(.pc-mode) #map-stage{position:relative!important}
+</style>
 </body>
 </html>
