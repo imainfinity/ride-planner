@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RIDE & RUN Planner v9.06 ALIGNED GPX GPS</title>
+<title>RIDE & RUN Planner v9.25 POI CONTINUOUS</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -884,7 +884,7 @@ body.sp-mode .terrain-detail-cell strong{font-size:12px}
 <!-- GPS再取得ボタン（常時表示） -->
 <button id="gps-retry-btn" onclick="returnToCurrentLocation()" title="現在地へ戻る" aria-label="現在地へ戻る" style="position:fixed;bottom:24px;right:16px;z-index:99998;background:rgba(66,133,244,0.92);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:none">◎</button>
 <header>
-  <h1>RIDE &amp; RUN Planner <span class="ver">v9.06 ALIGNED GPX GPS</span></h1>
+  <h1>RIDE &amp; RUN Planner <span class="ver">v9.25 POI CONTINUOUS</span></h1>
   <span class="sub">Google Maps ルート連携</span>
   <button id="layout-toggle" onclick="toggleLayout()">🖥 PC表示</button>
 </header>
@@ -8417,6 +8417,7 @@ function updatePOIVisualMode(){
 /* ── 状態管理 ── */
 let poiMarkers=[];
 let _poiSelectMode=false;
+window._poiContinuousSelectionActive=()=>_poiSelectMode;
 let _poiSelectedLabel=null;
 let _poiClickListener=null;
 let _poiSearchCircle=null;
@@ -8542,14 +8543,17 @@ function executePOISearch(label,latLng){
   const radius=Math.max(1000,Math.min(30000,Number(document.getElementById('poi-radius-sel')?.value)||1000));
   const lat=latLng.lat(),lng=latLng.lng();
   if(!Number.isFinite(lat)||!Number.isFinite(lng)) return;
-  if(_poiClickListener){google.maps.event.removeListener(_poiClickListener);_poiClickListener=null;}
-  gmap.setOptions({draggableCursor:null});
-  document.getElementById('poi-area-prompt').style.display='none';
-  _poiSelectMode=false; _poiSelectedLabel=null;
+  // 継続検索: POI選択と地図クリックリスナーを維持し、ルート地点の追加を抑止する。
+  _poiSelectMode=true; _poiSelectedLabel=label;
+  gmap.setOptions({draggableCursor:'crosshair'});
+  const prompt=document.getElementById('poi-area-prompt');
+  if(prompt){prompt.style.display='block';const txt=document.getElementById('poi-prompt-label');if(txt)txt.textContent=`${cfg.icon} ${label}を検索中／別の地点をタップして続けて検索（解除はPOIボタン）`; }
+  syncPOIButtonStates();
   // 検索開始ごとに前回のカテゴリ・検索地点の表示を完全にクリア。
   // キャッシュは残すが、現在の検索範囲以外のマーカーを再利用しない。
   resetPOIVisibleScope();
   const version=_poiRequestVersion;
+  syncPOIButtonStates();
   _poiVisibleScope={lat,lng,radius};
   const visual=getPOIVisual(label,cfg,latLng);
   const worldMode=isWorldPOIContext(latLng);
@@ -8635,7 +8639,7 @@ function renderPOI(places,cfg,label,fromCache=false,scope=null){
   const tag=fromCache?'<span style="font-size:9px;padding:1px 5px;background:var(--greenbg);color:var(--green);border-radius:8px;margin-left:4px">キャッシュ</span>':'';
   const newContent=places.length===0
     ?`<div style="font-size:11px;color:var(--text3);padding:4px 0">${visual.icon} ${label}は周辺に見つかりませんでした<br>
-       <span style="font-size:10px">半径を広げるか別エリアで再検索してください</span></div>`
+       <span style="font-size:10px">POI選択中です。地図の別地点をタップすると同じカテゴリを続けて検索します</span></div>`
     :`<div style="font-size:10px;font-weight:700;color:var(--text3);padding:4px 0 3px">${visual.icon} ${label} ${places.length}件（半径${(scope?.radius||1000)/1000}km内のみ）${tag}
        <button onclick="startAdditionalPOISearch('${label}')"
          style="margin-left:6px;font-size:9px;padding:1px 6px;border:0.5px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text2);cursor:pointer">別エリア検索</button>
@@ -11296,8 +11300,9 @@ body.pc-mode .ride-settings-col{overflow-y:auto}
       var mapSelect=document.getElementById('poi-radius-map-select');
       var base=document.getElementById('poi-radius-sel');
       if(mapSelect&&base) base.value=mapSelect.value;
-      showPoiRadius(false);
-      return originalExecutePoi.apply(this,arguments);
+      var result=originalExecutePoi.apply(this,arguments);
+      showPoiRadius(!!window._poiContinuousSelectionActive?.());
+      return result;
     };
   }
   document.addEventListener('DOMContentLoaded',ensurePoiRadiusCommand);
