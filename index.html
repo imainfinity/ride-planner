@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RIDE & RUN Planner v9.25 POI CONTINUOUS</title>
+<title>RIDE & RUN Planner v9.27 MAP-BOUND PANELS</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -788,6 +788,25 @@ body.sp-mode .terrain-detail-cell{padding:5px}
 body.sp-mode .terrain-detail-cell strong{font-size:12px}
 @media(max-width:370px){body.sp-mode #time-selector-bar .modebt{font-size:9px!important}body.sp-mode #locked-course-panel>.locked-metric .locked-value{font-size:11px!important}body.sp-mode #lap-control .lap-top-select{display:none!important}}
 
+
+/* v9.28 24-hour tactile clock */
+.clock-launch{border:0;background:transparent;color:inherit;font:inherit;font-weight:800;cursor:pointer;padding:3px 5px;border-radius:7px;letter-spacing:.05em}
+.clock-launch:hover,.clock-launch:focus-visible{background:rgba(37,99,235,.13);outline:1px solid #60a5fa}
+#rpp-clock-modal{position:fixed;inset:0;z-index:200100;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(2,6,23,.72);backdrop-filter:blur(9px)}
+#rpp-clock-modal.open{display:flex}
+.rpp-clock-card{width:min(380px,100%);max-height:96dvh;overflow:auto;background:linear-gradient(155deg,#1b2a40,#0b1424 75%);color:#f8fafc;border:1px solid #475569;border-radius:24px;box-shadow:0 24px 90px #0009;padding:20px;text-align:center}
+.rpp-clock-top{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:800;letter-spacing:.14em;color:#94a3b8}
+.rpp-clock-close{background:#26354a;border:0;color:#fff;border-radius:50%;width:32px;height:32px;font-size:20px;cursor:pointer}
+.rpp-clock-digits{font-size:52px;font-weight:850;font-variant-numeric:tabular-nums;letter-spacing:-.055em;margin:6px 0 0}
+.rpp-clock-digits span{cursor:pointer;border-radius:8px;padding:0 3px}
+.rpp-clock-digits span.selected{color:#7dd3fc;background:#ffffff16}
+.rpp-clock-caption{color:#94a3b8;font-size:11px;margin:3px 0 10px}
+#rpp-clock-face{width:min(300px,100%);aspect-ratio:1;display:block;margin:auto;touch-action:none;user-select:none;cursor:grab}
+#rpp-clock-face:active{cursor:grabbing}
+.rpp-clock-actions{display:flex;gap:9px;margin-top:12px}
+.rpp-clock-actions button{flex:1;padding:13px 8px;border-radius:12px;border:1px solid #475569;background:#26354a;color:#fff;font-weight:800;cursor:pointer}
+.rpp-clock-actions .primary{background:#0284c7;border-color:#38bdf8}
+@media(max-height:650px){.rpp-clock-card{padding:12px}#rpp-clock-face{width:min(235px,100%)}.rpp-clock-digits{font-size:38px}}
 </style>
 
 <script>
@@ -914,7 +933,7 @@ body.sp-mode .terrain-detail-cell strong{font-size:12px}
     <button class="modebt" id="mcp-mode-goal" onclick="setDefaultTimeMode('goal-first')" style="flex:0 1 135px;font-size:11px;padding:7px 8px">🔴 現在をゴールに逆算</button>
 
     <div class="time-chip">
-      <div class="locked-label">Start</div>
+      <button type="button" class="locked-label clock-launch" onclick="rppOpenClock('start')" title="24時間ダイヤルで出発時刻を選択">START ◷</button>
       <button class="time-mini-btn" onclick="mcpDialAdj('start','h',-1)">▲</button>
       <div class="time-read"><span id="mcp-start-h">08</span>:<span id="mcp-start-m">00</span></div>
       <span id="mcp-start-day" class="time-day-badge" aria-live="polite"></span>
@@ -924,7 +943,7 @@ body.sp-mode .terrain-detail-cell strong{font-size:12px}
     </div>
 
     <div class="time-chip">
-      <div class="locked-label">Goal</div>
+      <button type="button" class="locked-label clock-launch" onclick="rppOpenClock('end')" title="24時間ダイヤルで到着時刻を選択">GOAL ◷</button>
       <button class="time-mini-btn" onclick="mcpDialAdj('end','h',-1)">▲</button>
       <div class="time-read goal"><span id="mcp-end-h">--</span>:<span id="mcp-end-m">--</span></div>
       <span id="mcp-end-day" class="time-day-badge next" aria-live="polite"></span>
@@ -1150,7 +1169,7 @@ body.sp-mode .terrain-detail-cell strong{font-size:12px}
           <div class="msb-cell" style="display:none"><div class="msb-label">登坂密度</div><div class="msb-val" id="msb-avggrade">—</div></div>
           <div class="msb-cell"><div class="msb-label">最大斜度</div><div class="msb-val" id="msb-grade">—</div></div>
           <div class="msb-cell"><div class="msb-label">予想時間</div><div class="msb-val" id="msb-time" style="color:#4ade80">—</div></div>
-          <div class="msb-cell"><div class="msb-label">🟢 スタート</div><div class="msb-val" id="msb-start" style="color:#4ade80">—</div></div>
+          <div class="msb-cell"><div class="msb-label"><button type="button" class="clock-launch" onclick="rppOpenClock('start')">🟢 START ◷</button></div><div class="msb-val" id="msb-start" style="color:#4ade80">—</div></div>
           <div class="msb-cell"><div class="msb-label">🔴 到着予定</div><div class="msb-val" id="msb-arrive" style="color:#fb923c">—</div></div>
         </div>
       </div>
@@ -1246,7 +1265,7 @@ body.sp-mode .terrain-detail-cell strong{font-size:12px}
       </div>
       <div style="font-size:16px;color:var(--text3);text-align:center">→</div>
       <div>
-        <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:3px">🔴 到着</div>
+        <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:3px"><button type="button" class="clock-launch" onclick="rppOpenClock('end')">🔴 GOAL ◷</button></div>
         <div style="display:flex;align-items:center;gap:2px">
           <button onclick="mcpDialAdj('end','h',-1)" style="width:20px;height:28px;border:0.5px solid var(--border2);border-radius:4px 0 0 4px;background:var(--bg2);color:var(--text2);font-size:12px;cursor:pointer">▲</button>
           <div id="mcp-sb-end-h" style="font-size:16px;font-weight:600;min-width:22px;text-align:center;color:var(--amber)">--</div>
@@ -13887,7 +13906,7 @@ body.pc-mode #locked-course-panel>.route-register-top{display:none!important}
    const ratio=position==='top'?0:position==='middle'?.5:position==='custom'?(data[active+'Ratio']??1):1;
    const wanted=topBound+(maxTop-topBound)*ratio;
    const chosen=clamp(drag&&drag.which===active?drag.top:wanted,topBound,maxTop);
-   panel.style.setProperty('--mobile-expanded-top',Math.round(chosen)+'px');
+   panel.style.setProperty('--mobile-expanded-top',Math.round(chosen-stage.getBoundingClientRect().top)+'px');
    panel.style.setProperty('--mobile-expanded-height',Math.round(Math.max(60,bottomBound-chosen))+'px');
    if(drag&&drag.which===active){drag.top=chosen;drag.min=topBound;drag.max=maxTop}
  }
@@ -14222,5 +14241,65 @@ body.sp-mode:not(.pc-mode) #map-stage #mobile-map-data-dock {
 }
 body.sp-mode:not(.pc-mode) #map-stage{position:relative!important}
 </style>
-</body>
+
+<!-- v9.27: map-local daylight/elevation overlays. Never float over page content. -->
+<style id="map-local-panels-v927">
+body.sp-mode:not(.pc-mode) #map-stage{position:relative!important;}
+body.sp-mode:not(.pc-mode) #map-stage #mobile-map-data-dock{
+  position:absolute!important;top:var(--mobile-dock-top,72px)!important;
+}
+body.sp-mode:not(.pc-mode) #map-stage #daylight-panel.mobile-overlay-expanded,
+body.sp-mode:not(.pc-mode) #map-stage #elev-wrap.mobile-overlay-expanded{
+  position:absolute!important;top:var(--mobile-expanded-top,132px)!important;
+  bottom:auto!important;
+}
+/* Fullscreen remains map-local, since the stage itself fills the viewport. */
+body.map-focus-mode #map-stage #daylight-panel.mobile-overlay-expanded,
+body.map-focus-mode #map-stage #elev-wrap.mobile-overlay-expanded{
+  position:absolute!important;
+}
+</style>
+<div id="rpp-clock-modal" role="dialog" aria-modal="true" aria-label="24時間ダイヤル時刻設定" onclick="if(event.target===this)rppCloseClock()">
+ <div class="rpp-clock-card">
+  <div class="rpp-clock-top"><span id="rpp-clock-title">START · TIME</span><button type="button" class="rpp-clock-close" onclick="rppCloseClock()" aria-label="閉じる">×</button></div>
+  <div class="rpp-clock-digits"><span id="rpp-clock-hour" onclick="rppClockPhase('hour')">08</span>:<span id="rpp-clock-minute" onclick="rppClockPhase('minute')">00</span></div>
+  <div class="rpp-clock-caption" id="rpp-clock-hint">外周 00–11 / 内周 12–23 · ドラッグで選択</div>
+  <svg id="rpp-clock-face" viewBox="0 0 320 320" aria-label="時刻を回転操作で設定"></svg>
+  <div class="rpp-clock-actions"><button type="button" onclick="rppClockNow()">現在時刻</button><button type="button" onclick="rppCloseClock()">キャンセル</button><button type="button" class="primary" onclick="rppApplyClock()">時刻を確定</button></div>
+ </div>
+</div>
+<script>
+/* v9.28: single MCP write path, 24-hour radial picker */
+(function(){
+ let kind='start',phase='hour',h=8,m=0,dragging=false;
+ const el=id=>document.getElementById(id);
+ const pad=n=>String(n).padStart(2,'0');
+ const polar=(angle,r)=>({x:160+Math.sin(angle)*r,y:160-Math.cos(angle)*r});
+ function redraw(){
+  el('rpp-clock-hour').textContent=pad(h);el('rpp-clock-minute').textContent=pad(m);
+  el('rpp-clock-hour').classList.toggle('selected',phase==='hour');el('rpp-clock-minute').classList.toggle('selected',phase==='minute');
+  el('rpp-clock-hint').textContent=phase==='hour'?'外周 00–11 / 内周 12–23 · ドラッグで選択':'分を選択 · 1分刻みで調整可能';
+  let out='<circle cx="160" cy="160" r="151" fill="#15253b" stroke="#41516b" stroke-width="2"/>';
+  const val=phase==='hour'?h:m;
+  const radius=phase==='hour'?(h<12?123:82):123;
+  const a=2*Math.PI*(phase==='hour'?h%12/12:m/60);
+  const pt=polar(a,radius);
+  out+=`<line x1="160" y1="160" x2="${pt.x}" y2="${pt.y}" stroke="#38bdf8" stroke-width="3"/><circle cx="160" cy="160" r="5" fill="#38bdf8"/><circle cx="${pt.x}" cy="${pt.y}" r="19" fill="#0284c7"/>`;
+  if(phase==='hour'){
+   for(let n=0;n<24;n++){const p=polar(2*Math.PI*(n%12)/12,n<12?123:82);out+=`<text x="${p.x}" y="${p.y+5}" fill="${n===h?'#fff':n<12?'#e2e8f0':'#94a3b8'}" font-size="${n<12?15:13}" font-weight="${n===h?900:600}" text-anchor="middle" pointer-events="none">${pad(n)}</text>`;}
+  }else{
+   for(let n=0;n<60;n++){const p=polar(2*Math.PI*n/60,n%5===0?123:133);if(n%5===0)out+=`<text x="${p.x}" y="${p.y+5}" fill="${n===m?'#fff':'#e2e8f0'}" font-size="14" font-weight="700" text-anchor="middle" pointer-events="none">${pad(n)}</text>`;else out+=`<circle cx="${p.x}" cy="${p.y}" r="1.3" fill="#64748b"/>`;}
+  }
+  el('rpp-clock-face').innerHTML=out;
+ }
+ function point(ev){const svg=el('rpp-clock-face'),rect=svg.getBoundingClientRect();const x=(ev.clientX-rect.left)*320/rect.width-160,y=(ev.clientY-rect.top)*320/rect.height-160;const angle=(Math.atan2(x,-y)+2*Math.PI)%(2*Math.PI);return {x,y,angle,dist:Math.hypot(x,y)};}
+ function choose(ev){const p=point(ev);if(p.dist<35||p.dist>157)return; if(phase==='hour'){const n=Math.round(p.angle*12/(2*Math.PI))%12;h=n+(p.dist<101?12:0);}else m=Math.round(p.angle*60/(2*Math.PI))%60;redraw();}
+ window.rppOpenClock=function(type){kind=type==='end'?'end':'start';phase='hour';const state=window.mcp;if(!state)return;let hh=kind==='start'?state.startH:state.endH,mm=kind==='start'?state.startM:state.endM;if(hh==null){hh=window._mcpPredEndH;mm=window._mcpPredEndM;}h=Number.isFinite(+hh)?+hh:8;m=Number.isFinite(+mm)?+mm:0;el('rpp-clock-title').textContent=kind==='start'?'🟢 START · DEPARTURE':'🔴 GOAL · ARRIVAL';el('rpp-clock-modal').classList.add('open');redraw();};
+ window.rppCloseClock=function(){el('rpp-clock-modal').classList.remove('open')};
+ window.rppClockPhase=function(v){phase=v;redraw()};
+ window.rppClockNow=function(){const d=new Date();h=d.getHours();m=d.getMinutes();redraw()};
+ window.rppApplyClock=function(){if(!window.mcp)return;if(kind==='start'){mcp.startH=h;mcp.startM=m;mcp.endH=null;mcp.endM=null;window.__rppTimeAnchor='start';localStorage.setItem('rpp_time_mode','start-first');if(typeof _updateModeButtons==='function')_updateModeButtons('start-first');mcpCalc('start');}else{mcp.endH=h;mcp.endM=m;window.__rppTimeAnchor='end';localStorage.setItem('rpp_time_mode','goal-first');if(typeof _updateModeButtons==='function')_updateModeButtons('goal-first');mcpCalc('end');}rppCloseClock()};
+ document.addEventListener('DOMContentLoaded',()=>{const face=el('rpp-clock-face');face.addEventListener('pointerdown',ev=>{dragging=true;face.setPointerCapture(ev.pointerId);choose(ev);ev.preventDefault()});face.addEventListener('pointermove',ev=>{if(dragging)choose(ev)});face.addEventListener('pointerup',ev=>{if(!dragging)return;dragging=false;choose(ev);if(phase==='hour'){phase='minute';redraw()}});face.addEventListener('pointercancel',()=>dragging=false);document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&el('rpp-clock-modal').classList.contains('open'))rppCloseClock()})});
+})();
+</script></body>
 </html>
