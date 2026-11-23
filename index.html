@@ -14674,5 +14674,146 @@ body.map-focus-mode.sp-mode:not(.pc-mode) #map-stage #fs-mini-panel{
   window.rppSyncClockDisplays=sync;
 })();
 </script>
+
+<!-- v9.41: PC single-row toolbar and run-only pace presentation. v9.39 clock engine untouched. -->
+<style id="rpp-v941-pc-and-pace">
+@media(min-width:769px){
+ body.pc-mode #mcp-bar{display:flex!important;flex-direction:column!important;align-items:stretch!important;min-width:0!important;width:100%!important}
+ body.pc-mode #top-controls-row{display:flex!important;flex-flow:row nowrap!important;align-items:center!important;justify-content:center!important;gap:7px!important;width:100%!important;max-width:100%!important;min-width:0!important;overflow-x:auto!important;overflow-y:hidden!important;padding:2px 4px!important;scrollbar-width:thin}
+ body.pc-mode #top-controls-row #time-selector-bar{display:flex!important;flex:0 0 auto!important;width:auto!important;min-width:max-content!important;flex-wrap:nowrap!important;gap:4px!important;grid-column:auto!important;grid-row:auto!important;margin:0!important}
+ body.pc-mode #top-controls-row #lap-control{display:flex!important;flex:0 0 auto!important;width:auto!important;min-width:max-content!important;max-width:none!important;grid-column:auto!important;grid-row:auto!important;margin:0!important}
+ body.pc-mode #top-controls-row #rpp-kpi-settings-pair{display:flex!important;flex:0 0 290px!important;width:290px!important;min-width:290px!important;max-width:290px!important;grid-column:auto!important;grid-row:auto!important;margin:0!important;gap:5px!important;align-self:center!important}
+ body.pc-mode #rpp-kpi-settings-pair #header-kpi-fold,body.pc-mode #rpp-pc-settings-shortcut{display:inline-flex!important;flex:1 1 0!important;width:0!important;min-width:0!important;min-height:40px!important;height:40px!important;margin:0!important;align-items:center!important;justify-content:center!important;white-space:nowrap!important;font-size:12px!important;padding:5px 6px!important}
+ body.pc-mode #top-controls-row #lap-control .lap-top-result{max-width:85px!important;min-width:0!important}
+ body.pc-mode #top-controls-row #lap-control .lap-top-result span{display:none!important}
+ body.pc-mode #top-controls-row #lap-control .lap-top-btn{width:29px!important;height:32px!important}
+ body.pc-mode #top-controls-row #lap-control .lap-top-dial{min-width:49px!important;height:32px!important}
+ body.pc-mode #top-controls-row #lap-control .lap-top-dial span{font-size:20px!important;line-height:30px!important}
+ body.pc-mode #top-controls-row #lap-control .lap-top-select{min-width:66px!important;width:66px!important;height:32px!important}
+ body.pc-mode #top-controls-row #lap-control .lap-top-title{font-size:10px!important}
+}
+</style>
+<script id="rpp-v941-pace-script">
+(function(){
+ 'use strict';
+ const $=id=>document.getElementById(id);
+ const getMode=()=>{try{return localStorage.getItem('rpp_exercise_mode')||'ride'}catch(_){return 'ride'}};
+ const kmhFromText=t=>{const m=String(t||'').match(/(-?\d+(?:\.\d+)?)\s*km\/h/i);return m?Number(m[1]):NaN};
+ const formatPace=kmh=>{if(!(kmh>0))return '— min/km';const n=Math.round(3600/kmh);return Math.floor(n/60)+':'+String(n%60).padStart(2,'0')+' min/km'};
+ let busy=false;
+ function refresh(){
+  if(busy)return;
+  const base=$('mcp-spd-display'),corr=$('mcp-corrected-spd-display');if(!base||!corr)return;
+  busy=true;
+  try{
+   const run=getMode()==='run';
+   const baseLabel=base.closest('.locked-metric')?.querySelector('.locked-label');
+   const corrLabel=corr.closest('.locked-metric')?.querySelector('.locked-label');
+   if(baseLabel){const v=run?'平地基準ペース':'平地基準速度';if(baseLabel.textContent!==v)baseLabel.textContent=v}
+   if(corrLabel){const v=run?'補正後ペース':'補正後速度';if(corrLabel.textContent!==v)corrLabel.textContent=v}
+   for(const el of [base,corr]){
+    const actual=kmhFromText(el.textContent);
+    // Keep the engine's latest km/h output, not a rounded reverse conversion.
+    if(Number.isFinite(actual))el.dataset.rppEngineKmh=String(actual);
+    const raw=Number(el.dataset.rppEngineKmh);
+    const next=run?formatPace(raw):(Number.isFinite(raw)&&raw>0?raw.toFixed(1)+' km/h':'— km/h');
+    if(el.textContent!==next)el.textContent=next;
+   }
+  }finally{busy=false}
+ }
+ const observer=new MutationObserver(refresh);
+ function init(){
+  for(const id of ['mcp-spd-display','mcp-corrected-spd-display']){const el=$(id);if(el)observer.observe(el,{childList:true,characterData:true,subtree:true})}
+  // The existing mode switch and calculation engine remain authoritative.
+  for(const name of ['selectExerciseMode','switchSettingsTab','applyRunSettings','rppApplyRideModalToTop']){
+   const original=window[name];if(typeof original!=='function')continue;
+   window[name]=function(){const result=original.apply(this,arguments);refresh();setTimeout(refresh,0);setTimeout(refresh,100);return result};
+  }
+  document.addEventListener('click',e=>{if(e.target.closest('#settings-tab-run,#settings-tab-ride,#settings-modal,[onclick*="selectExerciseMode"]'))setTimeout(refresh,150)});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh()});
+  refresh();
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+})();
+</script>
+<!-- Keep the v9.40 apply-choice dialog and confirmation behavior. -->
+<style id="rpp-apply-choice-css">
+#rpp-apply-choice{position:fixed;inset:0;z-index:240000;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(2,10,22,.65);backdrop-filter:blur(6px)}
+#rpp-apply-choice.open{display:flex}
+#rpp-apply-choice .rpp-apply-card{width:min(380px,100%);border:1px solid #55708d;border-radius:17px;padding:22px;background:#142237;color:#f0f6ff;box-shadow:0 20px 70px #0008;text-align:center}
+#rpp-apply-choice .rpp-apply-actions{display:flex;gap:9px;margin-top:18px}
+#rpp-apply-choice .rpp-apply-actions button{flex:1;min-height:46px;padding:8px;border-radius:9px;border:1px solid #54728f;background:#243b56;color:white;font-weight:800;cursor:pointer}
+#rpp-apply-choice .rpp-apply-actions button:first-child{background:#2563eb;border-color:#2563eb}
+</style>
+<div id="rpp-apply-choice" role="dialog" aria-modal="true" aria-labelledby="rpp-apply-title"><div class="rpp-apply-card"><div id="rpp-apply-title" style="font-size:18px;font-weight:900">✓ 上部パネルに反映しました</div><p style="font-size:12px;color:#b6c8dc;margin-top:10px">設定を続けるか、地図へ戻るかを選択してください。</p><div class="rpp-apply-actions"><button type="button" onclick="rppApplyChoiceClose(true)">OK・地図へ戻る</button><button type="button" onclick="rppApplyChoiceClose(false)">引き続き設定</button></div></div></div>
+<script id="rpp-v941-apply-choice">
+(function(){const $=id=>document.getElementById(id);function setup(){const speed=$('rpp-speed-dial-entry'),power=$('modal-power-section');if(speed&&power&&speed.parentNode===power.parentNode)speed.after(power);const apply=$('rpp-course-load-box')?.querySelector('button[onclick*="rppApplyRideModalToTop"]');if(apply){apply.removeAttribute('onclick');apply.addEventListener('click',()=>{if(typeof window.rppApplyRideModalToTop==='function')window.rppApplyRideModalToTop(false);$('rpp-apply-choice')?.classList.add('open')})}}window.rppApplyChoiceClose=function(back){$('rpp-apply-choice')?.classList.remove('open');if(back&&typeof window.closeSettingsModal==='function')window.closeSettingsModal()};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',setup,{once:true});else setup()})();
+</script>
+
+<!-- v9.42: desktop toolbar fit-to-width; no horizontal scrolling or second row. -->
+<style id="rpp-v942-toolbar-fit">
+@media (min-width:769px){
+ body.pc-mode #top-controls-row{
+  flex-wrap:nowrap!important;justify-content:center!important;
+  overflow:hidden!important;overflow-x:hidden!important;overflow-y:hidden!important;
+  scrollbar-width:none!important;box-sizing:border-box!important;
+ }
+ body.pc-mode #top-controls-row::-webkit-scrollbar{display:none!important}
+ body.pc-mode #top-controls-row #time-selector-bar{
+  flex:0 1 auto!important;min-width:0!important;width:auto!important;
+  gap:3px!important;flex-wrap:nowrap!important;
+ }
+ body.pc-mode #top-controls-row #time-selector-bar .modebt{
+  flex:0 1 auto!important;min-width:0!important;width:auto!important;
+  padding:5px 6px!important;font-size:10px!important;white-space:nowrap!important;
+ }
+ body.pc-mode #top-controls-row .time-chip{flex:0 0 auto!important;padding:3px 3px!important;gap:2px!important}
+ body.pc-mode #top-controls-row .time-chip .clock-launch{padding:4px 5px!important;font-size:10px!important;white-space:nowrap!important}
+ body.pc-mode #top-controls-row .time-read{min-width:45px!important;font-size:16px!important}
+ body.pc-mode #top-controls-row .time-mini-btn{width:20px!important;height:26px!important;padding:0!important;font-size:10px!important}
+ body.pc-mode #top-controls-row #lap-control{flex:0 1 auto!important;min-width:0!important;gap:3px!important;padding:3px 4px!important}
+ body.pc-mode #top-controls-row #lap-control .lap-top-title{font-size:9px!important;white-space:nowrap!important}
+ body.pc-mode #top-controls-row #lap-control .lap-top-result{display:none!important}
+ body.pc-mode #top-controls-row #rpp-kpi-settings-pair{flex:0 0 216px!important;width:216px!important;min-width:0!important;max-width:216px!important;gap:4px!important}
+ body.pc-mode #rpp-kpi-settings-pair #header-kpi-fold,body.pc-mode #rpp-pc-settings-shortcut{font-size:11px!important;padding:4px!important;min-height:34px!important;height:34px!important}
+}
+@media (min-width:769px) and (max-width:1250px){
+ body.pc-mode #top-controls-row #time-selector-bar .modebt{font-size:9px!important;padding:4px!important}
+ body.pc-mode #top-controls-row .time-read{font-size:14px!important;min-width:40px!important}
+ body.pc-mode #top-controls-row .time-mini-btn{width:18px!important}
+ body.pc-mode #top-controls-row #rpp-kpi-settings-pair{flex-basis:180px!important;width:180px!important;max-width:180px!important}
+ body.pc-mode #top-controls-row #lap-control .lap-top-title{display:none!important}
+}
+</style>
+<script id="rpp-v942-toolbar-fit-script">
+(function(){
+ 'use strict';
+ // Scale only when the complete desktop toolbar cannot fit. No time or calculation handlers touched.
+ const row=document.getElementById('top-controls-row');
+ if(!row)return;
+ let queued=false;
+ function fit(){
+  queued=false;
+  if(!document.body.classList.contains('pc-mode')||window.innerWidth<769){
+   row.style.removeProperty('zoom');row.style.removeProperty('width');return;
+  }
+  row.style.zoom='1';row.style.width='100%';
+  const children=Array.from(row.children).filter(el=>getComputedStyle(el).display!=='none');
+  const gap=parseFloat(getComputedStyle(row).columnGap)||0;
+  const needed=children.reduce((n,el)=>n+el.getBoundingClientRect().width,0)+gap*Math.max(0,children.length-1)+12;
+  const available=row.parentElement.clientWidth-12;
+  if(!(available>0&&needed>0))return;
+  const scale=Math.min(1,available/needed);
+  if(scale<0.999){row.style.zoom=String(scale);row.style.width=(100/scale)+'%';}
+ }
+ function schedule(){if(queued)return;queued=true;requestAnimationFrame(fit)}
+ window.addEventListener('resize',schedule,{passive:true});
+ if(typeof ResizeObserver!=='undefined'){
+  const bar=document.getElementById('mcp-bar');if(bar)new ResizeObserver(schedule).observe(bar);
+ }
+ document.getElementById('layout-toggle')?.addEventListener('click',()=>requestAnimationFrame(schedule));
+ schedule();
+})();
+</script>
 </body>
 </html>
