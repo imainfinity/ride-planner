@@ -324,6 +324,7 @@ body.pc-mode .ride-settings-col{padding-top:0}
   .course-setting-tile{grid-column:span 2!important}
 }
 
+#mobile-dock-activity{font-size:17px!important;min-width:42px!important;padding:5px 8px!important;background:#2563eb!important;color:#fff!important}
 /* ── v9.03: スマホ地図上コマンドを左右へ分離 ── */
 #map-poi-floating{display:none}
 body.sp-mode #map-poi-floating{
@@ -3173,7 +3174,7 @@ function openSettingsModal(){
   if(!m){
     m=document.createElement('div');
     m.id='settings-modal';
-    m.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.45);display:none;align-items:center;justify-content:center;padding:14px';
+    m.style.cssText='position:fixed;inset:0;z-index:100100;background:rgba(0,0,0,0.45);display:none;align-items:center;justify-content:center;padding:14px';
     m.innerHTML=`
       <div style="background:var(--bg);border-radius:14px;width:min(640px,96vw);max-height:92vh;overflow-y:auto;box-shadow:0 12px 50px rgba(0,0,0,.30);border:0.5px solid var(--border)">
         <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:0.5px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:1">
@@ -13973,10 +13974,26 @@ body.pc-mode #locked-course-panel>.route-register-top{display:none!important}
    const dock=document.createElement('div');
    dock.id='mobile-map-data-dock';dock.setAttribute('role','group');
    dock.setAttribute('aria-label','日照と標高の情報バー');
-   dock.innerHTML='<button type="button" class="map-data-dock-btn" id="mobile-dock-daylight" aria-controls="daylight-panel" aria-expanded="false">☀️ 日照</button>'+
+   dock.innerHTML='<button type="button" class="map-data-dock-btn" id="mobile-dock-activity" title="走行条件を変更" aria-label="ライド・ラン走行条件を設定">🚴</button>'+
+    '<button type="button" class="map-data-dock-btn" id="mobile-dock-daylight" aria-controls="daylight-panel" aria-expanded="false">☀️ 日照</button>'+
     '<button type="button" class="map-data-dock-btn" id="mobile-dock-elevation" aria-controls="elev-wrap" aria-expanded="false">⛰️ 標高</button>'+
     '<button type="button" class="map-data-dock-btn" id="mobile-dock-settings" title="通常・全画面の表示位置を設定" aria-label="日照と標高の配置設定">⚙</button>';
    stage.appendChild(dock);
+   const activityButton=byId('mobile-dock-activity');
+   const refreshActivityButton=()=>{
+     const isRun=localStorage.getItem('rpp_simulation_mode')==='run';
+     activityButton.textContent=isRun?'🏃':'🚴';
+     activityButton.setAttribute('aria-label',isRun?'ラン条件を設定':'ライド条件を設定');
+     activityButton.title=isRun?'ラン条件を変更':'ライド条件を変更';
+   };
+   activityButton.addEventListener('click',e=>{
+     e.preventDefault();e.stopPropagation();
+     refreshActivityButton();
+     if(typeof window.openSettingsModal==='function')window.openSettingsModal();
+   });
+   refreshActivityButton();
+   window.addEventListener('storage',refreshActivityButton);
+   document.addEventListener('click',()=>setTimeout(refreshActivityButton,0),true);
    const openSettings=buildEditor(stage);
    byId('mobile-dock-settings').addEventListener('click',e=>{e.preventDefault();e.stopPropagation();openSettings()});
    byId('mobile-dock-daylight').addEventListener('click',e=>{e.preventDefault();e.stopPropagation();toggle('day')});
